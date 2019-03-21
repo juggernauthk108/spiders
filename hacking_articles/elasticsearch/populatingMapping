@@ -1,0 +1,10 @@
+curl -X PUT \
+  http://localhost:9200/hacking/pages/0 \
+  -H 'cache-control: no-cache' \
+  -H 'content-type: application/json' \
+  -H 'postman-token: 68a3bbca-2661-da73-3211-a6248d9e8da4' \
+  -d '{
+    "url" : "Kutta ji",
+    "content": "This is the hacking wensite. this is very long content conataining python, linux and nmap"
+}
+'

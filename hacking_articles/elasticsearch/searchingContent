@@ -1,0 +1,5 @@
+curl -X GET \
+  'http://localhost:9200/hacking/_search?q=url%3Akutta' \
+  -H 'cache-control: no-cache' \
+  -H 'content-type: application/json' \
+  -H 'postman-token: f3103576-f92a-da9f-fa47-d344ad95ef15'
