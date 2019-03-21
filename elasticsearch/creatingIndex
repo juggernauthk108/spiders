@@ -1,5 +1,5 @@
 curl -X PUT \
-  http://localhost:9200/hacking \
+  http://localhost:9200/myengine \
   -H 'cache-control: no-cache' \
   -H 'content-type: application/json' \
   -H 'postman-token: 67bdbe05-5884-4288-70ec-a100f1bd9302' \
