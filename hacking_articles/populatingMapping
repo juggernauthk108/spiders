@@ -1,0 +1,9 @@
+curl -X PUT \
+  http://localhost:9200/hacking/pages/$(echo $3) \
+  -H 'content-type: application/json' \
+  -H 'postman-token: 68a3bbca-2661-da73-3211-a6248d9e8da4' \
+  -d '{
+    "url" : "$(echo $1)",
+    "content": "$(echo $2)"
+}
+'
