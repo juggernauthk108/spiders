@@ -1,0 +1,295 @@
+
+								
+																		Hack the Box Challenge: Chatterbox Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on June 18, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									 Today we are going to solve another CTF challenge “Chatterbox” which is categories as retired lab presented by Hack the Box for making online penetration practices. 
+Level: Easy
+Task: find user.txt and root.txt file on the victim’s machine.
+Penetrating Methodology
+
+Scanning
+Open ports and Running Services 
+Identify Vulnerable service 
+Exploiting  vulnerable service (Metasploit)
+Get user.txt
+Get root.txt
+
+Walkthrough
+Since these labs are online accessible therefore they have static IP. The IP of chatterbox is 10.10.10.74 so let’s initiate with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -p1-10000 10.10.10.74
+			
+				
+					
+				
+					1
+				
+						nmap -p1-10000 10.10.10.74
+					
+				
+			
+		
+
+It has shown two ports are open but didn’t disclose running services through them.
+
+Therefore we took help from Google and asked to look for any exploit related to these port as shown in the below image. So it put up two exploits related to Achat. First, we tried Metasploit exploit to compromise victim’s machine and almost successfully seized meterpreter session, but the session was getting died in few seconds.
+Thus we choose the manual technique to compromise the victim’s machine by using exploit DB 36025.
+
+Exploit 36025 is already stored inside Kali Linux and we have copied it on the Desktop.
+
+		
+		
+			
+			
+			
+			
+cd Desktop
+cp /usr/share/exploitdb/exploits/windows/remote/36025.py .
+cat 36025.py
+			
+				
+					
+				
+					123
+				
+						cd Desktopcp /usr/share/exploitdb/exploits/windows/remote/36025.py .cat 36025.py
+					
+				
+			
+		
+
+According to this python script, it is exploitable to Buffer overflow and highlighted msfvenom code is used to generate payload.
+
+With the help of the above script, we execute the following command to generate payload.
+Then copied the generated shellcode.
+
+Now open the original 36025.py which you have saved on the desktop and paste above-copied shellcode here and then enter victim’s IP (10.10.10.74) as Server_address. Now start Netcat for reverse connection before running this script.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+			
+				
+					
+				
+					1
+				
+						nc -lvp 1234
+					
+				
+			
+		
+
+
+Now run your python script to lunch Buffer overflow attack on victim’s machine.
+
+		
+		
+			
+			
+			
+			
+python 36025.py
+			
+				
+					
+				
+					1
+				
+						python 36025.py
+					
+				
+			
+		
+
+
+BOOM!! Here we command shell of victim’s machine. Let’s finish this task by grabbing both flags.
+
+Inside C:\Users\Alfred\Desktop we found user.txt flag used type “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd Desktop
+type user.txt
+			
+				
+					
+				
+					12
+				
+						cd Desktoptype user.txt
+					
+				
+			
+		
+
+Great!! We got our 1st flag successfully
+
+Inside C:\Users\Administrator\Desktop I found the root.txt file and type “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd Desktop
+type root.txt
+			
+				
+					
+				
+					12
+				
+						cd Desktoptype root.txt
+					
+				
+			
+		
+
+But this file didn’t open due to less permission.
+
+With help of following cacls command, we can observe the permission and can change the file’s permissions where we had granted read operate to User: Alfred for the root.txt file.
+
+		
+		
+			
+			
+			
+			
+cacls C:\Users\Administrator\Desktop 
+cacls root.txt /g Alfred:r
+type root.txt
+			
+				
+					
+				
+					123
+				
+						cacls C:\Users\Administrator\Desktop cacls root.txt /g Alfred:rtype root.txt
+					
+				
+			
+		
+
+Congratulation!!  2nd Task is also completed
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Orkhan June 25, 2018 at 6:05 am							
+							
+							
+														
+							
+								Dear Raj,
+I read your walkthrough , It is great. But i want to give some suggestion. Try to do more enumeration on found open ports like service enum, banner enum using nmap -sV -A -p(found ports) . Just avoid to diving into google without proper enumeration. By this way you can learn more. All the services can be run on any ports. This time it gives exact exploit by googling based on the port. Most of the time it doesnt work.
+Best of luck.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

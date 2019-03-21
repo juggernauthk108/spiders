@@ -1,0 +1,396 @@
+
+								
+																		Hack the Box: Dab Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on February 20, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Dab”. It is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Expert
+Task: To find user.txt and root.txt file
+Note: Since these labs are online available therefore they have a static IP. The IP of Dab is 10.10.10.86
+Penetrating Methodology
+
+Network scanning (Nmap)
+Logging in FTP using Anonymous Login
+Find Hidden file using steghide
+Bruteforce Login Credential using Burpsuite
+Manage Cookies using Burpsuite to get access
+Bruteforce all ports using wfuzz
+Retrieve version and password hashes on Memcached server
+Crack password hash using John the Ripper
+Bruteforce the credentials using Hydra
+Logging into the server using SSH and getting user flag
+Using ltrace to extract application password
+Compile the remaining function using gcc
+Snagging the Root Flag
+
+Walkthrough
+Let’s start off with our basic Nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -sV -sC 10.10.10.86
+			
+				
+					
+				
+					1
+				
+						nmap -sV -sC 10.10.10.86
+					
+				
+			
+		
+
+
+The Nmap scan shows us that there are 4 ports open: 21(FTP), 22(SSH), 80(HTTP), 8080(HTTP)
+As port 21 is open, we access it using FTP and find a JPG file. We download it to our system to find more information about the image file.
+
+We use a tool called “steghide” to find if there is any file hidden inside the image and find a hidden text file called “dab.txt”. We extract the file and open it and find that it was a dead end.
+
+		
+		
+			
+			
+			
+			
+steghide --info dab.jpg
+steghide extract -sf dab.jpg -xf dab.txt
+			
+				
+					
+				
+					12
+				
+						steghide --info dab.jpgsteghide extract -sf dab.jpg -xf dab.txt
+					
+				
+			
+		
+
+
+Now as port 80 is running HTTP, we access the web service and find a login page.
+
+Port 8080 is also running HTTP, we try to access the web service and get an error that the authentication cookie is not set.
+
+We try to brute force the username and password, so we capture the request of the browser using burpsuite and send it to the intruder and selected attack type “Cluster bomb” and select the parameter username and password as a target.
+
+After selecting “rockyou.txt” as our wordlist we start the brute force and find the correct username and password to be “admin: Password1”.
+
+We are still not able to access the web application on port 8080, as it still shows the same cookie error. So we brute-force the cookie parameter using burp suite.
+
+After selecting “rockyou.txt” as wordlist, we find the cookie parameter is called “password”. We also get another error; stating that the password authentication cookie is incorrect.
+
+So we again capture the request, and this time we brute force the value of password parameter.
+
+After selecting “rockyou.txt” as our wordlist, we brute force the “password” variable and find the value to be “secret”.
+
+Using burpsuite we change the cookie and are now able to access the web page. After accessing it we find a web application that can be used to send a command to a certain port.
+
+Using burpsuite we change the cookie and are now able to access the web page. After accessing it we find a web application that can be used to send a command to a certain port.
+
+We use wfuzz tool to brute force all the ports that can only be accessed internally and find port 11211 is open.
+
+		
+		
+			
+			
+			
+			
+wfuzz -c -z range,1-65535 -u 'http://10.10.10.86:8080/socket?port=FUZZ&amp;cmd=hack' –H "Cookie: password=secret" --hc=500
+			
+				
+					
+				
+					1
+				
+						wfuzz -c -z range,1-65535 -u 'http://10.10.10.86:8080/socket?port=FUZZ&amp;cmd=hack' –H "Cookie: password=secret" --hc=500
+					
+				
+			
+		
+
+
+Now port 11211 is for Memcached server, so we run version command to check the version of the Memcached server.
+
+We find that we are successfully able to get the version of the Memcached server.
+
+Now after getting the version of the Memcached server, we try to find all the users that are available on the web server. So we send the command “get users” to port 11211.
+
+After running the command, we are successfully able to get username and password hashes available on the memcached server.
+
+We copy the username and password from the web site into a text file so that we can user john the ripper to crack the hashes.
+
+		
+		
+			
+			
+			
+			
+john --format=raw-md5 --show user2.txt &gt; cracked.txt
+			
+				
+					
+				
+					1
+				
+						john --format=raw-md5 --show user2.txt &gt; cracked.txt
+					
+				
+			
+		
+
+
+After cracking the password, we use the saved file to brute-force SSH login using hydra and find the correct credentials to be “genevieve: Princess1”.
+
+		
+		
+			
+			
+			
+			
+hydra -C cracked.txt ssh://10.10.10.86 -t4
+			
+				
+					
+				
+					1
+				
+						hydra -C cracked.txt ssh://10.10.10.86 -t4
+					
+				
+			
+		
+
+
+Now we use this credential to login through SSH. After logging in we find a file called “user.txt”, when we open it we find our first flag.
+
+		
+		
+			
+			
+			
+			
+ssh genevieve@10.10.10.86
+			
+				
+					
+				
+					1
+				
+						ssh genevieve@10.10.10.86
+					
+				
+			
+		
+
+
+We now find the file with suid bit set, and find an application called “myexec”.
+
+		
+		
+			
+			
+			
+			
+find / -perm -4000 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -4000 2&gt;/dev/null
+					
+				
+			
+		
+
+
+We run the application and find that it is asking for a password.
+
+We now use ltrace to find the password of the application.
+
+		
+		
+			
+			
+			
+			
+ltrace myexec
+			
+				
+					
+				
+					1
+				
+						ltrace myexec
+					
+				
+			
+		
+
+
+Now when we give the correct password and run it with ltrace. We find that a function is missing from the application.
+
+We find the shared library that the application is using. We check “/etc/ld.so.conf.d/test.conf” to find the location from which the preloaded library is accepted and find it is “/tmp” directory.
+
+		
+		
+			
+			
+			
+			
+ldd /usr/bin/myexec
+cat /etc/ld.so.conf.d/test.conf
+			
+				
+					
+				
+					12
+				
+						ldd /usr/bin/myexeccat /etc/ld.so.conf.d/test.conf
+					
+				
+			
+		
+
+
+Now create a C program to execute “/bin/bash” inside /tmp directory.
+
+We compile it as a shared library.
+
+		
+		
+			
+			
+			
+			
+gcc –Wall –fPIC –shared –o libseclogin.so /tmp/libseclogin.c
+			
+				
+					
+				
+					1
+				
+						gcc –Wall –fPIC –shared –o libseclogin.so /tmp/libseclogin.c
+					
+				
+			
+		
+
+
+Now we copy it inside the /tmp/ directory and cache the shared library using “ldconfig”. Then when running the application and give it the correct password we are able to spawn a bash shell as the root user. We move to /root directory and find a file called “root.txt”. We take a look at the content of the file and find the final flag.
+
+		
+		
+			
+			
+			
+			
+cp libseclogin.so /tmp/
+ldconfig
+myexec
+			
+				
+					
+				
+					123
+				
+						cp libseclogin.so /tmp/ldconfigmyexec
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

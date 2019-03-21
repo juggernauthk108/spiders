@@ -1,0 +1,451 @@
+
+								
+																		Hack the Moria: 1.1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 13, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we found a Vulnerable Lab based on the Lords of The Rings World. So get your Gandalf mode on, to solve this fun Vulnerable Lab Moria 1.1. We are going to download the VM Machine from here.
+The credit for developing this VM machine goes to Abatchy. It is a Boot2Root Lab.
+Note: According to the author you don’t need LOTR knowledge to hack this VM but trust me, you need it.
+Penetrating Methodologies
+
+Network Scanning (Nmap, netdiscover)
+Surfing HTTP service port (80)
+Enumeration for FTP password
+FTP Login and further Enumeration
+Decrypting MD5 passwords using John the ripper
+SSH Login
+Get Flag
+
+Let’s Breach!!!
+As always, Let’s start from getting the IP of VM (Here, we have it at 192.168.1.125 but you will have to find your own).
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+After getting the IP Address of the Machine, we will do a port enumeration on the IP Address using the nmap tool.
+
+
+		
+		
+			
+			
+			
+			
+nmap -sV 192.168.1.125
+			
+				
+					
+				
+					1
+				
+						nmap -sV 192.168.1.125
+					
+				
+			
+		
+
+
+From the NMAP Version Scan we enumerated the following details:
+
+
+
+
+Port No.
+Service
+
+
+Port 21
+FTP
+
+
+Port 22
+SSH
+
+
+Port 80
+HTTP
+
+
+
+As the HTTP service is running on the target server, let’s open the IP Address on the Web Browser.
+
+On Browsing, we found this image with the label “Gates of Moria”. We decided to do a bit of research on the text written in the given image. After searching through some wiki pages, we found its translation. It says “Say Friend and Enter” where Mellon means Friend. So Mellon must be one of the passwords.
+
+
+Keeping that in mind, let’s move forward. Here we decided to scan the target directory using dirb scan. Now open the terminal in Kali Linux and type the following command:
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.125/
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.125/
+					
+				
+			
+		
+
+From the scanning result, we chose the highlighted directory for further enumeration.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.125/w/
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.125/w/
+					
+				
+			
+		
+
+
+So, we opened this directory in the Browser and found another directory inside it. That is “h/”.
+
+On opening it we got another directory and so on until it completes the path /w/h/i/s/p/e/r. Here we find the last directory named the_abyss/.
+
+On opening the_abyss, we got some text as shown in the image. 
+Fundin: ”That human will never save us!”
+
+We tried to look at the source code but found nothing. Afterward, we tried to refresh the page and found that the text gets changed into another text each time we refresh the page. Hence it was a cluster of random texts that were saved at some location.
+
+So we decided to do a dirb scan but it gave no result, so we did an extension dirb scan as shown.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.125/w/h/i/s/p/e/r/the_abyss/ -X .txt .img .html
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.125/w/h/i/s/p/e/r/the_abyss/ -X .txt .img .html
+					
+				
+			
+		
+
+This dirb scanner scans for a particular extension which is specified like .txt or .img etc.
+
+Aha! Found a file named random.txt.
+So, we opened it on a web-browser and found all the recurring text on the same page as shown in the image.
+
+
+This text contains a lot of names like Balin, Oin, Ori, Fundin, Nain, Eru, Balrog, we noted them because they might be Login Credentials.
+Now we tried to connect with FTP port.
+
+		
+		
+			
+			
+			
+			
+ftp 192.168.1.125
+			
+				
+					
+				
+					1
+				
+						ftp 192.168.1.125
+					
+				
+			
+		
+
+ It greeted with Welcome Balrog
+And we knew that it must be the username because it was in the random.txt too but for the password, we tried multiple names which we found earlier and then we remembered the text form the image, “Say friend and enter”. On entering Friend the login failed then we tried Mellon and it got us logged in successfully.
+Therefore for FTP Login give following credential:
+
+		
+		
+			
+			
+			
+			
+Username: Balrog
+Password: Mellon
+			
+				
+					
+				
+					12
+				
+						Username: BalrogPassword: Mellon
+					
+				
+			
+		
+
+NOTE: – If you get an error, restart VM and also try multiple times with the above username and password.
+After login, we used pwd command and found the path to be /prison. We looked around, in hope of getting a flag but it was worthless. Then we found a folder named var. We traversed in it using cd.
+
+
+Then we got to /var/www/html. Here we found this folder QlVraKW4fbIkXau9zkAPNGzviT3UKntl.
+
+On opening it in the browser we found a table having two columns for Prisoner’s name and Passkey as shown in the given image.
+
+As always, we searched the source code for some hint. From the View Source page, we found the “salt” which can be used to decrypt the MD5 Password.
+
+After trying different kinds of formats to decrypt above MD5 password, we created a file with name and passkey and salt in this format.
+Prisoner’s Name:Passkey$Salt
+Name it whatever you want (Here we named it passwords and saved it on my Kali’s Desktop).
+
+Now we will run John The Ripper on this file to decrypt it.
+
+
+		
+		
+			
+			
+			
+			
+john –form=dynamic_6 /root/Desktop/lol
+			
+				
+					
+				
+					1
+				
+						john –form=dynamic_6 /root/Desktop/lol
+					
+				
+			
+		
+
+John The Ripper gave us the Login Credentials as shown in the given image.
+
+
+After trying all user credentials decrypted to login in ssh, we got success with:
+SSH Login
+
+		
+		
+			
+			
+			
+			
+Username:Ori
+Password:spanky
+			
+				
+					
+				
+					12
+				
+						Username:OriPassword:spanky
+					
+				
+			
+		
+
+Now login into ssh using the above credentials.
+
+
+		
+		
+			
+			
+			
+			
+ssh Ori@192.168.1.125
+			
+				
+					
+				
+					1
+				
+						ssh Ori@192.168.1.125
+					
+				
+			
+		
+
+Here we got the bash shell. Now we tried multiple commands in search of a flag. On running ls-al, we found a text file named poem, which contains a poem. But we didn’t find any flag inside it.
+Then we looked into the .ssh/ directory and found the know_hosts file and id_rsa file which contains the private key. Let’s read the data inside these files using cat command.
+
+
+		
+		
+			
+			
+			
+			
+cat id_rsa
+			
+				
+					
+				
+					1
+				
+						cat id_rsa
+					
+				
+			
+		
+
+Copy the entire text found inside id_rsa in a text file and save as id_rsa.
+Now, we opened another file known_host, here you will found the host “127.0.0.1”. Let’s use this information for ssh login as a root user.
+
+
+		
+		
+			
+			
+			
+			
+ssh -i id_rsa root@127.0.0.1
+			
+				
+					
+				
+					1
+				
+						ssh -i id_rsa root@127.0.0.1
+					
+				
+			
+		
+
+This got us to the ROOT. 
+But to finish the Lab properly we need the flag.  So we tried ls -la to search for the flag. We found a flag.txt. Inside the flag.txt, we got the Final Message “All that is gold does not glitter”.
+
+Author: Pavandeep Singh is An Ethical Hacker, Cyber Security Expert, Penetration Tester, India. Contact here.
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Morgiano August 14, 2017 at 12:58 am							
+							
+							
+														
+							
+								Excellent Challenge and solution.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

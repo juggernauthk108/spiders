@@ -1,0 +1,110 @@
+
+
+Elementary My Dear Watson
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+5 Sep 2018
+
+
+
+3 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of FourAndSix: 1, a boot2root VM created by Fred, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Although thereâs no description for this VM, the name alone is interesting. FourAndSix is the homophone for forensicâexpect fun challenges ahead.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.30.129
+...
+PORT     STATE SERVICE REASON         VERSION
+22/tcp   open  ssh     syn-ack ttl 64 OpenSSH 7.7 (protocol 2.0)
+| ssh-hostkey:
+|   2048 1c:8a:0e:a7:ae:6a:72:ab:c8:88:db:0b:fc:7d:53:c0 (RSA)
+|   256 8a:9e:af:85:ef:41:51:54:ee:14:35:9d:78:46:cd:56 (ECDSA)
+|_  256 0f:42:83:da:a5:7e:53:9c:a5:21:e4:3f:8a:d8:ad:28 (ED25519)
+111/tcp  open  rpcbind syn-ack ttl 64 2 (RPC #100000)
+| rpcinfo:
+|   program version   port/proto  service
+|   100000  2            111/tcp  rpcbind
+|   100000  2            111/udp  rpcbind
+|   100003  2,3         2049/tcp  nfs
+|   100003  2,3         2049/udp  nfs
+|   100005  1,3          844/udp  mountd
+|_  100005  1,3         1008/tcp  mountd
+1008/tcp open  mountd  syn-ack ttl 64 1-3 (RPC #100005)
+2049/tcp open  nfs     syn-ack ttl 64 2-3 (RPC #100003)
+
+Thereâs nothing to explore except for NFS at 2049/tcp. Weâll start with that.
+Network File System
+As usual, when it comes to NFS weâll use showmount to view the NFS exports from the VM.
+# showmount -e 192.168.30.129
+Export list for 192.168.30.129:
+/shared (everyone)
+
+Letâs mount that.
+
+Thereâs a file in /shared that appears to be a dd image of a USB stick.
+
+Indeed it is.
+Letâs mount that too.
+
+Now, what do we have here?
+
+Hello Kitties! 
+Thatâs not the point, is it? Since the VMâs theme is forensic, there must be something going on either with the graphical images or with the image of the USB stick.
+Using binwalk, letâs determine what are the files hidden inside USB-stick.img.
+
+Pulled a sneaky on ya!
+What is the best tool to extract the two highlighted files? dd to the rescue.
+
+
+Wait a minute. Somethingâs not right.
+
+We have a corrupted RSA private key and a what seems like a complete RSA public key for SSH.
+RSA Private Key Recovery
+For the curious and interested, thereâs an academic paper on this subject matter, âReconstructing RSA Private Keys from Random Key Bitsâ by Nadia Heninger and Hovav Shacham.
+I was thinking to myself, âIt canât be this hard, right?â.
+Network File System Redux
+A feeling of defeat loomed upon me. Iâve no choice but to revisit the possibility of gaining access through NFS. As I was reading the OpenBSD manpage of exports(5), a glimpse of hope starts to emerge.
+
+What if Fred left -alldirs in /etc/exports?
+
+OMFG. This canât be true??!!
+Whatâs the Flag (WTF)
+If the goal is to capture the flag, then Iâm already there.
+
+
+If the goal is to get a root shell in OpenBSD, then you may want to consider the following strategies, in increasing effort and time:
+
+Change the root pasword hash in /etc/master.passwd to something you know and control.
+Inject your own SSH public key to /root/.ssh/authorized_keys. However, root is not permitted to log in and PubKeyAuthentication is also disabled. Nonetheless, we can edit the relevant options and manually reboot the VM.
+Crack the bcrypt hashes in /etc/master.passwd. The default cost is ten rounds. Good luck with that!
+
+Afterthought
+I almost fell for the corrupted key rabbit hole. 
+

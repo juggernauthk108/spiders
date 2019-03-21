@@ -1,0 +1,298 @@
+
+								
+																		Hack the Box Challenge: Sneaky Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on June 23, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Sneaky” which is available online for those who want to increase their skill in penetration testing and black box testing. Sneaky is retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Intermediate
+Task: find user.txt and root.txt file on victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.20 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sT -sU 10.10.10.20
+			
+				
+					
+				
+					1
+				
+						nmap -sT -sU 10.10.10.20
+					
+				
+			
+		
+
+From given below image, you can observe we found port 80 and 161 are open on target system.
+
+As port 80 is running http we open it in our browser, the website shows that it’s under construction.
+
+We initiate dirb to enumerate the directories hosted on the target machine.
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.20/
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.20/
+					
+				
+			
+		
+
+
+We find a directory called /dev/ we open it in our browser and find a login screen.
+
+We find the login page is vulnerable to sql injection; we use this vulnerability to bypass the login page using query ‘or 1=1—in username and password.
+
+After logging in we find a link on the webpage.
+
+We open the link and find a RSA private key. We download the key into our system.
+
+Now the target machine is not running any ssh service so that we can use this to login through ssh.
+To investigate further we enumerate SNMP protocol to gain more information.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use auxiliary/scanner/snmp/snmp_enum
+msf auxiliary(scanner/snmp/snmp_enum) &gt; set rhosts 10.10.10.20
+msf auxiliary(scanner/snmp/snmp_enum) &gt; set threads 5
+msf auxiliary(scanner/snmp/snmp_enum) &gt; exploit
+			
+				
+					
+				
+					1234
+				
+						msf &gt; use auxiliary/scanner/snmp/snmp_enummsf auxiliary(scanner/snmp/snmp_enum) &gt; set rhosts 10.10.10.20msf auxiliary(scanner/snmp/snmp_enum) &gt; set threads 5msf auxiliary(scanner/snmp/snmp_enum) &gt; exploit
+					
+				
+			
+		
+
+
+After enumerating the target machine we find that maybe ssh is running in ipv6.
+
+We use a python script called Enyx to find the ipv6 address of the target machine. You can get the script from this link.
+
+		
+		
+			
+			
+			
+			
+python enyx.py 2c public 10.10.10.20
+			
+				
+					
+				
+					1
+				
+						python enyx.py 2c public 10.10.10.20
+					
+				
+			
+		
+
+
+After finding the ipv6 address of the target machine we login through ssh using the username and RSA Private key that we find after we login on the /dev/ page.
+
+		
+		
+			
+			
+			
+			
+ssh -i key thrasivoulos@dead:beef:0000:0000:0250:56ff:fe8f:d853
+			
+				
+					
+				
+					1
+				
+						ssh -i key thrasivoulos@dead:beef:0000:0000:0250:56ff:fe8f:d853
+					
+				
+			
+		
+
+
+After logging in through ssh we find a file called user.txt we open it and find our first flag. Now we try to find files with suid bit set.
+
+		
+		
+			
+			
+			
+			
+find / -perm -4000 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -4000 2&gt;/dev/null
+					
+				
+			
+		
+
+
+We find a binary file called chal in /usr/local/bin we open it in gdb and find there is a strcpy function.
+(gdb) set disassembly-flavor intel
+(gdb) disas main
+
+		
+		
+			
+			
+			
+			
+pattern_create.rb -l 500
+			
+				
+					
+				
+					1
+				
+						pattern_create.rb -l 500
+					
+				
+			
+		
+
+
+Now we try to check if we can overflow the memory through this strcpy function. First we create a 500 byte string using the patter create script in metasploit.
+
+We run the file in gdb and find that the return address was overwritten with the characters in the string.
+
+We check the size that is required to completely overwrite the return address by checking the location of the string that became the return address inside the pattern that we created. We use pattern offset tool to check the corresponding location.
+
+		
+		
+			
+			
+			
+			
+pattern_offset.rb -q 316d4130 -l 500
+			
+				
+					
+				
+					1
+				
+						pattern_offset.rb -q 316d4130 -l 500
+					
+				
+			
+		
+
+
+We find that after 362 bytes the return address gets overwritten. Now we take a look at the stack to find a location for nop sled and shell code.
+
+We picked the stack address 0xbffff510; you can change the stack pointer address and pick the shellcode according to your need.  We use python script to create our exploit and pass the output as argument for the file. When we run the command below, we get a tty shell as root user. We move to /root/ directory and find a file called root.txt; we open the file and find our final flag.
+
+uthor: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

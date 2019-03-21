@@ -1,0 +1,162 @@
+
+								
+																		Hack the Billu Box VM (Boot2root Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 30, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hi friends! Once again we are here with a new vulnerable lab challenge “Billu Box” .created by Manish Kishan Tanwar it mainly attacker need to escalate privileges to gain root access. You can download it from here.
+Let’s breach!!!
+Open the terminal in your Kali Linux scan your network using netdiscover command and hence from scanning result I got target IP 192.168.0.102
+
+Then use nmap aggressive scan for port and protocol enumeration:
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.0.102
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.0.102
+					
+				
+			
+		
+
+So here I found port 22 and 80 are opened for SSH and HTTP respectively.
+
+Since port 80 is open so I explore target IP on the browser but here I didn’t get any remarkable result.
+
+Without wasting time I choose another tool dirb for directories brute force attack. To start brute force attack for directories
+Awesome! We have stepped up in the right direction and dug out many directories but when you will see the given screenshot there I had highlighted the “test” directories. So now I will go with a test directory.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.0.102/ /usr/share/wordlists/dirb/big.txt
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.0.102/ /usr/share/wordlists/dirb/big.txt
+					
+				
+			
+		
+
+
+So when I open the test.php file in the browser here I found a message “file parameter is empty please provide file path in file parameter” where file parameter is vulnerable to LFI.
+
+Using a hackbar tool which is Firefox plug-in and Taking advantage of LFI vulnerability I try to include index.php in file parameter from file=index.php
+
+So when I open the index.php file here I found another file c.php is included.
+
+So again with help of hackbar, I look for the c.php file from file=c.php for further enumeration so that we can find some clue to exploit the target.
+
+When I read c.php file here I got some information related to the connected database and the highlighted text is reflecting like credential for the database.
+
+If you remembered the result of the dirb tool here it had revealed another directory which is phpmy so therefore I will go with phpmy for further enumeration.
+
+Then again taking advantage LFI I explore config.inc.php from file=/var/www/phpmy/config.inc.php
+
+Last but not least we have finally achieved something very remarkable and in the given screenshot you can read from the config.inc.php file I have found server’s login username and password root: toor respectively.
+
+From port enumeration result we have found port 22 is open for ssh, therefore, I will try root: toor for ssh login. When I use these credential for ssh login successfully I got root access hence the given challenge is completed.
+
+Author: Aarti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

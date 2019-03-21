@@ -1,0 +1,170 @@
+
+
+Oopsie Woopsie
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+1 Jul 2018
+
+
+
+4 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of LazySysAdmin: 1, a boot2root VM created by Togie Mcdogie, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+The story of a lonely and lazy sysadmin who  himself to sleep.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.20.130
+...
+PORT     STATE SERVICE     REASON         VERSION
+22/tcp   open  ssh         syn-ack ttl 64 OpenSSH 6.6.1p1 Ubuntu 2ubuntu2.8 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   1024 b5:38:66:0f:a1:ee:cd:41:69:3b:82:cf:ad:a1:f7:13 (DSA)
+|   2048 58:5a:63:69:d0:da:dd:51:cc:c1:6e:00:fd:7e:61:d0 (RSA)
+|   256 61:30:f3:55:1a:0d:de:c8:6a:59:5b:c9:9c:b4:92:04 (ECDSA)
+|_  256 1f:65:c0:dd:15:e6:e4:21:f2:c1:9b:a3:b6:55:a0:45 (ED25519)
+80/tcp   open  http        syn-ack ttl 64 Apache httpd 2.4.7 ((Ubuntu))
+|_http-generator: Silex v2.2.7
+| http-methods:
+|_  Supported Methods: POST OPTIONS GET HEAD
+| http-robots.txt: 4 disallowed entries
+|_/old/ /test/ /TR2/ /Backnode_files/
+|_http-server-header: Apache/2.4.7 (Ubuntu)
+|_http-title: Backnode
+139/tcp  open  netbios-ssn syn-ack ttl 64 Samba smbd 3.X - 4.X (workgroup: WORKGROUP)
+445/tcp  open  netbios-ssn syn-ack ttl 64 Samba smbd 4.3.11-Ubuntu (workgroup: WORKGROUP)
+3306/tcp open  mysql       syn-ack ttl 64 MySQL (unauthorized)
+6667/tcp open  irc         syn-ack ttl 64 InspIRCd
+| irc-info:
+|   server: Admin.local
+|   users: 1
+|   servers: 1
+|   chans: 0
+|   lusers: 1
+|   lservers: 0
+|   source ident: nmap
+|   source host: 192.168.20.128
+|_  error: Closing link: ([email protected]) [Client exited]
+
+Iâm surprised to be honest. The host has Samba; it has MySQL. It even has InspIRCd beyond the usual http and ssh services.
+Directory Enumeration
+Besides the disallowed entries in robots.txt, I found the following directories with dirbuster and its largest directory wordlist.
+Dir found: / - 200
+Dir found: /apache/ - 200
+Dir found: /Backnode_files/ - 200
+Dir found: /old/ - 200
+Dir found: /phpmyadmin/ - 200
+Dir found: /test/ - 200
+Dir found: /wordpress/ - 200
+Dir found: /wp/ - 200
+
+Hmm. The sysadmin has installed phpMyAdmin and WordPress. The rest of the directories is empty except for /Backnode_files.
+Image shows phpMyAdmin
+
+Image shows WordPress
+
+Samba Share
+Using Gnome Files, I was able to mount share$. Hereâs what I did.
+First, I connect to the Samba server.
+
+Once connected, the available shares are in displayâshare$ should be interesting.
+
+What a pleasant surpriseâshare$ is the webroot.
+
+The sysadmin is lazy indeed. Plenty of juicy information to discover in the webroot.
+# cat deets.txt
+CBF Remembering all these passwords.
+
+Remember to remove this file and update your password after we push out the server.
+
+Password 12345
+
+This is what Iâm doing lol.
+# cat todolist.txt
+Prevent users from being able to view to web root using the local file browser
+
+OOPSIE WOOPSIE!!
+Uwu We made a fucky wucky!!
+# cat wordpress/wp-config.php
+...
+// ** MySQL settings - You can get this info from your web host ** //
+/** The name of the database for WordPress */
+define('DB_NAME', 'wordpress');
+
+/** MySQL database username */
+define('DB_USER', 'Admin');
+
+/** MySQL database password */
+define('DB_PASSWORD', 'TogieMYSQL12345^^');
+
+The sysadmin has messed upâbig time.
+WordPress Admin
+Letâs use wpscan to identify the users in WordPress.
+# wpscan --url http://192.168.20.130/wordpress --enumerate u
+...
+[+] Enumerating usernames ...
+[+] We identified the following 1 user:
+    +----+-------+---------+
+    | ID | Login | Name    |
+    +----+-------+---------+
+    | 1  | admin | Admin â |
+    +----+-------+---------+
+[!] Default first WordPress username 'admin' is still used
+
+I was lucky. The lazy sysadmin used TogieMYSQL12345^^âthe database password as the password to the WordPress admin account.
+
+Low-Privilege Shell
+Now that Iâve access to WordPress as admin, I can edit one of the PHP files using WordPress Theme Editor to execute remote commands like so.
+
+I sure can execute remote commands.
+
+Letâs abuse the remote command execution to get a reverse shell.
+On the attacking machine, do the following:
+
+Use msfvenom to generate a reverse shell and name it as rev.
+Host the shell with Python SimpleHTTPServer module.
+Set up netcat listener to receive the shell.
+
+On the remote command execution page, do the following:
+
+Use wget to transfer the shell over to /tmp/rev.
+Make the shell executable with chmod +x.
+Execute the reverse shell.
+
+If everything went well, you should have a low-privilege shell like this.
+
+Privilege Escalation
+We know the sysadmin is lazy and has a habit of using the same password for different accounts. Thatâs why I wasnât surprised when I manage to su to togie using 12345 as the password.
+
+Whatâs horrifying is thisâtogie is able to sudo as root!
+
+Although togie is using rbashâor restricted bash, itâs trivial to change the shell back to bash with chsh.
+I Love Me Some Random Strings
+
+
+

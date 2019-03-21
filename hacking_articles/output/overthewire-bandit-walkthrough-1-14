@@ -1,0 +1,650 @@
+
+								
+																		OverTheWire – Bandit Walkthrough (1-14)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 18, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today, we will play a war-game called Bandit. It has a collection of 34 levels. OverTheWire Organization hosts this war-game. Absolute Beginners are the target audience. It teaches the basics of most Linux commands in a fun and challenging way. To play this war-game, go to the Bandit website by clicking here.
+Get the solutions of other levels from below.
+OverTheWire – Bandit Walkthrough (14-21)
+Overthewire – Bandit Walkthrough (21-34)
+Objective 
+Find the password file. It will give us access to the next level.
+Table of Content:
+
+Level 0
+Level 0-1
+Level 1-2
+Level 2-3
+Level 3-4
+Level 4-5
+Level 5-6
+Level 6-7
+Level 7-8
+Level 8-9
+Level 9-10
+Level 10-11
+Level 11-12
+Level 12-13
+Level 13-14
+
+Level 0
+This is a pretty simple level. It teaches us to connect to a host using SSH. This is going to teach players the usage of SSH command.
+We got the required information from reading the instruction page.
+Host: bandit.labs.overthewire.org
+Port: 2220
+Username: bandit0
+Password: bandit0
+We used the above information to login using ssh as shown in the given image.
+
+		
+		
+			
+			
+			
+			
+ssh bandit0@bandit.labs.overthewire.org -p 2220
+			
+				
+					
+				
+					1
+				
+						ssh bandit0@bandit.labs.overthewire.org -p 2220
+					
+				
+			
+		
+
+This level doesn’t require anything else other than logging in. Time to move in on the next level.
+Level 0-1
+Now, from the bandit0 shell, we need to find the password for logging as the next user. To find that password, we are going to list files in the directory. Our target is to find a file named readme. After finding that file, we need to read the password stored inside that file.
+We use the ls command to list the files in the current directory. We found the readme file. Now to read the password we will use the cat command. After that, we are going to use the password to login into next level using SSH
+
+		
+		
+			
+			
+			
+			
+ls -la
+cat readme
+ssh bandit1@localhost
+			
+				
+					
+				
+					123
+				
+						ls -lacat readmessh bandit1@localhost
+					
+				
+			
+		
+
+
+Level 1-2
+We are informed that the password for the next level is stored inside a file named -(hyphen). So, to find it we use the ls command. Now comes the part where we have to read the file. As the file is named -(hyphen) we won’t be able to read it simply by cat command. As cat command considers -(hyphen) as stdin/Stout. If we directly use cat command, it won’t be able to understand that hyphen is a file name. So, we will prefix the command with the path ./, This will help us to read the password stored as shown in the given figure. Since we found the password for the user bandit2. We will use it to get an SSH connection as bandit2.
+
+		
+		
+			
+			
+			
+			
+ls
+cat ./-
+ssh bandit2@localhost
+			
+				
+					
+				
+					123
+				
+						lscat ./-ssh bandit2@localhost
+					
+				
+			
+		
+
+
+Level 2-3
+We are informed that the password for the next level is stored inside a file named spaces in this filename. So, to find it we use the ls command. Now comes the part where we have to read the file. As the file is named spaces in this filename, we won’t be able to read it simply by cat command. As cat command reads files name only until space as it considers space as null ‘/0’. If we directly use cat command, it won’t be able to find the file. So, we will write the name of the file in quotes, this will help us to read the password stored as shown in the given figure. Since we found the password for the user bandit3. We will use it to get an SSH connection as bandit3.
+
+		
+		
+			
+			
+			
+			
+ls
+cat 'spaces in this filename'
+ssh bandit3@localhost
+			
+				
+					
+				
+					123
+				
+						lscat 'spaces in this filename'ssh bandit3@localhost
+					
+				
+			
+		
+
+
+Level 3-4
+We are informed that the password for the next level is stored inside a directory named inhere. So, to find it we use the ls command. Now, after traversing inside inhere directory we run ls command again.  Now it might be the case that the file is hidden. So, we run ls command with -al parameter. It lists all files including the hidden one. And we found the .hidden file. In Linux, the file with a dot(.) in front of the name of the file makes it hidden. Now we would simply use the cat command to read the password stored in the file. Since we found the password for the user bandit4. We will use it to get an SSH connection as bandit4.
+
+		
+		
+			
+			
+			
+			
+ls
+cd inhere/
+ls
+ls -al
+cat .hidden
+ssh bandit4@localhost
+			
+				
+					
+				
+					123456
+				
+						lscd inhere/lsls -alcat .hiddenssh bandit4@localhost
+					
+				
+			
+		
+
+
+Level 4-5
+We are informed that the password for the next level is stored inside a human-readable file. So, to find it we use the ls command. Now, after traversing inside inhere directory we run ls command again. This gives us a bunch of files as shown in the image. We will use the file command to get the information about the files. From files command, we now know that the file07 contains ASCII text. It is mostly readable text. So, let’s read it using cat command. This gives us the password for the next level. We will use it to get an SSH connection as bandit5.
+
+		
+		
+			
+			
+			
+			
+ls -la
+cd inhere/
+ls
+file ./*
+cat ./-file07
+ssh bandit5@localhost
+			
+				
+					
+				
+					123456
+				
+						ls -lacd inhere/lsfile ./*cat ./-file07ssh bandit5@localhost
+					
+				
+			
+		
+
+
+Level 5-6
+We are informed that the password for the next level is stored inside a directory named inhere. So, to find it we use the ls command. Now, after traversing inside inhere directory we run ls command again. This gives us a bunch of files as shown in the image. We will use the file size to find the file. Find command has the parameter of size in which we have to use ‘c’ for depicting size in bytes. From find command, we now know that the file2 contains the password. So, let’s read it using cat command. This gives us the password for the next level. We will use it to get an SSH connection as bandit6.
+
+		
+		
+			
+			
+			
+			
+ls
+cd inhere/
+ls
+find . -size 1033c
+cat ./maybehere07/.file2
+ssh bandit6@localhost
+			
+				
+					
+				
+					123456
+				
+						lscd inhere/lsfind . -size 1033ccat ./maybehere07/.file2ssh bandit6@localhost
+					
+				
+			
+		
+
+
+Level 6-7
+We are informed that the password for the next level is stored somewhere on the server. So, finding the file over the server would be a lot trickier if we are using ls. So, we will try to widen our scope of search using the find command. We are hinted that the user of the file is bandit7 and it is a part of group bandit 6. We will add this information as parameters in the find command. We are given the size too. Let’s add that too. Now as we can see in the given image, we successfully located the password file hidden over the server.
+
+		
+		
+			
+			
+			
+			
+find / -user bandit7 -group bandit6 -size 33c
+			
+				
+					
+				
+					1
+				
+						find / -user bandit7 -group bandit6 -size 33c
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+cat /var/lib/dpkg/info/bandit7.password
+ssh bandit7@localhost
+			
+				
+					
+				
+					12
+				
+						cat /var/lib/dpkg/info/bandit7.passwordssh bandit7@localhost
+					
+				
+			
+		
+
+From find command, we now know that the bandit7.password contains the credentials. So, let’s read it using cat command. This gives us the password for the next level. We will use it to get an SSH connection as bandit7.
+
+Level 7-8
+We are informed that the password for the next level is stored inside a file named data.txt. So, to find it we use the ls command. Now we are hinted that the password is written next to the word millionth in the data.txt file. This means if we find the millionth word, we find the password. We are going to use the grep command for finding millionth. Here we using the (|) Unix pipe. The Pipe connects the standard output from the first command and feeds it as standard input to the second command. In our case, first cat command reads the file and then the data inside the file is sent to grep command to work on. This gives us the password for the next level. We will use it to get an SSH connection as bandit8.
+
+		
+		
+			
+			
+			
+			
+ls
+cat data.txt | grep millionth
+ssh bandit8@localhost
+			
+				
+					
+				
+					123
+				
+						lscat data.txt | grep millionthssh bandit8@localhost
+					
+				
+			
+		
+
+
+Level 8-9
+We are informed that the password for the next level is stored inside a file named data.txt. It is hinted that the password is the only line of text that occurs only once. Here we are going to use sort command to sort the text inside the data.txt file. But still, the file contains a lot of repeating statements so we will use the uniq command to print the not repeating statement. We are using multiple pipes here to get a filtered result. This gives us the password for the next level. We will use it to get an SSH connection as bandit9.
+
+		
+		
+			
+			
+			
+			
+cat data.txt | sort | uniq -u
+ssh bandit9@localhost
+			
+				
+					
+				
+					12
+				
+						cat data.txt | sort | uniq -ussh bandit9@localhost
+					
+				
+			
+		
+
+
+Level 9-10
+We are informed that the password for the next level is stored inside a file named data.txt. We are hinted that the password is followed by several ‘=’ characters. Now if we are to use the cat command our screen would be filled with unreadable mesh. So, to get a more refined approach we are going to use strings command which prints character sequences that are at least 4 characters long. And to get to the exact location of the password, we are going to use grep. This gives us the password for the next level. We will use it to get an SSH connection as bandit10.
+
+		
+		
+			
+			
+			
+			
+ls
+strings data.txt | grep =
+ssh bandit10@localhost
+			
+				
+					
+				
+					123
+				
+						lsstrings data.txt | grep =ssh bandit10@localhost
+					
+				
+			
+		
+
+
+Level 10-11
+We are informed that the password for the next level is stored inside a file named data.txt. So, to find it we use the ls command. Now, we are hinted that the password is encrypted in Base64. Now we can either read the file with cat command and decode the Base64 manually but we have a command in Linux that can do the heavy lifting for us. So, we use piping to use cat command and base64 command with d parameter to read and decode the text simultaneously.  This gives us the password for the next level. We will use it to get an SSH connection as bandit11.
+
+		
+		
+			
+			
+			
+			
+ls
+cat data.txt | base64 --decode
+ssh bandit11@localhost
+			
+				
+					
+				
+					123
+				
+						lscat data.txt | base64 --decodessh bandit11@localhost
+					
+				
+			
+		
+
+
+Level 11-12
+We are informed that the password for the next level is stored inside a file named data.txt. So, to find it we use the ls command. Now, we are hinted that the file containing the password has changed the format of letters in such a way that all the lowercase and uppercase letters have been rotated by 13 positions. If we can remember right that exactly what happens in ROT13 encryption. Now, to convert the text, we can use the ‘tr’ command. This command translates characters depending on the parameters provided. We used n-z and a-m because tr won’t continue to translate after the Z. This gives us the password for the next level. We will use it to get an SSH connection as bandit12.
+
+		
+		
+			
+			
+			
+			
+ls
+cat data.txt | tr a-zA-Z n-za-mN-ZA-M
+ssh bandit12@localhost
+			
+				
+					
+				
+					123
+				
+						lscat data.txt | tr a-zA-Z n-za-mN-ZA-Mssh bandit12@localhost
+					
+				
+			
+		
+
+
+Level 12-13
+We are informed that the password for the next level is stored inside a directory named inhere. So, to find it we use the ls command. We are hinted that the file containing the password is in the form of a hex dump. Just out of curiosity, let’s read the file using the cat command. As we can see in the given image that the password is not at all readable. We are also told that the password file has been repeatedly compressed. Now to decompress we are going to need a directory with read and write permissions. The tmp directory in root contains the required permissions.
+
+		
+		
+			
+			
+			
+			
+ls
+cat data.txt
+			
+				
+					
+				
+					12
+				
+						lscat data.txt
+					
+				
+			
+		
+
+
+So, let’s create a directory inside the tmp directory. Here we named it pavan. Now for further operations let’s copy the file in the directory we just created. Now let’s traverse to our directory using the cd command. Now we check if we have our file in this directory. Now to understand the type of file we are going to use the file command it returns us the type of file.  On running the command, we are informed that the file is ASCII text. But as we saw earlier that it is not readable. The xxd command is used in Linux to make the hexdump of a file. It is also used to reverse this process. Let’s use it to retrieve the original file. We are going to use the ‘r’ parameter to revert the process and provide it with a filename where it should store its output. Here we will name it data1
+Now it’s time to check the retrieved file, we use the file command again. This tells us that it is a gzip compressed file.
+Now decompress first, we need to rename the file and provide it with a proper gzip extension. We are going to use the move command for this. We renamed the file as data2.gz. Now using the gzip command and -d parameter, we decompress the file.
+
+		
+		
+			
+			
+			
+			
+mkdir /tmp/pavan
+cp data.txt /tmp/pavan
+cd /tmp/pavan
+ls
+file data.txt
+xxd -r data.txt data1
+file data1
+mv data1 data2.gz
+gzip -d data2.gz
+			
+				
+					
+				
+					123456789
+				
+						mkdir /tmp/pavancp data.txt /tmp/pavancd /tmp/pavanlsfile data.txtxxd -r data.txt data1file data1mv data1 data2.gzgzip -d data2.gz
+					
+				
+			
+		
+
+
+Now it’s time to check the retrieved file, we use the file command again. This tells us that it is a bzip2 compressed file.
+Now to decompress first, we need to rename the file and provide it with a proper bzip2 extension. We are going to use the move command for this. We renamed the file as data3.bz2. Now using the bzip2 command and -d parameter, we decompress the file.
+Now it’s time to check the retrieved file, we use the file command again. This tells us that it is a gzip compressed file.
+Now decompress first, we need to rename the file and provide it with a proper gzip extension. We are going to use the move command for this. We renamed the file as data4.gz. Now using the gzip command and -d parameter, we decompress the file.
+Now it’s time to check the retrieved file, we use the file command again. This tells us that it is a tar archive file.
+Now to extract we will use the tar command with xvf parameters. This gives us a file named data5.bin
+
+		
+		
+			
+			
+			
+			
+file data2
+mv data2 data3.bz2
+bzip2 -d data3.bz2
+file data3
+mv data3 data4.gz
+gzip -d data4.gz
+file data4
+tar -xvf data4
+			
+				
+					
+				
+					12345678
+				
+						file data2mv data2 data3.bz2bzip2 -d data3.bz2file data3mv data3 data4.gzgzip -d data4.gzfile data4tar -xvf data4
+					
+				
+			
+		
+
+
+Now it’s time to check the retrieved file, we use the file command again. This tells us that it is a tar archive file. Now to extract we will use the tar command with xvf parameters. This gives us a file named data6.bin
+Now it’s time to check the retrieved file, we use the file command again. This tells us that it is a bzip2 compressed file.
+Now decompress first, we need to rename the file and provide it with a proper bzip2 extension. We are going to use the move command for this. We renamed the file as data7.bz2. Now using the bzip2 command and -d parameter, we decompress the file.
+Now it’s time to check the retrieved file, we use the file command again. This tells us that it is a tar archive file. Now to extract we will use the tar command with xvf parameters. This gives us a file named data8.bin
+
+		
+		
+			
+			
+			
+			
+file data5.bin
+tar -xvf data5.bin
+file data6.bin
+mv data6.bin data7.bz2
+bzip2 -d data7.bz2
+file data7
+tar -xvf data7
+			
+				
+					
+				
+					1234567
+				
+						file data5.bintar -xvf data5.binfile data6.binmv data6.bin data7.bz2bzip2 -d data7.bz2file data7tar -xvf data7
+					
+				
+			
+		
+
+
+Now it’s time to check the retrieved file, we use the file command again. This tells us that it is a gzip compressed file.
+Now decompress first, we need to rename the file and provide it with a proper gzip extension. We are going to use the move command for this. We renamed the file as data9.gz. Now using the gzip command and -d parameter, we decompress the file.
+Now to understand the type of file we are going to use the file command it returns us the type of file.  On running the command, we are informed that the file is ASCII text. This might be a readable file. We use the cat command to read the file. This gives us the password for the next level. We will use it to get an SSH connection as bandit13.
+
+		
+		
+			
+			
+			
+			
+file data8.bin
+mv data8.bin data9.gz
+gzip -d data9.gz
+file data9
+cat data9
+ssh bandit13@localhost
+			
+				
+					
+				
+					123456
+				
+						file data8.binmv data8.bin data9.gzgzip -d data9.gzfile data9cat data9ssh bandit13@localhost
+					
+				
+			
+		
+
+
+Level 13-14
+We are informed that we are not going to get a password for the next level. Instead, we are given an ssh private key. So, to get to the next level we are going to use that ssh private key. Firstly, let’s find that private key using the ls command. We found the private key. Now we will use it to get an SSH connection as bandit14.
+
+		
+		
+			
+			
+			
+			
+ls
+ssh bandit14@localhost -i sshkey.private
+			
+				
+					
+				
+					12
+				
+						lsssh bandit14@localhost -i sshkey.private
+					
+				
+			
+		
+
+
+Now for the solutions of the further labs can be found here.
+Author: Pavandeep Singh is a Technical Writer, Researcher and Penetration Tester Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

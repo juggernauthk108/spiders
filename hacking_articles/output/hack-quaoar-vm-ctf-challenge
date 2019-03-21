@@ -1,0 +1,273 @@
+
+								
+																		Hack the Quaoar VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 1, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Once again we are with the Vulnhub labs tutorial; this article is related to CTF lab where you will face three challenges to complete the task. This lab is pretty good for a beginner as they have to seize only three flag: 1. Get a shell 2. Get root access 3. There is a post-exploitation flag on the box. You can download this VM from here.
+Let’s start.
+Firstly, scan the target IP with an aggressive scan using Nmap tool as given in the image.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.24
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.24
+					
+				
+			
+		
+
+With the nmap result, you can see that port 22, 53, 80, 110, 139, 143, 445, 993 and 995 are open with the services like SSH, HTTP, and many others.
+
+Since port 80 is working, open the victim IP 192.168.1.24 in the browser. You can see its home page in the image below :
+
+Nmap scan also shows that robots.txt. Once accessed robots.txt it will show you that the website is in WordPress, which is exploitable to in this scenario.
+
+Let’s check out the WordPress directory in the browser once.
+
+Further, when I explored the following path: 192.168.1.24/wordpress/wp-login.php in the browser, I found a WordPress administrator console.
+To breach administrator console of the WordPress we can use WPScan tool; now type the following command to start wpscan enumeration.
+
+		
+		
+			
+			
+			
+			
+wpscan --url http://192.168.1.24/wordpress/ --enumerate u
+			
+				
+					
+				
+					1
+				
+						wpscan --url http://192.168.1.24/wordpress/ --enumerate u
+					
+				
+			
+		
+
+ 
+WPScan’s result will show two users as you can see in the image below. We will move forward with the admin user.
+
+I used default login credentials i.e. admin: admin and therefore I was logged in as Admin. Now, under the console we can upload any theme, taking advantage of the rights we have obtained, we will try to upload the malicious script to achieve reverse connection from the victim’s system. The script we will use can be downloaded from http://pentestmonkey.net/tools/web-shells/php-reverse-shell 
+Now copy the PHP text from *&lt;?php to die();  and paste it as new theme under selected 404.php template.
+
+Now type the following commands to have session through netcat :
+
+		
+		
+			
+			
+			
+			
+nc –lpv 1234
+			
+				
+					
+				
+					1
+				
+						nc –lpv 1234
+					
+				
+			
+		
+
+Once you have the session, use the following commands to navigate around :
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+			
+				
+					
+				
+					12
+				
+						cd /homels
+					
+				
+			
+		
+
+In /home I found the wp-admin folder which is obviously important so let’s check it for a flag using the following commands :
+
+		
+		
+			
+			
+			
+			
+cd wpadmin
+ls
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						cd wpadminlscat flag.txt
+					
+				
+			
+		
+
+
+This way, in the above image you see that we have found our first flag.
+Another important file in WordPress is Wp-config.php. Therefore, after exploring this file I found MYSQL Setting. This contained credentials for root. If you notice the image below you’ll observe that the username and password i.e. root: root password
+
+Let’s switch the user to root and then in the root folder you will find the second flag too. So, use the  following commands for the said task :
+
+		
+		
+			
+			
+			
+			
+su
+rootpassword!
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					12345
+				
+						surootpassword!cd /rootlscat flag.txt
+					
+				
+			
+		
+
+
+Now, we all know that cron.d is an important Linux directory and I just checked it for the sake of it and there I found our last and third flag. Use the following commands to achieve that :
+
+		
+		
+			
+			
+			
+			
+cd /etc
+cd cron.d
+ls
+cat php5
+			
+				
+					
+				
+					1234
+				
+						cd /etccd cron.dlscat php5
+					
+				
+			
+		
+
+ 
+Ohh-Yah!  We have successfully captured all 3 flags. Hence, we have successfully completed the CTF.
+Author: Arpit Pandey is a Certified Ethical Hacker, Cyber Security Expert, Penetration Tester. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

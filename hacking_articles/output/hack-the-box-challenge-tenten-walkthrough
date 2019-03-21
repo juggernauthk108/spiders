@@ -1,0 +1,344 @@
+
+								
+																		Hack the Box Challenge: Tenten Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 31, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Tenten” which is available online for those who want to increase their skill in penetration testing and black box testing. Tenten is a retried vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level, they have a collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Intermediate
+Task: find user.txt and root.txt file in the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.10 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.10
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.10
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 22,80 are open in the victim’s network.
+
+Knowing port 80 is open in victim’s network we preferred to explore his IP in the browser following page indicates that is a WordPress website which is a remarkable indication for my next step.
+
+Now we decided to use wpscan, on the URL that we have entered in the browser. To check if there are any kind of vulnerable themes, plugins etc.
+
+		
+		
+			
+			
+			
+			
+wpscan –u http://10.10.10.10/ --enumerate t --enumerate t --enumerate u
+			
+				
+					
+				
+					1
+				
+						wpscan –u http://10.10.10.10/ --enumerate t --enumerate t --enumerate u
+					
+				
+			
+		
+
+
+The wpscan has enumerated the usernames where we have found the login credentials as takis.            
+
+Now we have clicked on Sign Up to register on the site. And we saw Jobs Listing as shown below.
+
+After giving the details about the job. Click on apply now.
+
+After clicking on apply now, the webpage opened is shown below.
+
+As you can see from the previous image, we have made an alight change in the URL. In which we have simply changed the end number by /10/ which opened a page stating Job application as you can see below.
+
+As you can see we have again changed the end number in the URL by 11 and this time it opened a page stating Cube.
+
+So as to avoid wastage of time. We have simply captured the request of the page using burpsuite and sent to intruder for fuzzing.
+
+After that inside intruder, we have selected the position 8 as highlighted in the below image where we want to use bruteforcing through burpsuite.
+
+We have selected the Payload type as Numbers where we have specified the number range as shown below.
+
+As you can see the attack has begun. By selecting payload 13 which made us think there might be something different about this page and there we saw the title of the page which is HackerAccessGranted as you can see below.
+
+As we know in WordPress there is directory structure for the uploaded files is recognized by /wp-content/uploads/%year%/%month%/%filename% then I connect HackerAccessGranted with an Image file and at last after so many attempts I execute to use the following URL.
+
+		
+		
+			
+			
+			
+			
+http://10.10.10.10/wp-content/uploads/2017/04/HackerAccessGranted.jpg
+			
+				
+					
+				
+					1
+				
+						http://10.10.10.10/wp-content/uploads/2017/04/HackerAccessGranted.jpg
+					
+				
+			
+		
+
+Finally!! It has shown a hacker image on this web page and without wasting time I downloaded this image.
+
+Since it was an image of a hacker with message Access Granted but I was pretty sure that it is steganography and there are some chances of hidden text within this image therefore next I choose to use Steghide tool.
+
+		
+		
+			
+			
+			
+			
+steghide extract -sf HackerAccessGranted.jpg
+			
+				
+					
+				
+					1
+				
+						steghide extract -sf HackerAccessGranted.jpg
+					
+				
+			
+		
+
+From given below image you can observe that it has extract .jpg image into “id_rsa”
+
+When I try to open this file, it required a password to view its content.
+
+Formerly I download a python script from here for cracking the password of this file. Then I ran following command and got desired output.
+
+		
+		
+			
+			
+			
+			
+python sshng2john.py id_rsa &gt; ssh_login
+			
+				
+					
+				
+					1
+				
+						python sshng2john.py id_rsa &gt; ssh_login
+					
+				
+			
+		
+
+Then we used John the ripper for cracking this ssh_login file.
+
+		
+		
+			
+			
+			
+			
+john ssh_login --wordlist=/usr/share/wordlists/rockyou.txt
+			
+				
+					
+				
+					1
+				
+						john ssh_login --wordlist=/usr/share/wordlists/rockyou.txt
+					
+				
+			
+		
+
+“superpassword” we got a result from executing the above command.
+
+And without wasting time I execute the following command for login into SSH using superpassword as the password.
+
+		
+		
+			
+			
+			
+			
+ssh -i id_rsa takis@10.10.10.10
+			
+				
+					
+				
+					1
+				
+						ssh -i id_rsa takis@10.10.10.10
+					
+				
+			
+		
+
+Great!!  I logged in successfully and check Takis’s privileged and roles using sudo -l and found he has all privileged and an indication for a directory /bin/fuckin with NOPASSWD.
+First I explore the current directory where I found user.txt and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+cat user.txt
+			
+				
+					
+				
+					1
+				
+						cat user.txt
+					
+				
+			
+		
+
+Successfully completed the 1st task.
+Then move into /bin/fuckin where I found same file user.txt then without wasting I enrolled into root directory for finding root.txt.
+
+		
+		
+			
+			
+			
+			
+cd /root
+			
+				
+					
+				
+					1
+				
+						cd /root
+					
+				
+			
+		
+
+Here I found user.txt and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+cat root.txt
+			
+				
+					
+				
+					1
+				
+						cat root.txt
+					
+				
+			
+		
+
+Successfully completed the 2nd task.
+Solving this lab was quite captivating especially steganography for hiding ssh password is a remarkable effort done by the author. 
+Enjoy Hacking!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

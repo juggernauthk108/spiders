@@ -1,0 +1,325 @@
+
+								
+																		KFIOFan:1 Vulnhub Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 11, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to take another boot2root challenge known as KFIOFan. This lab is designed in French language and involves Geographical coordinates factor of France to Begin this CTF where you have to find 4 flags by using your web penetration testing skill because this machine is vulnerable to SQL.
+Official Description: Two French people want to start the very first fan club of the youtuber Khaos Farbauti Ibn Oblivion. But they’re not very security aware! (IMPORTANT NOTE: The whole challenge is in French, including server conf. Which may add to the difficulty if you are non-native or using a non-azerty keyboard)
+You can download this VM here.
+Penetration Methodology
+Network Scanning
+
+Open port and Running Service (Nmap)
+
+Enumeration
+
+Abusing Http service for obtaining Credential
+Use robot.txt for the first flag
+
+Exploit
+
+Exploiting SQL vulnerability
+Obtain SSH RSA_Key
+SSH Login
+Catch another flag
+
+Privilege Escalation 
+
+Check Sudo rights
+Spawn root access
+Capture the last flag
+
+Walkthrough
+Network Scanning
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.105
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.105
+					
+				
+			
+		
+
+
+So from nmap we found two ports (22, 80) are open in the target’s machine, therefore let’s navigate to port 80 in the browser.
+Enumeration
+On exploring port 80, we notice it required authentication but we don’t know that. Moreover, there was a text message (This site says: “48.416667 -0.916667”) which was pointing towards some Geographical coordinates.
+
+When we canceled the authentication page, we saw a message in the French language which was saying “Let me guess Bob, did you lose your password again? LOL”. Here we considered Bob as authorized username.
+
+On searching 48.416667 -0.916667 coordinates in Google map, we get the location “Levaré” which could be the possible password for user Bob.
+
+Hmmmm!! So our prediction was true and we successfully bypass HTTP authentication using Bob: Levaré 
+Note: Well this was not that much easier because on reboot this machine the Geo-coordinates gets changed and you will get the password accordingly. 
+Luckily, on exploring /robot.txt, I found our first flag randomly which was in French language and again I translate it here:
+FLAG1: Congratulations you found the first flag! (Yes I know you’re hoping for a clue but at least you have the right reflexes!)
+
+ 
+As officially describe above “Two French people want to start the very first fan club of the youtuber” and from the given web page we can easily read the name of that two people (Alice and Bob) are usernames.
+Exploit 
+Again I translate the whole text of this web page and conclude user “Alice” holds some very crucial information or any important file such as SSH key.
+
+A link on Khaosearch brings me on the search form for the CTF author’s YouTube channel, without wasting time I check for SQL injection by injecting following query:
+
+		
+		
+			
+			
+			
+			
+raj" union select 1,2;#
+			
+				
+					
+				
+					1
+				
+						raj" union select 1,2;#
+					
+				
+			
+		
+
+Lol J ! It was vulnerable to SQL injections, let’s exploit quickly.
+
+With the help of the following query, we try to all table and column names from inside the database.
+
+		
+		
+			
+			
+			
+			
+raj" union select table_name,column_name from information_schema.columns;#
+			
+				
+					
+				
+					1
+				
+						raj" union select table_name,column_name from information_schema.columns;#
+					
+				
+			
+		
+
+
+I stumped when I saw an entry for SSH_Key, then I decided to check it, as it seems the most exciting.
+
+I found another link as Alice when inject the following query to check ssh_key
+
+		
+		
+			
+			
+			
+			
+raj" union select * from ssh_keys;#
+			
+				
+					
+				
+					1
+				
+						raj" union select * from ssh_keys;#
+					
+				
+			
+		
+
+Alice was holding Private SSH_Key which should be open properly, therefore I visit source code of this page here.
+
+Then copy the RSA Key from —–BEGIN RSA PRIVATE KEY—– to —–END RSA PRIVATE KEY—– and past in a text file as “id_rsa” then set permission 600 for proper authentication.
+
+		
+		
+			
+			
+			
+			
+chmod 600 id_rsa
+			
+				
+					
+				
+					1
+				
+						chmod 600 id_rsa
+					
+				
+			
+		
+
+
+Privilege Escalation
+Now then connect to ssh using the above key and run following command:
+
+		
+		
+			
+			
+			
+			
+ssh alice@192.168.1.105 -i id_rsa
+ls
+cat flag3.txt
+			
+				
+					
+				
+					123
+				
+						ssh alice@192.168.1.105 -i id_rsalscat flag3.txt
+					
+				
+			
+		
+
+So we have successfully connected to ssh and found 3rd flag also.
+FLAG 3: Congratulations on coming here. This shows that you master very well the essential concepts! One last little effort and the root is yours!
+For finding 4th flag we need to escalate root privilege, let’s identify sudo rights for alice with the help of the following command.
+
+		
+		
+			
+			
+			
+			
+sudo -l
+			
+				
+					
+				
+					1
+				
+						sudo -l
+					
+				
+			
+		
+
+Hmmm!! So here alice can run awk as root without using the password and we can easily spawn root shell by exploiting this permission
+
+		
+		
+			
+			
+			
+			
+sudo awk 'BEGIN {system("/bin/bash")}'
+ls
+cat flag4.txt
+			
+				
+					
+				
+					123
+				
+						sudo awk 'BEGIN {system("/bin/bash")}'lscat flag4.txt
+					
+				
+			
+		
+
+FLAG 4: COMPLETE! Congratulations to you for coming here: the machine is yours, its survival or destruction is now entirely based on your ethics. Good luck Hacker!
+Note: On rebooting this VM machine the Geo-coordinates get changed each time which will also affect password and SSH key and you get a new password and SSH_key each time.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

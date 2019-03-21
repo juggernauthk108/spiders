@@ -1,0 +1,255 @@
+
+								
+																		Hack the Sedna VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 3, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we found a Vulnerable Lab based on the 90377 Sedna. Sedna is a dwarf planet in our solar system. This vulnerable machine was created for the Hackfest 2016. We are going to download the VM Machine from here.
+The credit for developing this VM machine goes to Viper.
+Penetrating Methodologies
+
+Scanning Network
+
+
+TCP and UDP ports scanning using nmap
+
+
+Testing Port 80
+
+
+Surfing HTTP service on Web Browser
+
+
+Directory Scanning
+
+
+Scanning using Nikto
+
+
+Exploiting BuilderEngine
+
+
+Using the Metasploit module to get a meterpreter session
+
+
+Retrieving Flag 1
+Exploiting chkrootkit
+
+
+Using the Metasploit module to get the root shell
+
+
+Retrieving Flag 2
+
+Let’s Breach!!!
+As always, Let’s start from doing a port enumeration on the IP Address using the nmap tool. (Here, we have it at 192.168.1.110 but you will have to find your own).
+
+		
+		
+			
+			
+			
+			
+nmap -sV 192.168.1.110
+			
+				
+					
+				
+					1
+				
+						nmap -sV 192.168.1.110
+					
+				
+			
+		
+
+
+From the NMAP Version Scan we enumerated the following details:
+As the HTTP service is running on the target server, let’s open the IP Address on the Web Browser.
+
+Here we decided to scan the target directory using Nikto scan. Now open the terminal in Kali Linux and type the following command:
+
+		
+		
+			
+			
+			
+			
+nikto -h http://192.168.1.110/
+			
+				
+					
+				
+					1
+				
+						nikto -h http://192.168.1.110/
+					
+				
+			
+		
+
+
+From the scanning result, we chose the highlighted file link for further enumeration. That is license.txt.
+
+Opening the license.txt in our browser gave us our way in, as we desired. If we observe closely then we will find that we have the BuilderEngine 2015 version installed on the target system, with a little bit of research, we found that we have a module in Metasploit which we can use to get a meterpreter session.
+Firstly, start up Metasploit by typing msfconsole in the terminal of Kali. After this, we will proceed by using the module and providing it with RHOST, in our case is 192.168.1.110.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/http/builderengine_upload_exec
+set rhosts 192.168.1.110
+exploit
+			
+				
+					
+				
+					123
+				
+						use exploit/multi/http/builderengine_upload_execset rhosts 192.168.1.110exploit
+					
+				
+			
+		
+
+After exploiting, we get a meterpreter session as shown in the given image. We used the sysinfo command to get the information about the target machine and we can observe that it is Sedna. Now, we use the pwd command to retrieve the working directory we have the shell in. It is /var/www/html/files.
+
+Now, that we are inside the target machine all that we need is to retrieve the flags. After doing a bit enumeration here and there, we found a flag inside the /var/www directory. So, we traversed to that directory using the cd command. To read the flag we need to get a bash shell over the machine. So, we will use the shell command to get a bash shell but what we got was an improper shell. So, we will use the python one-liner to get a proper shell.
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty; pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty; pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Since we have the proper shell now, let’s read the flag using the cat command.
+After this, we navigated to the /etc directory and here we found the directory named chkrootkit. On traversing inside it, we get a README. Upon reading the README we get the version of chkrootkit. The version is found out to be 0.49.
+
+Let’s get back to our beloved Metasploit and search for an exploit for the chkrootkit. We learned that we have a module in Metasploit that we can use to get a root shell on the target machine.
+So, let’s work on it. On the Metasploit terminal. After this, we will proceed by using the module and providing it with the session id.
+
+		
+		
+			
+			
+			
+			
+use exploit/unix/local/chkrootkit
+set session 1
+exploit
+			
+				
+					
+				
+					123
+				
+						use exploit/unix/local/chkrootkitset session 1exploit
+					
+				
+			
+		
+
+This gives us a shell whose privilege we checked using the id command. We checked the contents of the directory using the ls command. We can see the flag.txt inside this directory. Now for the final step, we will use the cat command to read the root flag.
+
+Author: Aarti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

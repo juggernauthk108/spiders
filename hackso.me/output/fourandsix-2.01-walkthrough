@@ -1,0 +1,155 @@
+
+
+You see, but you do not observe.
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+22 Nov 2018
+
+
+
+4 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of FourAndSix: 2.01, a boot2root VM created by Fred, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Although thereâs no description for this VM, except for âto become root and read /root/flag.txtâ, the name alone is interesting. FourAndSix is the homophone for forensicâexpect fun challenges ahead.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.30.129
+...
+PORT     STATE SERVICE REASON         VERSION
+22/tcp   open  ssh     syn-ack ttl 64 OpenSSH 7.9 (protocol 2.0)
+| ssh-hostkey:
+|   2048 ef:3b:2e:cf:40:19:9e:bb:23:1e:aa:24:a1:09:4e:d1 (RSA)
+|   256 c8:5c:8b:0b:e1:64:0c:75:c3:63:d7:b3:80:c9:2f:d2 (ECDSA)
+|_  256 61:bc:45:9a:ba:a5:47:20:60:13:25:19:b0:47:cb:ad (ED25519)
+111/tcp  open  rpcbind syn-ack ttl 64 2 (RPC #100000)
+| rpcinfo:
+|   program version   port/proto  service
+|   100000  2            111/tcp  rpcbind
+|   100000  2            111/udp  rpcbind
+|   100003  2,3         2049/tcp  nfs
+|   100003  2,3         2049/udp  nfs
+|   100005  1,3          809/tcp  mountd
+|_  100005  1,3          997/udp  mountd
+809/tcp  open  mountd  syn-ack ttl 64 1-3 (RPC #100005)
+2049/tcp open  nfs     syn-ack ttl 64 2-3 (RPC #100003)
+
+Thereâs nothing to explore except for NFS at 2049/tcp. Weâll start with that.
+Network File System
+As usual, when it comes to NFS weâll use showmount to view the NFS exports from the VM.
+
+
+
+Letâs mount that.
+
+
+
+It appears a 7z archive file is in the directory. Letâs download the file and extract it.
+
+
+
+Itâs a 7z archive file alright, but itâs password-protected.
+
+
+
+John the Ripper
+Letâs see if John the Ripper can crack the password.
+
+
+
+Awesome. The password is chocolate.
+
+
+
+Now, what do we have here?
+
+
+
+A RSA key pair for SSH access.
+If I had to guess, I would say thereâs a /home/user/.ssh/authorized_keys and the content is as follows.
+
+
+
+Low-Privilege Shell
+Letâs see if we can log in to the host with the private key.
+
+
+
+Another password to crack?
+Long story short, Iâve tried John the Ripper and itâs no good. Letâs write a simple password cracker in bash, with ssh-keygen as the main driver for password verification.
+brute.sh
+#!/bin/bash
+
+FILE=$1
+PASSWORD=$2
+COMMENT=[email protected]
+
+die() {
+  for pid in $(ps aux \
+               | grep -v grep \
+               | grep 'parallel' \
+               | awk '{ print $2 }'); do
+    kill -9 $pid &amp;&gt;/dev/null
+  done
+}
+
+if ssh-keygen -c -C "$COMMENT" -P "$PASSWORD" -f "$FILE" &amp;&gt;/dev/null; then
+  echo "Password is '$PASSWORD'" | tee found.txt
+  die
+fi
+
+Letâs make use of parallel to split the job among my four vCPUs like so.
+
+
+
+Whoa. Itâs faster than I can blink my eye.
+Time to log in.
+
+
+
+There you have it.
+Privilege Escalation
+During enumeration of the user account, I notice the account is in the wheel group. Essentially, this is the superuser group; root is also in this group.
+With that in mind, letâs check out /etc/doas.conf, a sudo alternative.
+
+
+
+What do we have here? We can run less as root? I smell âescape to shellâ.
+
+
+
+Enter v to escape to vi, and then !sh to escape to shell. Itâs that simple.
+Whatâs the Flag?
+Getting the flag is trivial when you have a root shell.
+
+
+
+
+Afterthought
+To be honest, Fred reminds me of the FRED Forensic Workstation from Digital Intelligence I used to play with years ago. Itâs still nice to dabble in OpenBSD once in a while.
+

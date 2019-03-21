@@ -1,0 +1,154 @@
+
+								
+																		Hack the Seattle VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges, Kali Linux, Penetration Testing									
+									
+									
+									on November 28, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									This is another article for Boot2Root series in CTF challenges. This lab is prepared by HollyGracefull. This is just a preview of the original lab which stimulates the E-commerce web application which contains common security errors. Current vulnerabilities are listed below :
+
+SQL Injection (Error-based)
+SQL Injection (Blind)
+Reflected Cross-Site Scripting
+Stored Cross-Site Scripting
+Insecure Direct-Object Reference
+Username Enumeration
+Path Traversal
+Exposed phpinfo()
+Exposed Administrative Interface
+Weak Admin Credentials
+
+WalkThrough
+Firstly, let’s locate our target.
+netdiscover 
+
+Our target is 192.168.1.8. Let’s scan it with nmap.
+nmap –p- -A 192.168.1.8
+
+The only port we found open was 80. Next, we fire up the Nikto.
+nikto –h 192.168.1.8
+
+Through nikto we discovered two directories : /admin/ and /images/. OK! Let’s make its mental note and decided to move forward with opening our target in the browser.
+
+Opening it on the browser we found that it was an e-commerce site as hinted by the author. We checked every tab but found nothing except in the blog tab. 
+
+In the blog tab, when you will hover your mouse arrow over the admin in the phrase ‘Hey Admin!’. It will change from arrow to a hand that indicates that means it will open as it a click on.
+
+When you click on it, it will show a username of admin. Ok! I made a note of it. Let’s now check the clothing tab.
+
+There is nothing useful in this tab. As the author hinted that the website is vulnerable towards SQL attacks so let’s try one. This time let’s try a different SQL attack using BurpSuite. Capture the cookies of the webpage through BurpSuite.
+
+Copy the cooky string and paste it in a simple text file.
+
+Then start the SQL attack by typing the following command in the terminal of Kali.
+sqlmap –r /root/Desktop/sea.txt –dbs
+Here,
+/root/Desktop/sea.txt is the path of the text file in which we had saved the cookies.
+
+This command will give us the name of the following database.
+
+Out of these databases, we will dump the tables of seattle with the following command :
+sqlmap –r /root/Desktop/sea.txt –D seattle –tables
+
+And with that, we will have all the name of the tables as you can see in the following image.
+
+Next, we will dump the columns of the tables with the following command :
+sqlmap –r /root/Desktop/sea.txt –D seattle –T tblMembers –columns
+
+The execution of the above command will show the table names as follows:
+
+Now in the table names, there is a table password. Now we already have the username of the admin and we just want the password. So now we will dump the contents of the password table.
+sqlmap –r /root/Desktop/sea.txt –D seattle –T tblmembers –C password –dump
+
+And voila! We have the password i.e. Assasin1
+
+Now in the browser, go to my account tab and there you will find a login portal. Give the username and password of the admin and click on Login.
+
+And you will be logged in as the admin.
+
+This CTF does contain any flag. All that required was to have admin access and yooohoooo!! We have that.
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here.
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

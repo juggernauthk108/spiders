@@ -1,0 +1,365 @@
+
+								
+																		Hack the USV: 2017 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on January 26, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another CTF challenge known as USV: 2017. The credit for making this vm machine goes to “Suceava University” and it is another capture the flag challenge in which our goal is to find 5 flags to complete the challenge. You can download this VM here.
+Let’s Breach!!!
+Let us start form getting to know the IP of VM (Here, I have it at 192.168.0.18 but you will have to find your own)
+Let’s do an nmap scan for port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A -p- 192.168.0.18
+			
+				
+					
+				
+					1
+				
+						nmap -A -p- 192.168.0.18
+					
+				
+			
+		
+
+
+We find port 21,22,80,4369,5222,5269,5280,15020,33939 to be open. Port 80 is running http and port 15020 is running https.
+So we first open 192.168.0.18 in our browser.
+
+We don’t find anything on this page so we enumerate the directories for further information.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.0.18
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.0.18
+					
+				
+			
+		
+
+
+During our directory enumeration we find a page called admin2, we open it in our browser and find it to be login page.
+
+We take a look at the source code and find that the password is hidden itself in the page. The page uses javascript to verify the password. The javascript is in hex encode
+
+We first decrypt the hex encode and find that if the value is 1079950212331060 it will let you enter or it will show wrong password. Now the final value is calculated using a formula:
+(stringconcat(password+4469)-234562221224)*1988=1079950212331060
+Now when we calculate the value of the password we find it to be 77779673. When we enter it we get the 1st flag.
+
+Now we open the ip 192.168.0.18 at port 15020 as it is running another apache service. When we open the ip on our browser we find that we need to install ssl certificate. We take a look at the details of the certificate for information; at the issuer section we find our 2nd flag.
+
+We accept the certificate and open the web page.
+
+We don’t find anything on the webpage. So we enumerate the directories on this page.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.0.18:15020
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.0.18:15020
+					
+				
+			
+		
+
+
+Here we find two interesting directories blog/ and vault/. The vault/ directory contain an enormous amount of directories so we leave it for now.
+We open blog/ directory and find a few blogs with few comments.
+
+ 
+Now going through the blogs we find kevin’s blog with 1 comment that hints it has a flag inside his home directory.
+
+We take a look inside source code and hint to open a php file called download.php.
+
+When we open it we find to use image parameter to open file, this page maybe vulnerable to LFI.
+
+We cannot exploit LFI vulnerability using the browser, we use post data using curl to exploit the LFI vulnerability.
+
+		
+		
+			
+			
+			
+			
+curl -d "image=/etc/passwd" https://192.168.0.18:15020/blog/download.php -k
+			
+				
+					
+				
+					1
+				
+						curl -d "image=/etc/passwd" https://192.168.0.18:15020/blog/download.php -k
+					
+				
+			
+		
+
+
+Now as it was wriiten in the comment of kevin’s blog we check for the flag in /home/kevin/ directory and find the 3rd flag.
+
+		
+		
+			
+			
+			
+			
+curl -d "image=/home/kevin/flag.txt" https://192.168.0.18:15020/blog/download.php -k
+			
+				
+					
+				
+					1
+				
+						curl -d "image=/home/kevin/flag.txt" https://192.168.0.18:15020/blog/download.php -k
+					
+				
+			
+		
+
+
+Now we go to the other vault/ directory, it contains a lot of directories so we download it on our system to make it easier for us to look through the directories. We download the entire site using recursive download utility of wget.
+
+		
+		
+			
+			
+			
+			
+wget  -r –no-check-certificate http://192.168.0.18:15020/vault
+			
+				
+					
+				
+					1
+				
+						wget  -r –no-check-certificate http://192.168.0.18:15020/vault
+					
+				
+			
+		
+
+
+Now we use find command to look for files and we use grep to rule out .html files. We found two files rockyou.zip and and a cap file.
+
+		
+		
+			
+			
+			
+			
+find ./ -type f | grep -v .html
+			
+				
+					
+				
+					1
+				
+						find ./ -type f | grep -v .html
+					
+				
+			
+		
+
+
+We open the cap file using wireshark going through the packets we found it to be a wifi handshake file.
+
+We use this site here to convert the cap file to hccapx, to make it compatible for hashcat.
+
+Now we use hashcat to decrypt the the handshake. We use the wordlist provided by the server just in case it had some extra keywords.
+
+		
+		
+			
+			
+			
+			
+hashcat -m 2500 -a 0 ctf.hccapx 192.168.0.18:15020/rockyou.txt
+			
+				
+					
+				
+					1
+				
+						hashcat -m 2500 -a 0 ctf.hccapx 192.168.0.18:15020/rockyou.txt
+					
+				
+			
+		
+
+
+We use username admin and the password we find from hashcat that is “minion.666” to login through the admin page.
+
+As soon as we login this page, we find that this page maybe vulnerable to sql injection.
+Now we use burpsuite to capture the request and use CO2 extension of burpsuite to exploit the sql injection but first we take a look at the source code.
+
+When we look at the source code we find our 4th flag.
+
+Now we use CO2 for SQL injection. We select database, tables, columns and dump to grab all the name of databases,tables and columns. 
+
+It gave us the name of the database, tables and columns. Unfortunately it couldn’t dump the database for some reason. So we manually exploit the sql injection through the browser.
+
+We find that the server uses a firewall that blocks any sql query. We use normalization method to bypass this firewall. With name of the columns and table we were able to execute our SQL injection.
+
+		
+		
+			
+			
+			
+			
+https://192.168.0.18:15020/blog/admin/edit.php?id=7 /*union*/union/*all*/all/*select*/select%20,1,login,password,4%20from%20users%20order%20by%201%20limit%201,1
+			
+				
+					
+				
+					1
+				
+						https://192.168.0.18:15020/blog/admin/edit.php?id=7 /*union*/union/*all*/all/*select*/select%20,1,login,password,4%20from%20users%20order%20by%201%20limit%201,1
+					
+				
+			
+		
+
+When we change the parameter of the id the output also changes, after going through different parameters we find that parameter 7 gave us our 5th and final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Nitin January 26, 2018 at 5:59 am							
+							
+							
+														
+							
+								good one Raj. Really learning alot by following your articles.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Shiv June 16, 2018 at 12:45 pm							
+							
+							
+														
+							
+								Hello Raj ,
+I am new at ctf challenges.After reading you article its looks like you are a very skilled penerator and ethical hacker.I think it took a lot of time to polishing IT skill.Great Man
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

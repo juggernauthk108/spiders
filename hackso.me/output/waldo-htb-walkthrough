@@ -1,0 +1,153 @@
+
+
+Waldo: Hack The Box Walkthrough
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+15 Dec 2018
+
+
+
+4 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Waldo, a retired vulnerable VM created by strawman and capnspacehook, and hosted at Hack The Box. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Waldo is a retired vulnerable VM from Hack The Box.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 10.10.10.87
+...
+PORT     STATE    SERVICE        REASON         VERSION
+22/tcp   open     ssh            syn-ack ttl 63 OpenSSH 7.5 (protocol 2.0)
+| ssh-hostkey:
+|   2048 c4:ff:81:aa:ac:df:66:9e:da:e1:c8:78:00:ab:32:9e (RSA)
+|   256 b3:e7:54:6a:16:bd:c9:29:1f:4a:8c:cd:4c:01:24:27 (ECDSA)
+|_  256 38:64:ac:57:56:44:d5:69:de:74:a8:88:dc:a0:b4:fd (ED25519)
+80/tcp   open     http           syn-ack ttl 63 nginx 1.12.2
+| http-methods:
+|_  Supported Methods: GET HEAD POST
+|_http-server-header: nginx/1.12.2
+| http-title: List Manager
+|_Requested resource was /list.html
+|_http-trane-info: Problem with XML parsing of /evox/about
+8888/tcp filtered sun-answerbook no-response
+
+Letâs see what we can find with the http service. This is how the site looks like.
+
+
+
+Colorful!
+JavaScript/PHP Helpers
+The site allows the creation/deletion of lists with the help of a combination of JavaScript and PHP. This is obvious when you look at the JavaScript debugger.
+
+
+
+The functions readDir() and readFile() are POST requests to dirRead.php fileRead.php respectively. Using the JavaScript console in the Developer Tools, allows us to read files where we have read permissions of course.
+
+
+
+Thereâs one small problem. The code tries to prevent directory traversal through a string search-and-replace filter. Nothing we canât bypass. 
+You can see that the code is essentially removing the occurrences of ../ and ..\". What happens if we use a file path like this?
+....\"/....\"/....\"/
+
+This is whatâs remaining after the str_replace operation.
+../../../
+
+You get a classic directory traversal pattern!
+Letâs give it a shot and see if we can read /etc/passwd.
+
+
+
+Perfect.
+Low-Privilege Shell
+By making use of the helper functions, I can read most of the directories and files that I have permissions. I also found the location of the user.txt at /home/nobody but I lacked the permission to read it.
+
+
+
+What is also interesting is the presence of the .ssh directory and authorized_keys in it. What this means is that I must find the corresponding RSA private key that will allow me to SSH in as nobody.
+
+
+
+Letâs copy the RSA private key and give it a shot.
+
+
+
+There you have it and hereâs the user.txt.
+
+
+
+If you look at the authorized_keys, it seems to suggest the presence of user monitor. It should be clear from the beginning Iâm inside a docker container due to the use of Alpine Linux.
+
+
+
+After some investigation, it appears that the SSH session Iâm hooked up to gets forwarded to the docker container listening at 8888/tcp.
+
+
+
+A netstat to display the listening ports confirms it.
+
+
+
+And only nobody can log in.
+
+
+
+What if the private key also allows me to log in to monitorâs account locally? Letâs try it.
+
+
+
+Holy cow!
+Waldoâs Land
+Itâs clear that monitor is using a restricted bash. Itâs easy to bypass that. We know that SSH allows command execution upon login. Letâs leverage on that.
+
+
+
+Now, we just need to export a proper PATH and we should be set.
+$ export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:$PATH
+
+Privilege Escalation
+During enumeration of monitorâs account, I noticed an executable thatâs able to access logs that only root can read.
+
+
+
+No matter where I copy it to and change the PATH search order, I canât duplicate the permissions. It then dawned upon me that the file has other capabilities.
+
+
+
+This means that the executable can bypass DAC to read and search any system files. Maybe there are other files with capabilities? Letâs do a recursive search with getcap to find out.
+
+
+
+What do you know! We can make use of tac to read the root.txt.
+
+
+
+
+Afterthought
+Although I found the presence of id_rsa and id_rsa.pub in /root/.ssh, itâs a shame root is not allowed to SSH locally because PermitRootLogin is set to no in /etc/ssh/sshd_config. And to rub salt into the wound, authorized_keys is not present.
+Well, one could still read /etc/shadow for offline cracking. But, good luck to that. 
+

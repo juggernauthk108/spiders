@@ -1,0 +1,301 @@
+
+								
+																		Hack the Box Challenge: Blocky Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 22, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Blocky ” which is available online for those who want to increase their skill penetration testing and black box testing. Blocky is a retried vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level, they have a collection of vulnerable labs as challenges from beginners to Expert level. We are going to start a new series of hack the box beginning with Blocky craft which is designed for beginners.
+Since these labs are online available therefore they have static IP and IP of blocky is 10.10.10.37 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.37
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.37
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 21, 22, 80 are open in the victim’s network.
+
+Knowing port 80 is open in victim’s network I preferred to explore his IP in the browser but didn’t get any remarkable clue on its welcome page for the next step.
+
+Next, we use the dirb tool of kali to enumerate the directories and found some important directories such as /phpmyadmin, /wp-admin, /plugin/files and etc which you can confirm from below image.
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.37
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.37
+					
+				
+			
+		
+
+
+After browsing so many directories I found plugin/files a bit interested by executing the following URL in the browser.
+
+		
+		
+			
+			
+			
+			
+http://10.10.10.37/plugins/files
+			
+				
+					
+				
+					1
+				
+						http://10.10.10.37/plugins/files
+					
+				
+			
+		
+
+From given below image you can observe that it has shown two jar file. Let’s download BlockyCore.jar file and then move for its compilation.
+
+Using online compilers I had complied blockycore.jar file and found something very interesting in it. It contains login credential sqluser and sqlpass as highlighted in below image.
+
+Then I explore http://10.10.10.37/phpmyadmin and login into phpmyadmin server using above credential 
+
+		
+		
+			
+			
+			
+			
+root: 8YsqfCTnvxAUeduzjNSXe22
+			
+				
+					
+				
+					1
+				
+						root: 8YsqfCTnvxAUeduzjNSXe22
+					
+				
+			
+		
+
+
+Then opened the WordPress database for stealing username from here and I found a user login: Notch with user Id 1.
+
+Now I try to access victim’s system PTs shell through SSH since port 22 is open as per nmap result and I had also found a user name, therefore, I open a new terminal in kali executed following command to connecting with target network through ssh service.
+
+		
+		
+			
+			
+			
+			
+ssh notch@10.10.10.37
+			
+				
+					
+				
+					1
+				
+						ssh notch@10.10.10.37
+					
+				
+			
+		
+
+For password, I try above password found in the jar file and got successful login into victims shell.
+id
+From id result, I came to know Notch is the first user of the system.
+
+By executing sudo -l command it tells us that user Notch has full privileged in this machine.
+
+Then I moved for root access using the previous same password and again I get root access successfully.
+
+		
+		
+			
+			
+			
+			
+sudo su
+			
+				
+					
+				
+					1
+				
+						sudo su
+					
+				
+			
+		
+
+Then inside its home directory, I found the user.txt file and used cat command for reading this file.
+
+		
+		
+			
+			
+			
+			
+ls
+cat user.txt
+			
+				
+					
+				
+					12
+				
+						lscat user.txt
+					
+				
+			
+		
+
+Gracefully!! We found the 1st flag of this Lab in user.txt
+
+Then I moved into root directory where I found root.txt and again use cat command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat root.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat root.txt
+					
+				
+			
+		
+
+Great!!! We completed this challenge by capturing the 2nd flag in the root.txt file.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Sam March 22, 2018 at 7:08 pm							
+							
+							
+														
+							
+								We are very happy to see you on HTB, i hope you will enjoy the machines on HTB,, and I wish you will regularly do the CTFs on HTB…
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

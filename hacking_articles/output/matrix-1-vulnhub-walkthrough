@@ -1,0 +1,444 @@
+
+								
+																		Matrix: 1 Vulnhub Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on November 10, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another boot2root challenge known as Matrix. The credit for making this VM machine goes to “Ajay Verma” and it is another boot2root challenge in which our goal is to get root access to complete the challenge. You can download this VM here.
+Security Level: Intermediate
+Flags: There is one flag (flag.txt).
+Table of Contents: 
+
+Port scanning and IP discovery.
+Hitting on port 80
+Hitting on port 31337 and finding base64 encoded string
+Decode base64 encoded string
+Finding and downloading Bin file
+Decoding brainfuck encoded string
+Creating a dictionary using crunch
+SSH login brute force using hydra
+Finding rbash
+Escaping a restricted shell environment
+Exporting environment variables
+Getting root access.
+Reading the flags.
+
+Walkthrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We found our target –&gt; 192.168.1.18
+Our next step is to scan our target with nmap.
+
+The NMAP output shows us that there are 4 ports open: 22(SSH), 80(HTTP), 31337(HTTP)
+We find that port 80 is running http, so we open the IP in our browser.
+
+We don’t find anything on the web service running on port 80. So we start enumerating the web service running on port 31337.
+
+We take a look at the source code of the web service running on port 31337 and find a base64 encoded string.
+
+We decode the base64 encoded string and find a hint to that is related “Cypher.matrix”.
+
+We open “Cypher.matrix” on the web service running on port 31337 and find that it starts downloading a BIN file.
+
+We take a look at the content of the file and find “brainfuck” encoded string.
+
+We decode the brainfuck encoded a string using this site here and find an incomplete password for the user “guest”.
+
+As the last 2 characters are missing we create a wordlist using crunch so that we can brute force SSH login.
+
+		
+		
+			
+			
+			
+			
+crunch 8 8 -t k1ll0r%@ -o dict.txt
+			
+				
+					
+				
+					1
+				
+						crunch 8 8 -t k1ll0r%@ -o dict.txt
+					
+				
+			
+		
+
+
+We use hydra to brute force ssh login using the dictionary we created earlier and find the password to be “k1ll0r7n”.
+
+		
+		
+			
+			
+			
+			
+hydra -l guest -P dict.txt 192.168.1.18 ssh
+			
+				
+					
+				
+					1
+				
+						hydra -l guest -P dict.txt 192.168.1.18 ssh
+					
+				
+			
+		
+
+
+Now that we know the password we login through SSH using credentials “guest:k1ll0r7n”
+
+		
+		
+			
+			
+			
+			
+ssh guest@192.168.1.18
+			
+				
+					
+				
+					1
+				
+						ssh guest@192.168.1.18
+					
+				
+			
+		
+
+After logging in we try to run the “ls” command but are unable to run it as we have a rbash shell.
+
+		
+		
+			
+			
+			
+			
+ls
+			
+				
+					
+				
+					1
+				
+						ls
+					
+				
+			
+		
+
+We check the PATH environment variable and find the path to be “/home/guest/prog”.
+
+		
+		
+			
+			
+			
+			
+$PATH
+			
+				
+					
+				
+					1
+				
+						$PATH
+					
+				
+			
+		
+
+Now as we cannot run “ls” command we try to find commands that can run. After trying a few commands we find that we can run “echo” command. We use the “echo” command to find the executables inside “/home/guest/prog” and find “vi” is available.
+
+		
+		
+			
+			
+			
+			
+echo /home/guest/prog/*
+			
+				
+					
+				
+					1
+				
+						echo /home/guest/prog/*
+					
+				
+			
+		
+
+Now we check the SHELL environment variable and find we have an only rbash shell.
+
+		
+		
+			
+			
+			
+			
+echo $SHELL
+			
+				
+					
+				
+					1
+				
+						echo $SHELL
+					
+				
+			
+		
+
+
+We run vi so that we can spawn /bin/bash and escape the restricted shell environment.
+
+		
+		
+			
+			
+			
+			
+!/bin/bash
+			
+				
+					
+				
+					1
+				
+						!/bin/bash
+					
+				
+			
+		
+
+
+After escaping the restricted shell environment, we export /bin/bash to SHELL environment variable and “/usr/bin” directory to PATH environment variable so that we can run Linux command properly.
+
+		
+		
+			
+			
+			
+			export SHELL=/bin/bash:$SHELL
+export PATH=/usr/bin:$PATH
+			
+				
+					
+				
+					12
+				
+						export SHELL=/bin/bash:$SHELLexport PATH=/usr/bin:$PATH
+					
+				
+			
+		
+
+After exporting into the environment variables, we check the sudoers list and find we can directly get the root shell as we have all the rights.
+
+		
+		
+			
+			
+			
+			
+sudo -l
+sudo su
+			
+				
+					
+				
+					12
+				
+						sudo -lsudo su
+					
+				
+			
+		
+
+We are unable to execute “su” command as we haven’t exported “/bin” directory into PATH environment. We exported “/bin” directory into a PATH environment variable and again ran the command to login as root using the password we find earlier.
+
+		
+		
+			
+			
+			
+			
+export PATH=/bin:$PATH
+sudo su
+			
+				
+					
+				
+					12
+				
+						export PATH=/bin:$PATHsudo su
+					
+				
+			
+		
+
+After logging in we go to the root directory and find a file called flag.txt. We take a look at the content of the file and find the congratulatory message.
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat flag.txt
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Das November 22, 2018 at 2:33 pm							
+							
+							
+														
+							
+								Hi
+Thanks for this valuable post. Here I have downloaded the VM and connected to my internal network with DHCP connection. But this VM is not picking up any IP address. So I am not able to initiate the hacking. Could you please help me in resolving issue
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Jordy van Ekelen December 23, 2018 at 3:37 pm							
+							
+							
+														
+							
+								Hey nice post! I have a question, I ‘ve got a limited shell and I escaped rbash, but when I run sudo su it just prompts for a password repeatedly. Even if I export /bin/ to my PATH or set /bin/bash in the SHELL variable. Am I missing something?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

@@ -1,0 +1,333 @@
+
+								
+																		Hack the Box Challenge: Brainfuck Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 14, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Brainfuck” which is retired vulnerable lab presented by Hack the Box for making online penetration testing practices according to your experience level. Although in this challenge you can test your expertise by WordPress penetration testing and how much knowledge you have in cryptography by decrypting any encryption that you will get in this lab.
+Level: Hard
+Task: find user.txt and root.txt file in the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.17 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.17
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.17
+					
+				
+			
+		
+
+From given below image, you can observe that we have found so many ports which are open such as 22,25 and so on in victim’s network and moreover I got three domain names as highlighted in below image.
+
+Now the next option was to add target IP inside /etc/host file since port 443 was open containing three domain names obtained from scanning result; thus I edit sup3rs3cr3t.brainfuck.htb www.brainfuck.htb  brainfuck.htb as hostname.
+
+Then I  explored all three domain names one by one in the web browser but when I explored https://brainfuck.htb found following webpage page which was indicating that it is a WordPress site and pointing toward SMTP mail Id [email protected] as highlighted in below image.
+
+Now we decided to use wpscan on the target URL, that we have entered in the browser. To check if there are any kind of vulnerable themes, plugins, username and etc.
+
+		
+		
+			
+			
+			
+			
+wpscan -u https://brainfuck.htb/ --disable-tls-checks --enumerate p --enumerate t --enumerate u
+			
+				
+					
+				
+					1
+				
+						wpscan -u https://brainfuck.htb/ --disable-tls-checks --enumerate p --enumerate t --enumerate u
+					
+				
+			
+		
+
+
+From the wpscan result, I grabbed the vulnerability in WordPress plug-in “support plus responsive ticket system” for Remote code execution as highlighted below.
+
+Moreover, it dumped two login usernames “admin &amp; administrator”
+
+With the help of Google, I search associated exploit for compromising victim’s credential and found exploit 41006 as shown below.
+
+Inside this, I saw HTML form code for remote code execution, now copy it and paste it into a text document.
+
+Here please notice the changes I had made by adding “value: admin as username and [email protected] as email and target URL in action https://brainfuck” and saved it as wp.html on the desktop.
+
+Then I run Python script for file transfer via port 80.
+
+		
+		
+			
+			
+			
+			
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					1
+				
+						python -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+
+Then explore the wp.html file in localhost server as shown below and click on the login tab.
+
+By doing so you can login as anyone without knowing password because of incorrect usage of wp_set_auth_cookie(). Then you can go to the admin panel by visiting https://brainfuck once again.
+
+You will get admin panel of WordPress and start penetrating it for getting a clue.
+
+Inside the admin dashboard, I looked at the plugin for the further step where I found SMTP plug-in.
+
+It was a terrific moment when I saw user authentication login are filled in the text field. So I read username “orestis” but the password was in bold character, which I need to convert in plain text using inspect element.
+
+Wonderful!! Here is orestis plain text password value as shown below in highlighted text, let’s use them for SMTP login.
+ 
+
+Through telnet command: telnet 10.10.10.17 110 we established a connection with the SMTP server and login into orestis account, now for reading orestis inbox messages I retr 1 command but didn’t get any useful message and move to another message by running retr 2.
+
+Here I found something very crucial that there is username and password for any “Secret” forum for login and after a very deep thought; I realized this credential could be connected to sup3rs3cr3t.brainfuck.htb which I had explored in web browser.
+
+Again I explore https:\\sup3rs3cr3t.brainfuck.htb then submit above found credentials and got successful login.
+
+It showing super-secret forum which is pointing towards any secret discussion chat inside “Key” and “SSH Access”
+
+Inside “Key” I notice chatting between admin and orestis which was going beyond my sense. Might be orestis and admin are sharing some confidential information in this secret chat but in the last reply of admin, it looked like he is secretly sharing any encrypted URL.
+
+Then I open “ssh access” Ahhhh!!! It was an English conversation where the admin is giving suggestion to use Key for login instead of a simple password. And by reading all conversation I concluded that orestis has lost SSH login key and asking an admin to send the key in an encrypted chat that we saw above “Key” (secret discussion).
+
+Time to decrypt their conversation for getting ssh login key but we don’t know from where to start. After spending so much time and efforts at last I successfully decrypted and found ssh login key.
+Now your question is- How it became possible?
+And my answer is: observe the given below step carefully:
+From both chats “Key” and “ssh access” I copied the following text into a text file respectively and removed the space provided between the word as shown in below.
+
+		
+		
+			
+			
+			
+			
+Pieagnm - Jkoijeg nbw zwx mle grwsnn (message in cipher text)
+Orestis - Hacking for fun and profit (decrypt key in plain text)
+			
+				
+					
+				
+					12
+				
+						Pieagnm - Jkoijeg nbw zwx mle grwsnn (message in cipher text)Orestis - Hacking for fun and profit (decrypt key in plain text)
+					
+				
+			
+		
+
+Considering ciphertext is encrypted information and plaintext as decrypting key.
+
+With the help of online decipher I had pasted above ciphertext inside encipher textbox and decryption key inside decipher textbox and received decipher message “BrainfuCkmybrainfuckmybrainfu”
+
+If you remember we had obtained encrypted URL from inside “Key” discussion, go for its decryption using above decipher message “fuckmybrain” as decrypting key. It took much time to identify proper encryption algorithm used for encrypting URL and we have successfully decrypted it with the help of Vigerner cipher. It gave a plaintext URL for downloading id_rsa for ssh login as orestis.
+From the given below image, you can observe that I have added encrypted URL in the encrypted text field and used “fuckmybrain” as a decrypting key and obtain Plain text URL.
+
+After downloading id_rsa when I tried to open this file, then found that it required a password to view its content.
+
+Formerly I downloaded a python script from here for cracking the password of this file. Then I ran following command and got desired output.
+
+		
+		
+			
+			
+			
+			
+python sshng2john.py id_rsa &gt; ssh_login
+			
+				
+					
+				
+					1
+				
+						python sshng2john.py id_rsa &gt; ssh_login
+					
+				
+			
+		
+
+Then we used John the ripper for cracking this ssh_login file.
+
+		
+		
+			
+			
+			
+			
+john ssh_login --wordlist=/usr/share/wordlists/rockyou.txt
+			
+				
+					
+				
+					1
+				
+						john ssh_login --wordlist=/usr/share/wordlists/rockyou.txt
+					
+				
+			
+		
+
+“3poulakia!” we got a result from executing the above command.
+
+And without wasting time; I executed the following command for login into SSH using 3poulakia! as password.
+
+		
+		
+			
+			
+			
+			
+ssh -i id_rsa orestis@10.10.10.17
+			
+				
+					
+				
+					1
+				
+						ssh -i id_rsa orestis@10.10.10.17
+					
+				
+			
+		
+
+Great!!  I logged in successfully, now let’s finish the task by grabbing user.txt and root.txt file. First I have checked for available files in the current directory which are inside it. Good to see user.txt in the present location and then I open it using cat.
+cat user.txt
+Apart from user.txt, I found three more files in this directory and when I opened these file I got the hint for Root Flag! Now follow the below steps if you are also looking for root flag.
+
+When I read the content of encrypt.sage, it was pointing towards encrypted password within debug.txt and output.txt
+
+When I open debug.txt and output.txt, here I saw encrypted information then again I chased towards Google for any help in such type of encryption and luckily found a decrypting script from this link: http://dann.com.br/alexctf2k17-crypto150-what_is_this_encryption/ and after that copied entire script into a text file for decryption.
+
+As described in crypto150 algorithm I placed 1st, 2nd &amp; 3rd line of debug.txt equal to p, q, e respectively. Ct is equal to the content of output.txt as shown below and saved it as decrypt.py
+
+Then run our decrypt.py through python and capture the root flag!!
+
+		
+		
+			
+			
+			
+			
+python decrypt.py
+			
+				
+					
+				
+					1
+				
+						python decrypt.py
+					
+				
+			
+		
+
+Huhhhhh!!!!!! Such a hectic Lab it was, but we have completed the challenge successfully. 
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

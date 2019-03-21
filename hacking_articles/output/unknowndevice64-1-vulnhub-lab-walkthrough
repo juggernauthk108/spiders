@@ -1,0 +1,361 @@
+
+								
+																		unknowndevice64: 1: Vulnhub Lab Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 11, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another boot2root challenge known as “unknowndevice64: 1”. The credit for making this VM machine goes to “Ajay Verma” and it is another boot2root challenge in which our goal is to get root access to complete the challenge. You can download this VM here.
+Security Level: Beginner
+Penetrating Methodology:
+
+IP Discovery using netdiscover
+Network scanning (Nmap)
+Surfing HTTP service port
+Finding image File
+Extracting the hidden file from the image
+Logging in through SSH
+Escaping restricted shell
+Finding binary in sudoers list
+Getting the root shell and finding the flag
+
+Walkthrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We found our target –&gt; 192.168.1.104
+Our next step is to scan our target with nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -sV 192.168.1.104
+			
+				
+					
+				
+					1
+				
+						nmap -p- -sV 192.168.1.104
+					
+				
+			
+		
+
+
+The NMAP output shows us that there are 2 ports open: 1337(SSH), 31337(HTTP)
+We find that port 31337 is running HTTP, so we open the IP in our browser. Here we find a string “h1dd3n” that might be a hint or a password for something.
+
+We take a look at the source code of the web page and inside a comment, we find a string called “key_is_h1dd3n.jpg”.
+
+We open the image in our browser and download it in our system.
+
+After downloading the image, we use steghide to extract any hidden file from the image. When we try to extract files using steghide, it prompts for a password. We use the password “h1dd3n” we found earlier on the webpage and were successfully able to extract a text file. We take a look at the content of the text file and find a brain fuck encoded string.
+
+		
+		
+			
+			
+			
+			
+steghide extract -sf key_is_h1dd3n.jpg
+			
+				
+					
+				
+					1
+				
+						steghide extract -sf key_is_h1dd3n.jpg
+					
+				
+			
+		
+
+
+We decode the brainfuck encoded string using this site and find a username and password.
+
+		
+		
+			
+			
+			
+			
+Username: ud64
+Password: 1M!#64@ud
+			
+				
+					
+				
+					12
+				
+						Username: ud64Password: 1M!#[email protected]
+					
+				
+			
+		
+
+
+As port 1337 is running SSH, we use the credentials we found above to log in. After logging in through SSH we find that we have a restricted shell, and PATH and SHELL environment variable are read-only.
+
+		
+		
+			
+			
+			
+			
+ssh ud64@192.168.1.104 -p 1337
+			
+				
+					
+				
+					1
+				
+						ssh ud64@192.168.1.104 -p 1337
+					
+				
+			
+		
+
+
+After pressing the “tab” button twice, we find the commands we can run using the restricted shell. Among that command, we find that we can use the Vi editor. We use Vi editor to escape the restricted shell.
+
+		
+		
+			
+			
+			
+			
+:!/bin/bash
+			
+				
+					
+				
+					1
+				
+						:!/bin/bash
+					
+				
+			
+		
+
+
+After escaping the restricted shell, we export “/bin/bash” as our SHELL environment variable and “/usr/bin” as our PATH environment variable so that we can run Linux commands properly. Now we check sudoers list and find we can run “/usr/bin/sysud64” as root without a password.
+
+		
+		
+			
+			
+			
+			
+export PATH=/usr/bin:$PATH
+export SHELL=/bin/bash:$SHELL
+sudo -l
+			
+				
+					
+				
+					123
+				
+						export PATH=/usr/bin:$PATHexport SHELL=/bin/bash:$SHELLsudo -l
+					
+				
+			
+		
+
+
+On checking the help for “sysud64”, we find that it is actually executing strace.
+
+		
+		
+			
+			
+			
+			
+sudo sysud64 -h | less
+			
+				
+					
+				
+					1
+				
+						sudo sysud64 -h | less
+					
+				
+			
+		
+
+
+As we can run sysud64 as root and sysud64 are actually running the strace command. We can spawn a shell as root user using “sysud64”. After spawning a shell as the root user, we switch to the root directory and
+
+		
+		
+			
+			
+			
+			
+sudo sysud64 -o /dev/null /bin/sh
+			
+				
+					
+				
+					1
+				
+						sudo sysud64 -o /dev/null /bin/sh
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								ping10110 March 13, 2019 at 9:27 am							
+							
+							
+														
+							
+								Stage 1 of your description is incorrect.  Great blog, am always looking to learn, but this very small error, leads to a lot of other research to open the “key_is_h1dd3n.jpg”.  If this was your intention, it worked, however the passphrase is not what you have on the instructions.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								CodeX March 14, 2019 at 7:38 am							
+							
+							
+														
+							
+								small correction ..passphrase “h1dd3n” not “h1dden”
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Pavandeep Singh March 14, 2019 at 8:20 am							
+							
+							
+														
+							
+								Thanks for pointing out.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

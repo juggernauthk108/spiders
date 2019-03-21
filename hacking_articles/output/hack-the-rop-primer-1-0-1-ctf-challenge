@@ -1,0 +1,762 @@
+
+								
+																		Hack the ROP Primer: 1.0.1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on September 19, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another CTF challenge known as ROP Primer. The credit for making this VM machine goes to “Bas” and it is another capture the flag challenge in which our goal is to capture all the flags to complete the challenge. You can download this VM here.
+We have 3 levels available here and we are given the login credentials of all of 3 machines which are as follow:
+
+
+
+Levels
+Username
+Password
+
+
+Level 0
+level0
+warmup
+
+
+Level 1
+level1
+shodan
+
+
+Level 2
+level2
+try harder
+
+
+
+We had one binary per level, which we have to exploit each one to successfully extract flags from them.
+You can download all the exploit used from here.
+Let’s Breach!!!
+Let us start form getting to know the IP of VM (Here, I have it at 192.168.199.139 but you will have to find your own
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+LEVEL 0:
+Now we use the given credentials to login through ssh as user level0. After logging in we find 2 files one executable file called level0 and another file called flag. Both files are owned by the level1 user, but the binary file has suid bit set so we can execute it. When we run it we find that it takes a string as input and then outputs a message along with the string.
+
+		
+		
+			
+			
+			
+			
+ssh level0@192.168.199.139
+			
+				
+					
+				
+					1
+				
+						ssh level0@192.168.199.139
+					
+				
+			
+		
+
+
+GDB-peda is provided by the author in the lab so we can directly analyze the binary in the target machine itself. Opening the binary in gdb we find that there is a gets function. Now gets is vulnerable to buffer overflow so we try to exploit it.
+
+		
+		
+			
+			
+			
+			
+set disassembly-flavor intel
+disas main
+			
+				
+					
+				
+					12
+				
+						set disassembly-flavor inteldisas main
+					
+				
+			
+		
+
+
+We created a 500 bytes long pattern using gdb-peda and used it as input for the binary.
+
+		
+		
+			
+			
+			
+			
+pattern create 500
+			
+				
+					
+				
+					1
+				
+						pattern create 500
+					
+				
+			
+		
+
+
+As soon as we passed the string we get a segmentation fault error, we use pattern offset function of gdb-peda to find the EIP offset and find that after 44 bytes we can completely overwrite EIP register.
+
+		
+		
+			
+			
+			
+			
+pattern offset 0x41414641
+			
+				
+					
+				
+					1
+				
+						pattern offset 0x41414641
+					
+				
+			
+		
+
+
+Now we check for security and find that there is no ASLR but NX is enabled so we cannot execute shellcode on the stack.
+
+		
+		
+			
+			
+			
+			
+checksec
+			
+				
+					
+				
+					1
+				
+						checksec
+					
+				
+			
+		
+
+
+As NX is enabled we can still use the ret2libc attack to spawn a shell. But when we try to print the memory address of the system we find that there is no system so we cannot execute /bin/sh to spawn a shell.
+In the description, we are given a hint that we can use mprotect to solve this problem.
+
+		
+		
+			
+			
+			
+			
+p system
+p mprotect
+			
+				
+					
+				
+					12
+				
+						p systemp mprotect
+					
+				
+			
+		
+
+
+When we take a look at the man page for mprotect we find that it used to change the protection of portions of memory by making it readable, writeable and executable. We also find it takes 3 parameters address, length of the memory that needs to be changes and protection level.
+
+As we can make portions of memory readable, writeable and executable, we are going to use the memcpy function to insert our shellcode into the block of memory.
+
+		
+		
+			
+			
+			
+			
+p memcpy
+			
+				
+					
+				
+					1
+				
+						p memcpy
+					
+				
+			
+		
+
+
+Now need to select which section of the memory we are going to change, so we use gdb to see how the memory is mapped.
+
+		
+		
+			
+			
+			
+			
+vmmap
+			
+				
+					
+				
+					1
+				
+						vmmap
+					
+				
+			
+		
+
+
+We are going to take 0x080ca000 as target memory and we are going to mark 4KB of memory starting from 0x080ca000 as readable, writeable and executable. We create an exploit to this for us.
+
+We save the output of this program in a file called input, we are going to use this as our input for the binary file.
+
+		
+		
+			
+			
+			
+			
+python exp.py &gt; input
+			
+				
+					
+				
+					1
+				
+						python exp.py &gt; input
+					
+				
+			
+		
+
+
+When running the binary in gdb with using the input from our exploit, we take a look at the mapped memory and find that the memory block we selected was marked as readable, writeable and executable.
+
+		
+		
+			
+			
+			
+			
+vmmap
+			
+				
+					
+				
+					1
+				
+						vmmap
+					
+				
+			
+		
+
+
+Now we need to remove mprotect’s parameter from the stack so that we can redirect the flow of execution, the mprotect function uses 3 parameters so we need to pop 3 values off the stack so we use ropgadget function in gdb and find a gadget pop3ret at 0x8048882.
+
+		
+		
+			
+			
+			
+			
+ropgadget
+			
+				
+					
+				
+					1
+				
+						ropgadget
+					
+				
+			
+		
+
+
+Now we create the exploit to get an elevated shell. We use cat to keep the shell alive, we run the exploit and now we can access the flag. We take a look at the content of the file and find our first flag.
+
+		
+		
+			
+			
+			
+			
+(python /tmp/exp.py; cat) | ./level0
+			
+				
+					
+				
+					1
+				
+						(python /tmp/exp.py; cat) | ./level0
+					
+				
+			
+		
+
+
+LEVEL 1:
+After completing level0, we log in as level1 using the given credentials. We find a file called flag, blah and a binary file called level1 with suid bit set. When we run the binary it says that error binding.
+
+		
+		
+			
+			
+			
+			
+ssh level1@192.168.199.139
+			
+				
+					
+				
+					1
+				
+						ssh level1@192.168.199.139
+					
+				
+			
+		
+
+
+We check the listening ports on the target machine and find that port 8888 is open. We check processes with uid 1002 and find it is level1.
+
+		
+		
+			
+			
+			
+			
+netstat -aepn | grep 8888
+ps -aux | grep 1002
+			
+				
+					
+				
+					12
+				
+						netstat -aepn | grep 8888ps -aux | grep 1002
+					
+				
+			
+		
+
+
+We connect it and find it is an application that can be used to store and read files.
+
+		
+		
+			
+			
+			
+			
+nc 192.168.199.139 8888
+			
+				
+					
+				
+					1
+				
+						nc 192.168.199.139 8888
+					
+				
+			
+		
+
+
+We open the binary in gdb and take a look at the assembly code for further analysis.
+
+		
+		
+			
+			
+			
+			
+gdb -q level1
+set disassembly-flavor intel
+disas main
+			
+				
+					
+				
+					123
+				
+						gdb -q level1set disassembly-flavor inteldisas main
+					
+				
+			
+		
+
+
+We set up a breakpoint on the main function. At main+115 we found that port 8888 is stored on the stack. We changed the value stored in the memory address to port 8889 so that we can run the program.
+
+		
+		
+			
+			
+			
+			
+set {int}0xbffff6b0 = 8889
+			
+				
+					
+				
+					1
+				
+						set {int}0xbffff6b0 = 8889
+					
+				
+			
+		
+
+
+We create a 128 bytes long pattern using pattern_create.rb script in our system. So that we can pass the string as the name of the file.
+
+		
+		
+			
+			
+			
+			
+./pattern_create -l 128
+			
+				
+					
+				
+					1
+				
+						./pattern_create -l 128
+					
+				
+			
+		
+
+
+After changing the port number, we connected to it and stored a file with 128-byte size.
+After mentioning the size of the file, it asks for the file name. We passed the 128 bytes long pattern as the file name.
+
+		
+		
+			
+			
+			
+			
+nc 192.168.199.139 8889
+			
+				
+					
+				
+					1
+				
+						nc 192.168.199.139 8889
+					
+				
+			
+		
+
+
+When we switch to gdb we find that we get a segmentation fault.
+
+We now use patten_offset.rb script to find the EIP offset.
+
+		
+		
+			
+			
+			
+			
+./pattern_offset.rb -q 0x63413163
+			
+				
+					
+				
+					1
+				
+						./pattern_offset.rb -q 0x63413163
+					
+				
+			
+		
+
+
+We are given a hint in the description of this challenge that we can use read, write and open function to open the flag and read it.
+
+		
+		
+			
+			
+			
+			
+p read
+p write
+p open
+			
+				
+					
+				
+					123
+				
+						p readp writep open
+					
+				
+			
+		
+
+
+We are now going to need ropgadget, we need pop2ret for a gadget for open function and pop3ret gadget for reading function.
+
+		
+		
+			
+			
+			
+			
+ropgadget
+			
+				
+					
+				
+					1
+				
+						ropgadget
+					
+				
+			
+		
+
+
+Now if we can get the address of the ‘flag’ string, then we can just read the flag and output it to the connected socket.
+
+		
+		
+			
+			
+			
+			
+find flag
+			
+				
+					
+				
+					1
+				
+						find flag
+					
+				
+			
+		
+
+
+We create an exploit to get the flag. We run it and find the flag.
+
+		
+		
+			
+			
+			
+			
+python level1.py
+			
+				
+					
+				
+					1
+				
+						python level1.py
+					
+				
+			
+		
+
+
+LEVEL 2:
+After completing level1, we log in as level2 using the given credentials. We find a file called flag and a binary file called level2 with suid bit set. When we run the binary, we find that it takes a string as an argument and then prints it.
+
+		
+		
+			
+			
+			
+			
+ssh level2@192.168.199.139
+			
+				
+					
+				
+					1
+				
+						ssh level2@192.168.199.139
+					
+				
+			
+		
+
+
+We open the file in gdb for further analysis and find that at main+46 it calls the strcpy function. As the strcpy function is vulnerable to buffer overflow we exploit it.
+
+		
+		
+			
+			
+			
+			
+gdb -q level2
+set disassembly-flavor intel
+disas main
+			
+				
+					
+				
+					123
+				
+						gdb -q level2set disassembly-flavor inteldisas main
+					
+				
+			
+		
+
+
+On further analysis we find that it is similar to level0 binary file, we create a 500 bytes string and pass its argument and find the EIP offset to be 44 bytes.
+
+		
+		
+			
+			
+			
+			
+pattern offset 0x41414641
+			
+				
+					
+				
+					1
+				
+						pattern offset 0x41414641
+					
+				
+			
+		
+
+
+This binary file has a strcpy function instead of gets we cannot use “\x00”. So we use gadgets to do our work. We use ropshell.com to find all the gadgets used in this exploit.
+
+We modified the exploit we created for level0 and inserted our gadgets. We use read function instead of the memcpy function in this exploit. (Gadgets are explained in the exploit code).
+As soon as we run our exploit we spawn a shell as the root user. We open the flag file and get our final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

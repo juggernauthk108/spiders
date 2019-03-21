@@ -1,0 +1,353 @@
+
+								
+																		Hack the Box: Valentine Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 1, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to solve the CTF challenge “Valentine” which is a vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have a very good collection of vulnerable labs as challenges from beginners to Expert level.
+Difficulty Level: Medium
+Task: find user.txt and root.txt file on victim’s machine.
+Steps involved:
+
+Port scanning and services detection
+Web server directory enumeration
+Discovery of hex encoded ssh key
+Decoding key
+Finding Passphrase
+Capturing user flag
+Capturing root flag
+
+This lab has a static IP and IP of 10.10.10.79. So let’s start the CTF challenge with port scanning.
+
+		
+		
+			
+			
+			
+			
+nmap –A 10.10.10.79
+			
+				
+					
+				
+					1
+				
+						nmap –A 10.10.10.79
+					
+				
+			
+		
+
+From its scanning result we found port 22 and 80 are open for ssh and http services.
+
+Let’s enumerate the web service running on port 80.  The below image could be a hint, there is a heart and blood. Does it mean heartbleed?  Could be!  Let’s enumerate further.
+
+Let’s see what we can find by directory brute forcing:
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.79
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.79
+					
+				
+			
+		
+
+It put so many files but /dev looks more interesting so Lets browse http://10.10.10.73/dev.
+
+Great we found some directories here. Let’s manually check these directories one by one. The directory “dev” seems very interesting, There are two files as shown in the below images.
+
+Firstly I opened notes.txt file as shown in the below image, it seems there is some encoding and decoding is involved.
+
+Then we opened another file hype_key and notice found encoded hex text, let’s convert it into plain text and see if it makes any sense.
+
+With help of burp we try to decode above hex into plain text as shown in the image. So it’s a RSA private key, but it has space after each character, which needs to be fixed.
+
+After removing space using sed command, we get our key as shown in the image below. Now all we need is a passphrase.
+
+		
+		
+			
+			
+			
+			
+sed 's/ //g' key&gt; sshkey
+cat sshkey
+			
+				
+					
+				
+					12
+				
+						sed 's/ //g' key&gt; sshkeycat sshkey
+					
+				
+			
+		
+
+
+Checking if the HTTPS web service is vulnerable to heartbleed with help of nmap script.
+
+		
+		
+			
+			
+			
+			
+nmap –p 443 --script ssl-heartbleed 10.10.10.79
+			
+				
+					
+				
+					1
+				
+						nmap –p 443 --script ssl-heartbleed 10.10.10.79
+					
+				
+			
+		
+
+As expected the service is vulnerable to heartbleed, now let’s try to exploit it.
+
+Searching heartbleed exploit using searchsploit, and luckily found a python exploit 32764.py in our local system.
+
+		
+		
+			
+			
+			
+			
+searchsploit heartbleed
+			
+				
+					
+				
+					1
+				
+						searchsploit heartbleed
+					
+				
+			
+		
+
+ 
+ So I copied the python exploit on the desktop and run against target’s IP for exploiting heartbleed.
+
+		
+		
+			
+			
+			
+			
+python 32764.py 10.10.10.79
+			
+				
+					
+				
+					1
+				
+						python 32764.py 10.10.10.79
+					
+				
+			
+		
+
+Wow! It worked perfectly as aspect.
+
+As shown in the image above, there is a string. Let’s decode the string with the help of following command, it may give the passphrase for ssh login.
+
+		
+		
+			
+			
+			
+			
+ echo aGVhcnRibGVlZGJlbGlldmV0aGVoeXBlCg== | base64 –d
+			
+				
+					
+				
+					1
+				
+						 echo aGVhcnRibGVlZGJlbGlldmV0aGVoeXBlCg== | base64 –d
+					
+				
+			
+		
+
+ 
+Now let’s try to login SSH using the key and passphrase and after making successful login we found user.txt file from inside /home/hype/Desktop
+
+		
+		
+			
+			
+			
+			
+ssh –i key hype@10.10.10.79
+cd /home
+ls
+cd hype
+ls
+cd Desktop
+ls
+cat user.txt
+			
+				
+					
+				
+					12345678
+				
+						ssh –i key hype@10.10.10.79cd /homelscd hypelscd Desktoplscat user.txt
+					
+				
+			
+		
+
+So we logged in successfully and captured the user flag. Here 1st task is completed; let’s find out root.txt to finish the 2nd task.
+
+During further enumerating the history of commands on the system, we found some interesting commands
+
+		
+		
+			
+			
+			
+			
+cat .bash_history
+tmux –S /.devs/dev_sess
+			
+				
+					
+				
+					12
+				
+						cat .bash_historytmux –S /.devs/dev_sess
+					
+				
+			
+		
+
+Hmm!!! We got the root as shown in last image.
+
+Now let’s grab the root.txt file quickly and finish this task. On running the below command we got our Root flag.
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat root.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat root.txt
+					
+				
+			
+		
+
+We finished both tasks successfully!!
+
+Author: Utkarsh Pathak is an IT security researcher, Pentester and Technical Writer. here 
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

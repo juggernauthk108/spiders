@@ -1,0 +1,92 @@
+
+
+BSidesTLV: 2018 CTF (Forensics)
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+13 Nov 2018
+
+
+
+2 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents my attempt to complete BSidesTLV: 2018 CTF (Forensics). If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+The 2018 BSidesTLV CTF competition brought together over 310 teams burning the midnight oil to crack our challenges in a bout that lasted for two weeks. You can now enjoy the same pain and suffering, using this easy-to-use, condensed VM that now hosts all our challenges in an easy to digest format. The CTF has five categories:
+
+Web (10 challenges)
+Reverse Engineering (3 challenges)
+Misc (3 challenges)
+Forensics (1 challenge)
+
+Shared Directory
+
+
+Crypto (2 challenges)
+
+What follows is my humble attempt of cracking the challenges in the Forensics category.
+Shared Directory
+This is how the challenge looks like.
+
+
+
+Thereâs no hiccup in unzipping win.zip.
+
+
+
+The hint is strong in this one. CR and Windows? Microsoft uses \r\n or CRLF to denote end-of-line.
+
+
+
+The creator has peppered the entire file with CRLFs. If you look at the modified timestamp \xDF\xE8\x0D\x0A at file offset 0x4, and if you remove the byte 0x0D, the timestamp then becomes \xDF\xE8\x0A\x5B which is Sun May 27 17:20:31 UTC 2018.
+
+
+
+The OS also becomes Unix, which makes more sense for .tar.gz.
+Now, letâs use dos2unix to convert CRLF to LF in the file.
+
+
+
+We can proceed to extraction.
+
+
+
+After extraction, a directory out and file model.json are present. The out directory contains 4999 binaries. The file model.json contains an interesting string âFemtoZipâ
+
+
+
+Pivoting on âFemtoZipâ in Google led me to a GitHub repository. According to the project description,
+
+FemtoZip is a âshared dictionaryâ compression library optimized for small documents that may not compress well with traditional tools such as gzip
+
+Well-played. âShared Directoryâ? Shouldâve been âshared dictionaryâ 
+Following the instructions to build and decompress, this is what I got.
+
+
+
+The flag is BSidesTLV{F3mZ1pisTh3B3st}.
+

